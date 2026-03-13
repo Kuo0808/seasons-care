@@ -18,6 +18,11 @@ namespace SeasonsCare.Api.Repositories
             return await _context.Set<User>().AnyAsync(u => u.Email == email && u.DeletedAt == null);
         }
 
+        public async Task<User?> GetByEmailAsync(string email)
+        {
+            return await _context.Set<User>().FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null);
+        }
+
         public async Task AddAsync(User user)
         {
             await _context.Set<User>().AddAsync(user);

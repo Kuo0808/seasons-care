@@ -54,5 +54,24 @@ namespace SeasonsCare.Api.Controllers
 
             return StatusCode(201, response);
         }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                throw new DomainException(
+                    "請提供完整的登入資訊",
+                    "INVALID_LOGIN_REQUEST",
+                    400
+                );
+            }
+
+            var result = await _authService.LoginAsync(request);
+
+            var response = new ApiResponse<LoginResponse>(result, "登入成功", HttpContext.TraceIdentifier);
+
+            return Ok(response);
+        }
     }
 }

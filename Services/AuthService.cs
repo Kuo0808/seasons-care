@@ -4,16 +4,23 @@ using SeasonsCare.Api.DTOs.Auth;
 using SeasonsCare.Api.Models.Entities;
 using SeasonsCare.Api.Repositories;
 using SeasonsCare.Api.Exceptions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using System.Text;
 
 namespace SeasonsCare.Api.Services
 {
     public class AuthService : IAuthService
     {
         private readonly IUserRepository _userRepository;
+        private readonly IConfiguration _configuration;
 
-        public AuthService(IUserRepository userRepository)
+        public AuthService(IUserRepository userRepository, IConfiguration configuration)
         {
             _userRepository = userRepository;
+            _configuration = configuration;
         }
 
         public async Task RegisterAsync(RegisterRequest request)
@@ -58,6 +65,60 @@ namespace SeasonsCare.Api.Services
                     500
                 );
             }
+        }
+
+        public async Task<LoginResponse> LoginAsync(LoginRequest request)
+        {
+            var lowercaseEmail = request.Email.ToLowerInvariant();
+            var user = await _userRepository.GetByEmailAsync(lowercaseEmail);
+
+            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            {
+                throw new DomainException(
+                    "帳號或密碼錯誤",
+                    "LOGIN_FAILED",
+                    401
+                );
+            }
+
+            var token = GenerateJwtToken(user);
+
+            return new LoginResponse
+            {
+                Token = token,
+                User = new UserDto
+                {
+                    Id = user.Id,
+                    Email = user.Email,
+                    Username = user.Username
+                }
+            };
+        }
+
+        private string GenerateJwtToken(User user)
+        {
+            var jwtSettings = _configuration.GetSection("Jwt");
+            var keyStr = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey is not configured.");
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyStr));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email),
+                new Claim("username", user.Username),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: jwtSettings["Issuer"],
+                audience: jwtSettings["Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(2),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }
