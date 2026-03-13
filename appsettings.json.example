@@ -1,0 +1,17 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=seasonscare;Username=<YOUR_USERNAME>;Password=<YOUR_PASSWORD>"
+  },
+  "Jwt": {
+    "Issuer": "SeasonsCareApi",
+    "Audience": "SeasonsCareClient",
+    "SecretKey": "<YOUR_JWT_SECRET_KEY_AT_LEAST_32_CHARS>"
+  }
+}

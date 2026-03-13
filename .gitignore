@@ -4,3 +4,7 @@ build_error.txt
 build_error_utf8.txt
 error_log.txt
 .vs/
+
+# 敏感設定檔，禁止推上版控
+appsettings.json
+appsettings.*.json
