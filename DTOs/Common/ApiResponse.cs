@@ -7,13 +7,13 @@ namespace SeasonsCare.Api.DTOs.Common
     {
         public bool Success { get; set; } = true;
         
-        public string Message { get; set; }
+        public string Message { get; set; } = string.Empty;
         
-        public T Data { get; set; }
+        public T? Data { get; set; }
         
-        public string TraceId { get; set; }
+        public string TraceId { get; set; } = string.Empty;
 
-        public ApiResponse(T data, string message = "", string traceId = "")
+        public ApiResponse(T? data, string message = "", string traceId = "")
         {
             Data = data;
             Message = message;

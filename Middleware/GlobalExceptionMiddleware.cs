@@ -40,7 +40,7 @@ namespace SeasonsCare.Api.Middleware
                 detail = "系統發生未預期的錯誤",
                 errorCode = "INTERNAL_SERVER_ERROR",
                 traceId = context.TraceIdentifier,
-                errors = (IDictionary<string, string[]>)null
+                errors = (IDictionary<string, string[]>?)null
             };
 
             if (exception is DomainException domainEx)

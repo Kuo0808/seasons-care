@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Data;
 
 namespace SeasonsCare.Api.Repositories
 {

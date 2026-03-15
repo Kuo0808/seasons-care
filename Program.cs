@@ -6,6 +6,7 @@ using SeasonsCare.Api.Middleware;
 using SeasonsCare.Api.Repositories;
 using SeasonsCare.Api.Services;
 using SeasonsCare.Api.Validations.Auth;
+using SeasonsCare.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -24,6 +25,18 @@ builder.Services.AddControllers()
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
+
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("FrontendCorsPolicy", policyBuilder =>
+    {
+        policyBuilder.WithOrigins(allowedOrigins)
+                     .AllowAnyHeader()
+                     .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Seasons Care API", Version = "v1" });
@@ -71,7 +84,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();                        
 
 // Configure Authentication & Authorization
 var jwtSettings = builder.Configuration.GetSection("Jwt");                 //從 appsettings.json 中取得 JWT 設定
-var secretKey = jwtSettings["SecretKey"];                                    //取得 JWT Secret Key
+var secretKey = jwtSettings["SecretKey"]
+    ?? throw new InvalidOperationException("JWT SecretKey 未設定，請確認 Environment Variables 或 appsettings。");
 
 builder.Services.AddAuthentication(options =>                              //設定認證
 {
@@ -100,6 +114,8 @@ app.UseSwaggerUI();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseHttpsRedirection();
+
+app.UseCors("FrontendCorsPolicy");
 
 app.UseAuthentication();
 app.UseAuthorization();

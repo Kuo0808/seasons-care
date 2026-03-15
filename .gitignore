@@ -1,10 +1,15 @@
 bin/
 obj/
-build_error.txt
-build_error_utf8.txt
-error_log.txt
 .vs/
+
+# 除錯輸出檔，禁止推上版控
+build_err*.txt
+build_error*.txt
+error_log.txt
+
 
 # 敏感設定檔，禁止推上版控
 appsettings.json
 appsettings.*.json
+# 保留範例設定檔於版本控制
+!appsettings.json.example

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SeasonsCare.Api.Models.Entities;
 
-namespace SeasonsCare.Api.Repositories
+namespace SeasonsCare.Api.Data
 {
     public class ApplicationDbContext : DbContext
     {

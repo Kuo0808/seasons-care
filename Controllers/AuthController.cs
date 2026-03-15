@@ -34,10 +34,10 @@ namespace SeasonsCare.Api.Controllers
             if (!ModelState.IsValid)
             {
                 var errors = ModelState
-                    .Where(x => x.Value.Errors.Count > 0)
+                    .Where(x => x.Value != null && x.Value.Errors.Count > 0)
                     .ToDictionary(
                         kvp => string.IsNullOrEmpty(kvp.Key) ? "body" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
-                        kvp => kvp.Value.Errors.Select(e => e.ErrorMessage).ToArray()
+                        kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
                     );
 
                 throw new DomainException(
