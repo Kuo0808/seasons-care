@@ -81,6 +81,8 @@ builder.Services.AddScoped<DbContext>(provider => provider.GetRequiredService<Ap
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();                              //註冊 UserRepository
 builder.Services.AddScoped<IAuthService, AuthService>();                                  //註冊 AuthService
+builder.Services.AddScoped<ICareGroupRepository, CareGroupRepository>();
+builder.Services.AddScoped<ICareGroupService, CareGroupService>();
 
 // Configure Authentication & Authorization
 var jwtSettings = builder.Configuration.GetSection("Jwt");                 //從 appsettings.json 中取得 JWT 設定
