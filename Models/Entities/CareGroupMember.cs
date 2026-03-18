@@ -3,7 +3,7 @@ using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.Models.Entities
 {
-    public class CareGroupMember
+    public class CareGroupMember : ISoftDeleteEntity
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid CareGroupId { get; set; }

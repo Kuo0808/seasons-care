@@ -2,7 +2,7 @@ using System;
 
 namespace SeasonsCare.Api.Models.Entities
 {
-    public class User
+    public class User : ISoftDeleteEntity
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         

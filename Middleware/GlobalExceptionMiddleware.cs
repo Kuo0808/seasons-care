@@ -31,6 +31,7 @@ namespace SeasonsCare.Api.Middleware
         private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
             context.Response.ContentType = "application/problem+json";
+            context.Response.StatusCode = 500;
 
             var response = new
             {

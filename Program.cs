@@ -19,8 +19,21 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
-        // Suppress default model validation to let FluentValidation + GlobalExceptionMiddleware handle it
-        options.SuppressModelStateInvalidFilter = true;
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(x => x.Value != null && x.Value.Errors.Count > 0)
+                .ToDictionary(
+                    kvp => string.IsNullOrEmpty(kvp.Key) ? "body" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
+                    kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                );
+            throw new SeasonsCare.Api.Exceptions.DomainException(
+                "資料驗證失敗",
+                "VALIDATION_FAILED",
+                400,
+                errors
+            );
+        };
     });
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -74,7 +87,8 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 
 // Register Repositories and Services
 builder.Services.AddDbContext<ApplicationDbContext>(options =>                                     //註冊 DbContext
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .UseSnakeCaseNamingConvention());
 
 // Override DbContext registration for IUserRepository if needed, or we can register ApplicationDbContext as DbContext
 builder.Services.AddScoped<DbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());              //註冊 DbContext
@@ -83,6 +97,9 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();                  
 builder.Services.AddScoped<IAuthService, AuthService>();                                  //註冊 AuthService
 builder.Services.AddScoped<ICareGroupRepository, CareGroupRepository>();
 builder.Services.AddScoped<ICareGroupService, CareGroupService>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 // Configure Authentication & Authorization
 var jwtSettings = builder.Configuration.GetSection("Jwt");                 //從 appsettings.json 中取得 JWT 設定

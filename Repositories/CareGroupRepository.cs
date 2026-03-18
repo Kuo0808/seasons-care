@@ -22,16 +22,40 @@ namespace SeasonsCare.Api.Repositories
             return await _context.CareGroups
                 .Include(cg => cg.Members)
                     .ThenInclude(m => m.User)
-                .Where(cg => cg.DeletedAt == null)
                 .FirstOrDefaultAsync(cg => cg.Id == id);
         }
 
         public async Task<List<CareGroup>> GetByUserIdAsync(Guid userId)
         {
             return await _context.CareGroups
-                .Where(cg => cg.DeletedAt == null && cg.Members.Any(m => m.UserId == userId && m.DeletedAt == null))
+                .Where(cg => cg.Members.Any(m => m.UserId == userId))
                 .Include(cg => cg.Members)
                 .ToListAsync();
+        }
+
+        public async Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort)
+        {
+            IQueryable<CareGroup> query = _context.CareGroups
+                .Where(cg => cg.Members.Any(m => m.UserId == userId))
+                .Include(cg => cg.Members);
+
+            if (sort.Equals("createdAt_desc", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.OrderByDescending(g => g.CreatedAt);
+            }
+            else
+            {
+                query = query.OrderByDescending(g => g.CreatedAt);
+            }
+
+            var totalCount = await query.CountAsync();
+
+            var pagedData = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (pagedData, totalCount);
         }
 
         public async Task AddAsync(CareGroup careGroup)
@@ -47,13 +71,13 @@ namespace SeasonsCare.Api.Repositories
         public async Task<bool> IsMemberAsync(Guid careGroupId, Guid userId)
         {
             return await _context.CareGroupMembers
-                .AnyAsync(m => m.CareGroupId == careGroupId && m.UserId == userId && m.DeletedAt == null);
+                .AnyAsync(m => m.CareGroupId == careGroupId && m.UserId == userId);
         }
 
         public async Task<CareGroupMember?> GetMemberAsync(Guid careGroupId, Guid userId)
         {
             return await _context.CareGroupMembers
-                .FirstOrDefaultAsync(m => m.CareGroupId == careGroupId && m.UserId == userId && m.DeletedAt == null);
+                .FirstOrDefaultAsync(m => m.CareGroupId == careGroupId && m.UserId == userId);
         }
 
         public async Task SaveChangesAsync()

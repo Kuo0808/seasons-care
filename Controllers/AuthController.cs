@@ -22,31 +22,7 @@ namespace SeasonsCare.Api.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            if (request == null)
-            {
-                throw new DomainException(
-                    "請求內容為空，請檢查 Body",
-                    "REQUEST_BODY_EMPTY",
-                    400
-                );
-            }
 
-            if (!ModelState.IsValid)
-            {
-                var errors = ModelState
-                    .Where(x => x.Value != null && x.Value.Errors.Count > 0)
-                    .ToDictionary(
-                        kvp => string.IsNullOrEmpty(kvp.Key) ? "body" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
-                        kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
-                    );
-
-                throw new DomainException(
-                    "資料驗證失敗",
-                    "VALIDATION_FAILED",
-                    400,
-                    errors
-                );
-            }
 
             await _authService.RegisterAsync(request);
 

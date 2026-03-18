@@ -16,27 +16,18 @@ namespace SeasonsCare.Api.Controllers
     public class CareGroupsController : ControllerBase
     {
         private readonly ICareGroupService _careGroupService;
+        private readonly ICurrentUserService _currentUserService;
 
-        public CareGroupsController(ICareGroupService careGroupService)
+        public CareGroupsController(ICareGroupService careGroupService, ICurrentUserService currentUserService)
         {
             _careGroupService = careGroupService;
-        }
-
-        private Guid GetCurrentUserId()
-        {
-            // By docs, JWT token puts UserId into NameIdentifier or similar. Assuming NameIdentifier is configured in token generation.
-            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-            if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
-            {
-                throw new UnauthorizedAccessException("User is not authenticated or token is invalid.");
-            }
-            return userId;
+            _currentUserService = currentUserService;
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateCareGroup([FromBody] CreateCareGroupRequest request)
         {
-            var currentUserId = GetCurrentUserId();
+            var currentUserId = _currentUserService.UserId;
             var result = await _careGroupService.CreateAsync(currentUserId, request);
             
             var response = new ApiResponse<CareGroupResponse>(result, "建立照護群組成功", HttpContext.TraceIdentifier);
@@ -47,7 +38,7 @@ namespace SeasonsCare.Api.Controllers
         [HttpGet]
         public async Task<IActionResult> GetMyGroups([FromQuery] PaginationRequest paginationRequest)
         {
-            var currentUserId = GetCurrentUserId();
+            var currentUserId = _currentUserService.UserId;
             var pagedResult = await _careGroupService.GetMyGroupsAsync(currentUserId, paginationRequest);
             var response = new ApiResponse<System.Collections.Generic.IEnumerable<CareGroupResponse>>(
                 pagedResult.Items, 
@@ -60,7 +51,7 @@ namespace SeasonsCare.Api.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            var currentUserId = GetCurrentUserId();
+            var currentUserId = _currentUserService.UserId;
             var group = await _careGroupService.GetByIdAsync(currentUserId, id);
             var response = new ApiResponse<CareGroupDetailResponse>(group, "取得照護群組詳細資料成功", HttpContext.TraceIdentifier);
             return Ok(response);
@@ -69,7 +60,7 @@ namespace SeasonsCare.Api.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCareGroup(Guid id, [FromBody] UpdateCareGroupRequest request)
         {
-            var currentUserId = GetCurrentUserId();
+            var currentUserId = _currentUserService.UserId;
             var result = await _careGroupService.UpdateAsync(currentUserId, id, request);
             var response = new ApiResponse<CareGroupResponse>(result, "更新照護群組成功", HttpContext.TraceIdentifier);
             return Ok(response);
@@ -78,7 +69,7 @@ namespace SeasonsCare.Api.Controllers
         [HttpPost("{id}/members")]
         public async Task<IActionResult> JoinCareGroup(Guid id, [FromBody] JoinCareGroupRequest request)
         {
-            var currentUserId = GetCurrentUserId();
+            var currentUserId = _currentUserService.UserId;
             await _careGroupService.JoinAsync(currentUserId, id, request);
             var response = new ApiResponse<object>(null, "加入照護群組成功", HttpContext.TraceIdentifier);
             return Ok(response);
@@ -87,7 +78,7 @@ namespace SeasonsCare.Api.Controllers
         [HttpDelete("{id}/members/{userId}")]
         public async Task<IActionResult> RemoveMember(Guid id, Guid userId)
         {
-            var currentUserId = GetCurrentUserId();
+            var currentUserId = _currentUserService.UserId;
             await _careGroupService.RemoveMemberAsync(currentUserId, id, userId);
             var response = new ApiResponse<object>(null, "移除成員或退出群組成功", HttpContext.TraceIdentifier);
             return Ok(response);

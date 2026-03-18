@@ -5,6 +5,8 @@ namespace SeasonsCare.Api.Data
 {
     public class ApplicationDbContext : DbContext
     {
+        public Guid? CurrentCareGroupId { get; set; }
+
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
         }
@@ -16,6 +18,16 @@ namespace SeasonsCare.Api.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                var clrType = entityType.ClrType;
+                if (typeof(ISoftDeleteEntity).IsAssignableFrom(clrType) || typeof(IMultiTenantEntity).IsAssignableFrom(clrType))
+                {
+                    var applyFiltersMethod = typeof(ApplicationDbContext).GetMethod(nameof(ApplyGlobalFilters), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+                    applyFiltersMethod.MakeGenericMethod(clrType).Invoke(this, new object[] { modelBuilder });
+                }
+            }
 
             modelBuilder.Entity<User>(entity =>
             {
@@ -51,6 +63,27 @@ namespace SeasonsCare.Api.Data
                 // Uniqueness: a user can only be in a specific group once
                 entity.HasIndex(e => new { e.CareGroupId, e.UserId }).IsUnique();
             });
+        }
+
+        private void ApplyGlobalFilters<T>(ModelBuilder modelBuilder) where T : class
+        {
+            bool isSoftDelete = typeof(ISoftDeleteEntity).IsAssignableFrom(typeof(T));
+            bool isMultiTenant = typeof(IMultiTenantEntity).IsAssignableFrom(typeof(T));
+
+            if (isSoftDelete && isMultiTenant)
+            {
+                modelBuilder.Entity<T>().HasQueryFilter(e => 
+                    ((ISoftDeleteEntity)e).DeletedAt == null && 
+                    (!CurrentCareGroupId.HasValue || ((IMultiTenantEntity)e).CareGroupId == CurrentCareGroupId.Value));
+            }
+            else if (isSoftDelete)
+            {
+                modelBuilder.Entity<T>().HasQueryFilter(e => ((ISoftDeleteEntity)e).DeletedAt == null);
+            }
+            else if (isMultiTenant)
+            {
+                modelBuilder.Entity<T>().HasQueryFilter(e => !CurrentCareGroupId.HasValue || ((IMultiTenantEntity)e).CareGroupId == CurrentCareGroupId.Value);
+            }
         }
     }
 }
