@@ -22,7 +22,7 @@ namespace SeasonsCare.Api.Services
                 var userIdString = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? user?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
                 if (string.IsNullOrEmpty(userIdString) || !Guid.TryParse(userIdString, out var userId))
                 {
-                    throw new UnauthorizedAccessException("尚未登入或 Token 無效。");
+                    throw new SeasonsCare.Api.Exceptions.DomainException("未登入或 Token 無效", "UNAUTHORIZED", 401);
                 }
                 return userId;
             }

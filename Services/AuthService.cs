@@ -38,7 +38,7 @@ namespace SeasonsCare.Api.Services
 
             try
             {
-                // Using BCrypt.Net-Next
+                // 使用 BCrypt.Net-Next 進行密碼雜湊
                 var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
                 var user = new User
@@ -58,7 +58,7 @@ namespace SeasonsCare.Api.Services
             }
             catch (Exception)
             {
-                // Wrap in domain exception if it's a generic DB scale issue or error
+                // 如果發生未預期錯誤，用 DomainException 進行封裝
                 throw new DomainException(
                     "使用者註冊處理時發生未知錯誤，請稍後再試。",
                     "REGISTRATION_FAILED",

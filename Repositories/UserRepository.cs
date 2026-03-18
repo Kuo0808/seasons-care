@@ -16,12 +16,12 @@ namespace SeasonsCare.Api.Repositories
 
         public async Task<bool> EmailExistsAsync(string email)
         {
-            return await _context.Set<User>().AnyAsync(u => u.Email == email && u.DeletedAt == null);
+            return await _context.Set<User>().AnyAsync(u => u.Email == email);
         }
 
         public async Task<User?> GetByEmailAsync(string email)
         {
-            return await _context.Set<User>().FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null);
+            return await _context.Set<User>().FirstOrDefaultAsync(u => u.Email == email);
         }
 
         public async Task AddAsync(User user)
