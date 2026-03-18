@@ -45,11 +45,15 @@ namespace SeasonsCare.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetMyGroups()
+        public async Task<IActionResult> GetMyGroups([FromQuery] PaginationRequest paginationRequest)
         {
             var currentUserId = GetCurrentUserId();
-            var groups = await _careGroupService.GetMyGroupsAsync(currentUserId);
-            var response = new ApiResponse<System.Collections.Generic.IEnumerable<CareGroupResponse>>(groups, "取得照護群組列表成功", HttpContext.TraceIdentifier);
+            var pagedResult = await _careGroupService.GetMyGroupsAsync(currentUserId, paginationRequest);
+            var response = new ApiResponse<System.Collections.Generic.IEnumerable<CareGroupResponse>>(
+                pagedResult.Items, 
+                "取得照護群組列表成功", 
+                HttpContext.TraceIdentifier, 
+                pagedResult.Pagination);
             return Ok(response);
         }
 

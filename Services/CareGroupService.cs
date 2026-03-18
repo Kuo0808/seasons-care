@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SeasonsCare.Api.DTOs.CareGroups;
+using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Entities;
 using SeasonsCare.Api.Models.Enums;
@@ -57,21 +58,38 @@ namespace SeasonsCare.Api.Services
             };
         }
 
-        public async Task<List<CareGroupResponse>> GetMyGroupsAsync(Guid currentUserId)
+        public async Task<PagedResponse<CareGroupResponse>> GetMyGroupsAsync(Guid currentUserId, PaginationRequest pagination)
         {
             var groups = await _careGroupRepository.GetByUserIdAsync(currentUserId);
+            var query = groups.AsQueryable();
 
-            return groups.Select(g => new CareGroupResponse
+            if (pagination.Sort.Equals("createdAt_desc", StringComparison.OrdinalIgnoreCase))
             {
-                Id = g.Id,
-                Name = g.Name,
-                RecipientName = g.RecipientName,
-                Description = g.Description,
-                HealthStatus = g.HealthStatus,
-                InviteCode = g.InviteCode,
-                CreatedAt = g.CreatedAt,
-                MemberCount = g.Members.Count(m => m.DeletedAt == null)
-            }).ToList();
+                query = query.OrderByDescending(g => g.CreatedAt);
+            }
+            else
+            {
+                query = query.OrderByDescending(g => g.CreatedAt);
+            }
+
+            var totalCount = query.Count();
+
+            var pagedGroups = query
+                .Skip((pagination.Page - 1) * pagination.PageSize)
+                .Take(pagination.PageSize)
+                .Select(g => new CareGroupResponse
+                {
+                    Id = g.Id,
+                    Name = g.Name,
+                    RecipientName = g.RecipientName,
+                    Description = g.Description,
+                    HealthStatus = g.HealthStatus,
+                    InviteCode = g.InviteCode,
+                    CreatedAt = g.CreatedAt,
+                    MemberCount = g.Members.Count(m => m.DeletedAt == null)
+                }).ToList();
+
+            return new PagedResponse<CareGroupResponse>(pagedGroups, totalCount, pagination.Page, pagination.PageSize);
         }
 
         public async Task<CareGroupDetailResponse> GetByIdAsync(Guid currentUserId, Guid careGroupId)

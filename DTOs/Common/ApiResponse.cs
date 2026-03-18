@@ -1,4 +1,4 @@
-using System;
+using System.Text.Json.Serialization;
 
 namespace SeasonsCare.Api.DTOs.Common
 {
@@ -13,11 +13,15 @@ namespace SeasonsCare.Api.DTOs.Common
         
         public string TraceId { get; set; } = string.Empty;
 
-        public ApiResponse(T? data, string message = "", string traceId = "")
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public PaginationMeta? Pagination { get; set; }
+
+        public ApiResponse(T? data, string message = "", string traceId = "", PaginationMeta? pagination = null)
         {
             Data = data;
             Message = message;
             TraceId = traceId;
+            Pagination = pagination;
         }
     }
 }
