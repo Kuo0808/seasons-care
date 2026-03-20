@@ -34,3 +34,19 @@ AI 產生新程式碼時，必須優先遵守：
 2. 現有命名規範
 3. 現有 API 合約
 4. 現有資料庫規範
+
+## Testing Execution Rule
+
+AI Agent 只要有修改程式碼、測試、驗證規則、資料存取邏輯或 API 行為，就必須參考 `docs/07-testing.md`。
+
+在可執行的情況下，AI Agent 完工前必須執行：
+
+```powershell
+.\bin\test.ps1
+```
+
+AI Agent 在最後回報時，必須明確說明：
+
+1. 是否已執行測試
+2. 測試是否通過
+3. 若未執行，原因是什麼

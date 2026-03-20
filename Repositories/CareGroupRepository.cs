@@ -25,14 +25,6 @@ namespace SeasonsCare.Api.Repositories
                 .FirstOrDefaultAsync(cg => cg.Id == id);
         }
 
-        public async Task<List<CareGroup>> GetByUserIdAsync(Guid userId)
-        {
-            return await _context.CareGroups
-                .Where(cg => cg.Members.Any(m => m.UserId == userId))
-                .Include(cg => cg.Members)
-                .ToListAsync();
-        }
-
         public async Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort)
         {
             IQueryable<CareGroup> query = _context.CareGroups

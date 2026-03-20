@@ -8,7 +8,6 @@ namespace SeasonsCare.Api.Repositories
     public interface ICareGroupRepository
     {
         Task<CareGroup?> GetByIdAsync(Guid id);
-        Task<List<CareGroup>> GetByUserIdAsync(Guid userId);
         Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort);
         Task AddAsync(CareGroup careGroup);
         Task AddMemberAsync(CareGroupMember member);

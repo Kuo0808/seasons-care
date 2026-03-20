@@ -14,6 +14,7 @@ namespace SeasonsCare.Api.Data
         public DbSet<User> Users { get; set; }
         public DbSet<CareGroup> CareGroups { get; set; }
         public DbSet<CareGroupMember> CareGroupMembers { get; set; }
+        public DbSet<CareLog> CareLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -62,6 +63,18 @@ namespace SeasonsCare.Api.Data
 
                 // Uniqueness: a user can only be in a specific group once
                 entity.HasIndex(e => new { e.CareGroupId, e.UserId }).IsUnique();
+            });
+
+            modelBuilder.Entity<CareLog>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Content).HasColumnType("text");
+                
+                entity.HasOne(e => e.CareGroup)
+                      .WithMany()
+                      .HasForeignKey(e => e.CareGroupId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
         }
 

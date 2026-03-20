@@ -12,6 +12,7 @@
 - `04-database-standards.md`：資料庫設計規範
 - `05-security-rules.md`：安全性規範
 - `06-project-domain.md`：專案核心業務概念
+- `07-testing.md`：測試規範與完成前檢查流程
 
 ## Global Language Rules
 

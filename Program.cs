@@ -93,13 +93,17 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>                  
 // Override DbContext registration for IUserRepository if needed, or we can register ApplicationDbContext as DbContext
 builder.Services.AddScoped<DbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());              //註冊 DbContext
 
-builder.Services.AddScoped<IUserRepository, UserRepository>();                              //註冊 UserRepository
-builder.Services.AddScoped<IAuthService, AuthService>();                                  //註冊 AuthService
+// Repositories
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICareGroupRepository, CareGroupRepository>();
-builder.Services.AddScoped<ICareGroupService, CareGroupService>();
+builder.Services.AddScoped<ICareLogRepository, CareLogRepository>();
 
+// Services
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICareGroupService, CareGroupService>();
+builder.Services.AddScoped<ICareLogService, CareLogService>();
 
 // Configure Authentication & Authorization
 var jwtSettings = builder.Configuration.GetSection("Jwt");                 //從 appsettings.json 中取得 JWT 設定
@@ -134,10 +138,15 @@ app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseHttpsRedirection();
 
+app.UseRouting();
 app.UseCors("FrontendCorsPolicy");
+
+app.UseMiddleware<CareGroupContextMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }
