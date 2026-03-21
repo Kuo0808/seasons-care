@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using SeasonsCare.Api.Data;
 using SeasonsCare.Api.Models.Entities;
 
@@ -42,6 +44,17 @@ public class RealApiFactory : IDisposable
                     {
                         options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
                         options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+                        options.DefaultScheme = TestAuthHandler.SchemeName;
+                    });
+
+                    services.AddAuthorization(options =>
+                    {
+                        var policy = new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName)
+                            .RequireAuthenticatedUser()
+                            .Build();
+
+                        options.DefaultPolicy = policy;
+                        options.FallbackPolicy = policy;
                     });
 
                     using var scope = services.BuildServiceProvider().CreateScope();
@@ -70,6 +83,12 @@ public class RealApiFactory : IDisposable
             return entity as T;
         }
 
+        if (typeof(T) == typeof(ExpenseRecord))
+        {
+            var entity = await dbContext.Expenses.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id);
+            return entity as T;
+        }
+
         return await dbContext.Set<T>().FindAsync(id);
     }
 
@@ -78,6 +97,13 @@ public class RealApiFactory : IDisposable
         using var scope = Factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         return await dbContext.CareLogs.IgnoreQueryFilters().OrderBy(x => x.Title).ToListAsync();
+    }
+
+    public async Task<List<ExpenseRecord>> GetExpensesAsync()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await dbContext.Expenses.IgnoreQueryFilters().OrderBy(x => x.Title).ToListAsync();
     }
 
     public void Dispose()

@@ -57,4 +57,22 @@ public static class SeedDataHelper
             CreatedBy = "test"
         };
     }
+
+    public static ExpenseRecord CreateExpense(Guid careGroupId, string title, decimal amount = 100m, DateTime? timestamp = null)
+    {
+        var now = timestamp ?? new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc);
+        return new ExpenseRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            Title = title,
+            Amount = amount,
+            Category = "Daily",
+            Notes = $"note-{title}",
+            ExpenseDate = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CreatedBy = "test"
+        };
+    }
 }

@@ -97,6 +97,7 @@ builder.Services.AddScoped<DbContext>(provider => provider.GetRequiredService<Ap
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICareGroupRepository, CareGroupRepository>();
 builder.Services.AddScoped<ICareLogRepository, CareLogRepository>();
+builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
 
 // Services
 builder.Services.AddHttpContextAccessor();
@@ -104,6 +105,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICareGroupService, CareGroupService>();
 builder.Services.AddScoped<ICareLogService, CareLogService>();
+builder.Services.AddScoped<IExpenseService, ExpenseService>();
 
 // Configure Authentication & Authorization
 var jwtSettings = builder.Configuration.GetSection("Jwt");                 //從 appsettings.json 中取得 JWT 設定
