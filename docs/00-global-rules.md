@@ -13,6 +13,7 @@
 - `05-security-rules.md`：安全性規範
 - `06-project-domain.md`：專案核心業務概念
 - `07-testing.md`：測試規範與完成前檢查流程
+- `08-health-records.md`：健康數據模組規範
 
 ## Global Language Rules
 

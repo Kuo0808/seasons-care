@@ -2,11 +2,10 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using SeasonsCare.Api.Config.DependencyInjection;
 using SeasonsCare.Api.Middleware;
 using SeasonsCare.Api.Repositories;
-using SeasonsCare.Api.Repositories.HealthRecords;
 using SeasonsCare.Api.Services;
-using SeasonsCare.Api.Services.HealthRecords;
 using SeasonsCare.Api.Validations.Auth;
 using SeasonsCare.Api.Data;
 using Microsoft.EntityFrameworkCore;
@@ -100,7 +99,6 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICareGroupRepository, CareGroupRepository>();
 builder.Services.AddScoped<ICareLogRepository, CareLogRepository>();
 builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
-builder.Services.AddScoped<IBloodPressureRepository, BloodPressureRepository>();
 
 // Services
 builder.Services.AddHttpContextAccessor();
@@ -109,7 +107,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICareGroupService, CareGroupService>();
 builder.Services.AddScoped<ICareLogService, CareLogService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
-builder.Services.AddScoped<IBloodPressureService, BloodPressureService>();
+builder.Services.AddHealthRecordsModule();
 
 // Configure Authentication & Authorization
 var jwtSettings = builder.Configuration.GetSection("Jwt");                 //從 appsettings.json 中取得 JWT 設定

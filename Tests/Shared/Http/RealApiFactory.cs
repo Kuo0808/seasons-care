@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using SeasonsCare.Api.Data;
 using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Models.Entities.HealthRecords;
 
 namespace SeasonsCare.Api.Tests.Shared.Http;
 
@@ -89,6 +90,18 @@ public class RealApiFactory : IDisposable
             return entity as T;
         }
 
+        if (typeof(T) == typeof(BloodSugarRecord))
+        {
+            var entity = await dbContext.BloodSugars.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id);
+            return entity as T;
+        }
+
+        if (typeof(T) == typeof(BloodPressureRecord))
+        {
+            var entity = await dbContext.BloodPressures.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id);
+            return entity as T;
+        }
+
         return await dbContext.Set<T>().FindAsync(id);
     }
 
@@ -104,6 +117,20 @@ public class RealApiFactory : IDisposable
         using var scope = Factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         return await dbContext.Expenses.IgnoreQueryFilters().OrderBy(x => x.Title).ToListAsync();
+    }
+
+    public async Task<List<BloodSugarRecord>> GetBloodSugarsAsync()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await dbContext.BloodSugars.IgnoreQueryFilters().OrderBy(x => x.RecordDate).ToListAsync();
+    }
+
+    public async Task<List<BloodPressureRecord>> GetBloodPressuresAsync()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await dbContext.BloodPressures.IgnoreQueryFilters().OrderBy(x => x.RecordDate).ToListAsync();
     }
 
     public void Dispose()

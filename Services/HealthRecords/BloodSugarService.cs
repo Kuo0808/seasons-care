@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SeasonsCare.Api.DTOs.Common;
-using SeasonsCare.Api.DTOs.HealthRecords.BloodPressures;
+using SeasonsCare.Api.DTOs.HealthRecords.BloodSugars;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Entities.HealthRecords;
 using SeasonsCare.Api.Repositories;
@@ -11,12 +11,12 @@ using SeasonsCare.Api.Repositories.HealthRecords;
 
 namespace SeasonsCare.Api.Services.HealthRecords
 {
-    public class BloodPressureService : IBloodPressureService
+    public class BloodSugarService : IBloodSugarService
     {
-        private readonly IBloodPressureRepository _repository;
+        private readonly IBloodSugarRepository _repository;
         private readonly ICareGroupRepository _careGroupRepository;
 
-        public BloodPressureService(IBloodPressureRepository repository, ICareGroupRepository careGroupRepository)
+        public BloodSugarService(IBloodSugarRepository repository, ICareGroupRepository careGroupRepository)
         {
             _repository = repository;
             _careGroupRepository = careGroupRepository;
@@ -27,42 +27,42 @@ namespace SeasonsCare.Api.Services.HealthRecords
             var isMember = await _careGroupRepository.IsMemberAsync(careGroupId, currentUserId);
             if (!isMember)
             {
-                throw new DomainException("無權限存取該群組的血壓紀錄", "FORBIDDEN", 403);
+                throw new DomainException("無權限存取該群組的血糖紀錄", "FORBIDDEN", 403);
             }
         }
 
-        public async Task<PagedResponse<BloodPressureResponse>> GetRecordsAsync(Guid currentUserId, Guid careGroupId, PaginationRequest paginationRequest)
+        public async Task<PagedResponse<BloodSugarResponse>> GetRecordsAsync(Guid currentUserId, Guid careGroupId, PaginationRequest paginationRequest)
         {
             await ValidateCareGroupAccessAsync(careGroupId, currentUserId);
 
             var pagedResult = await _repository.GetPagedAsync(careGroupId, paginationRequest);
 
             var responseItems = pagedResult.Items.Select(MapToResponse).ToList();
-            return new PagedResponse<BloodPressureResponse>(responseItems, pagedResult.Pagination.TotalCount, paginationRequest.Page, paginationRequest.PageSize);
+            return new PagedResponse<BloodSugarResponse>(responseItems, pagedResult.Pagination.TotalCount, paginationRequest.Page, paginationRequest.PageSize);
         }
 
-        public async Task<BloodPressureResponse> GetRecordByIdAsync(Guid currentUserId, Guid careGroupId, Guid recordId)
+        public async Task<BloodSugarResponse> GetRecordByIdAsync(Guid currentUserId, Guid careGroupId, Guid recordId)
         {
             await ValidateCareGroupAccessAsync(careGroupId, currentUserId);
 
             var record = await _repository.GetByIdAsync(careGroupId, recordId);
             if (record == null)
             {
-                throw new DomainException("找不到該血壓紀錄", "NOT_FOUND", 404);
+                throw new DomainException("找不到該血糖紀錄", "NOT_FOUND", 404);
             }
 
             return MapToResponse(record);
         }
 
-        public async Task<BloodPressureResponse> CreateRecordAsync(Guid currentUserId, Guid careGroupId, CreateBloodPressureRequest request)
+        public async Task<BloodSugarResponse> CreateRecordAsync(Guid currentUserId, Guid careGroupId, CreateBloodSugarRequest request)
         {
             await ValidateCareGroupAccessAsync(careGroupId, currentUserId);
 
-            var record = new BloodPressureRecord
+            var record = new BloodSugarRecord
             {
                 CareGroupId = careGroupId,
-                Systolic = request.Systolic,
-                Diastolic = request.Diastolic,
+                GlucoseLevel = request.GlucoseLevel,
+                MeasurementContext = request.MeasurementContext,
                 Notes = request.Notes,
                 RecordDate = request.RecordDate ?? DateTime.UtcNow,
                 CreatedBy = currentUserId.ToString()
@@ -72,14 +72,14 @@ namespace SeasonsCare.Api.Services.HealthRecords
             return MapToResponse(created);
         }
 
-        public async Task<BloodPressureResponse> UpdateRecordAsync(Guid currentUserId, Guid careGroupId, Guid recordId, UpdateBloodPressureRequest request)
+        public async Task<BloodSugarResponse> UpdateRecordAsync(Guid currentUserId, Guid careGroupId, Guid recordId, UpdateBloodSugarRequest request)
         {
             await ValidateCareGroupAccessAsync(careGroupId, currentUserId);
 
             var record = await _repository.GetByIdAsync(careGroupId, recordId);
             if (record == null)
             {
-                throw new DomainException("找不到該血壓紀錄", "NOT_FOUND", 404);
+                throw new DomainException("找不到該血糖紀錄", "NOT_FOUND", 404);
             }
 
             if (record.UpdatedAt.ToString("O") != request.UpdatedAt.ToString("O"))
@@ -87,8 +87,8 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 throw new DomainException("資料已被他人修改，請重新取得最新資料", "CONCURRENCY_CONFLICT", 409);
             }
 
-            record.Systolic = request.Systolic;
-            record.Diastolic = request.Diastolic;
+            record.GlucoseLevel = request.GlucoseLevel;
+            record.MeasurementContext = request.MeasurementContext;
             record.Notes = request.Notes;
             if (request.RecordDate.HasValue)
             {
@@ -107,21 +107,21 @@ namespace SeasonsCare.Api.Services.HealthRecords
             var record = await _repository.GetByIdAsync(careGroupId, recordId);
             if (record == null)
             {
-                throw new DomainException("找不到該血壓紀錄", "NOT_FOUND", 404);
+                throw new DomainException("找不到該血糖紀錄", "NOT_FOUND", 404);
             }
 
             record.DeletedAt = DateTime.UtcNow;
             await _repository.UpdateAsync(record);
         }
 
-        private static BloodPressureResponse MapToResponse(BloodPressureRecord record)
+        private static BloodSugarResponse MapToResponse(BloodSugarRecord record)
         {
-            return new BloodPressureResponse
+            return new BloodSugarResponse
             {
                 Id = record.Id,
                 CareGroupId = record.CareGroupId,
-                Systolic = record.Systolic,
-                Diastolic = record.Diastolic,
+                GlucoseLevel = record.GlucoseLevel,
+                MeasurementContext = record.MeasurementContext,
                 Notes = record.Notes,
                 RecordDate = record.RecordDate,
                 CreatedAt = record.CreatedAt,

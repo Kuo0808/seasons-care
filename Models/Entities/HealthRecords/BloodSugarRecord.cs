@@ -1,16 +1,18 @@
 using System;
-using SeasonsCare.Api.Models.Entities;
 
 namespace SeasonsCare.Api.Models.Entities.HealthRecords
 {
-    public class BloodPressureRecord : IMultiTenantEntity, ISoftDeleteEntity
+    public class BloodSugarRecord : IMultiTenantEntity, ISoftDeleteEntity
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid CareGroupId { get; set; }
-        public int Systolic { get; set; } // 收縮壓
-        public int Diastolic { get; set; } // 舒張壓
+        
+        public decimal GlucoseLevel { get; set; } // 血糖值 mg/dL
+        public string MeasurementContext { get; set; } = string.Empty; // 量測情境 (飯前/飯後)
+        
         public string? Notes { get; set; }
         public DateTime RecordDate { get; set; }
+        
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public string CreatedBy { get; set; } = string.Empty;

@@ -1,4 +1,5 @@
 using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Models.Entities.HealthRecords;
 using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.Tests.Shared;
@@ -73,6 +74,40 @@ public static class SeedDataHelper
             CreatedAt = now,
             UpdatedAt = now,
             CreatedBy = "test"
+        };
+    }
+
+    public static BloodSugarRecord CreateBloodSugar(Guid careGroupId, decimal glucoseLevel = 120m, string measurementContext = "飯前", DateTime? timestamp = null)
+    {
+        var now = timestamp ?? new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc);
+        return new BloodSugarRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            GlucoseLevel = glucoseLevel,
+            MeasurementContext = measurementContext,
+            Notes = $"note-{measurementContext}",
+            RecordDate = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CreatedBy = TestUsers.DefaultUserId.ToString()
+        };
+    }
+
+    public static BloodPressureRecord CreateBloodPressure(Guid careGroupId, int systolic = 120, int diastolic = 80, DateTime? timestamp = null)
+    {
+        var now = timestamp ?? new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc);
+        return new BloodPressureRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            Systolic = systolic,
+            Diastolic = diastolic,
+            Notes = "stable",
+            RecordDate = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CreatedBy = TestUsers.DefaultUserId.ToString()
         };
     }
 }

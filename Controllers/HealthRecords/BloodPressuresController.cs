@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.DTOs.HealthRecords.BloodPressures;
 using SeasonsCare.Api.Services;
@@ -12,7 +13,7 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
 {
     [Authorize]
     [ApiController]
-    [Route("api/care-groups/{careGroupId}/blood-pressures")]
+    [Route("api/care-groups/{careGroupId}/health-records/blood-pressures")]
     public class BloodPressuresController : ControllerBase
     {
         private readonly IBloodPressureService _bloodPressureService;
@@ -25,6 +26,11 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         }
 
         [HttpGet]
+        [ProducesResponseType(typeof(ApiResponse<IEnumerable<BloodPressureResponse>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [EndpointSummary("取得血壓紀錄列表")]
+        [EndpointDescription("取得指定照護群組下的血壓紀錄列表，支援分頁參數。")]
         public async Task<IActionResult> GetRecords(Guid careGroupId, [FromQuery] PaginationRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -39,6 +45,11 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         }
 
         [HttpGet("{recordId}")]
+        [ProducesResponseType(typeof(ApiResponse<BloodPressureResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [EndpointSummary("取得單筆血壓紀錄")]
+        [EndpointDescription("依照 recordId 取得單筆血壓紀錄，若該紀錄不屬於目前 careGroupId，應回傳 404。")]
         public async Task<IActionResult> GetRecordById(Guid careGroupId, Guid recordId)
         {
             var currentUserId = _currentUserService.UserId;
@@ -48,6 +59,11 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(ApiResponse<BloodPressureResponse>), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [EndpointSummary("建立血壓紀錄")]
+        [EndpointDescription("建立一筆新的血壓紀錄，欄位包含 systolic、diastolic、notes 與 recordDate。")]
         public async Task<IActionResult> CreateRecord(Guid careGroupId, [FromBody] CreateBloodPressureRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -57,6 +73,12 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         }
 
         [HttpPut("{recordId}")]
+        [ProducesResponseType(typeof(ApiResponse<BloodPressureResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [EndpointSummary("更新血壓紀錄")]
+        [EndpointDescription("更新既有血壓紀錄。前端必須帶入 updatedAt，後端會用於 optimistic concurrency 檢查。")]
         public async Task<IActionResult> UpdateRecord(Guid careGroupId, Guid recordId, [FromBody] UpdateBloodPressureRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -66,6 +88,11 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         }
 
         [HttpDelete("{recordId}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [EndpointSummary("刪除血壓紀錄")]
+        [EndpointDescription("刪除指定血壓紀錄。此操作為 soft delete，資料仍保留於資料庫中。")]
         public async Task<IActionResult> DeleteRecord(Guid careGroupId, Guid recordId)
         {
             var currentUserId = _currentUserService.UserId;
