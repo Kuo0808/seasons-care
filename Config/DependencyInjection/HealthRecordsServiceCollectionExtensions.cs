@@ -10,9 +10,11 @@ namespace SeasonsCare.Api.Config.DependencyInjection
         {
             services.AddScoped<IBloodPressureRepository, BloodPressureRepository>();
             services.AddScoped<IBloodSugarRepository, BloodSugarRepository>();
+            services.AddScoped<IWeightRepository, WeightRepository>();
 
             services.AddScoped<IBloodPressureService, BloodPressureService>();
             services.AddScoped<IBloodSugarService, BloodSugarService>();
+            services.AddScoped<IWeightService, WeightService>();
 
             return services;
         }
