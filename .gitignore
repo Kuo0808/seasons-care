@@ -1,4 +1,8 @@
 bin/
+!bin/
+bin/*
+!bin/test.ps1
+Tests/bin/
 obj/
 .vs/
 
