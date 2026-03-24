@@ -1,0 +1,20 @@
+using System;
+
+namespace SeasonsCare.Api.Models.Entities
+{
+    public class BloodPressureRecord : IMultiTenantEntity, ISoftDeleteEntity
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid CareGroupId { get; set; }
+        public int Systolic { get; set; } // 收縮壓
+        public int Diastolic { get; set; } // 舒張壓
+        public string? Notes { get; set; }
+        public DateTime RecordDate { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public Guid CreatedBy { get; set; }
+        public DateTime? DeletedAt { get; set; }
+        
+        public virtual CareGroup? CareGroup { get; set; }
+    }
+}

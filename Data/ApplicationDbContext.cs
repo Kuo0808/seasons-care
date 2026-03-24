@@ -16,6 +16,7 @@ namespace SeasonsCare.Api.Data
         public DbSet<CareGroupMember> CareGroupMembers { get; set; }
         public DbSet<CareLog> CareLogs { get; set; }
         public DbSet<ExpenseRecord> Expenses { get; set; }
+        public DbSet<BloodPressureRecord> BloodPressures { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -83,6 +84,17 @@ namespace SeasonsCare.Api.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+                
+                entity.HasOne(e => e.CareGroup)
+                      .WithMany()
+                      .HasForeignKey(e => e.CareGroupId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<BloodPressureRecord>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Notes).HasMaxLength(500);
                 
                 entity.HasOne(e => e.CareGroup)
                       .WithMany()

@@ -1,0 +1,15 @@
+using System;
+using System.Threading.Tasks;
+using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.DTOs.Common;
+
+namespace SeasonsCare.Api.Repositories
+{
+    public interface IBloodPressureRepository
+    {
+        Task<PagedResponse<BloodPressureRecord>> GetPagedAsync(Guid careGroupId, PaginationRequest request);
+        Task<BloodPressureRecord?> GetByIdAsync(Guid careGroupId, Guid id);
+        Task<BloodPressureRecord> AddAsync(BloodPressureRecord record);
+        Task<BloodPressureRecord> UpdateAsync(BloodPressureRecord record);
+    }
+}
