@@ -20,6 +20,7 @@ namespace SeasonsCare.Api.Data
         public DbSet<BloodPressureRecord> BloodPressures { get; set; }
         public DbSet<BloodSugarRecord> BloodSugars { get; set; }
         public DbSet<WeightRecord> Weights { get; set; }
+        public DbSet<TemperatureRecord> Temperatures { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -119,6 +120,18 @@ namespace SeasonsCare.Api.Data
             });
 
             modelBuilder.Entity<WeightRecord>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Value).HasColumnType("decimal(6,2)");
+                entity.Property(e => e.Notes).HasMaxLength(500);
+                
+                entity.HasOne(e => e.CareGroup)
+                      .WithMany()
+                      .HasForeignKey(e => e.CareGroupId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<TemperatureRecord>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Value).HasColumnType("decimal(6,2)");
