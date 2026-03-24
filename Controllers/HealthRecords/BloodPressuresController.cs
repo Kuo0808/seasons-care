@@ -4,10 +4,11 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SeasonsCare.Api.DTOs.Common;
-using SeasonsCare.Api.DTOs.BloodPressures;
+using SeasonsCare.Api.DTOs.HealthRecords.BloodPressures;
 using SeasonsCare.Api.Services;
+using SeasonsCare.Api.Services.HealthRecords;
 
-namespace SeasonsCare.Api.Controllers
+namespace SeasonsCare.Api.Controllers.HealthRecords
 {
     [Authorize]
     [ApiController]

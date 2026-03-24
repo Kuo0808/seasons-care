@@ -1,6 +1,7 @@
 using System;
+using SeasonsCare.Api.Models.Entities;
 
-namespace SeasonsCare.Api.Models.Entities
+namespace SeasonsCare.Api.Models.Entities.HealthRecords
 {
     public class BloodPressureRecord : IMultiTenantEntity, ISoftDeleteEntity
     {

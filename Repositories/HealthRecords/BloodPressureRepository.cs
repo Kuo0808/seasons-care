@@ -4,10 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SeasonsCare.Api.Data;
-using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Models.Entities.HealthRecords;
 using SeasonsCare.Api.DTOs.Common;
 
-namespace SeasonsCare.Api.Repositories
+namespace SeasonsCare.Api.Repositories.HealthRecords
 {
     public class BloodPressureRepository : IBloodPressureRepository
     {

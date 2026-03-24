@@ -1,7 +1,7 @@
 using FluentValidation;
-using SeasonsCare.Api.DTOs.BloodPressures;
+using SeasonsCare.Api.DTOs.HealthRecords.BloodPressures;
 
-namespace SeasonsCare.Api.Validations.BloodPressures
+namespace SeasonsCare.Api.Validations.HealthRecords.BloodPressures
 {
     public class UpdateBloodPressureRequestValidator : AbstractValidator<UpdateBloodPressureRequest>
     {

@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Models.Entities.HealthRecords;
 using SeasonsCare.Api.DTOs.Common;
 
-namespace SeasonsCare.Api.Repositories
+namespace SeasonsCare.Api.Repositories.HealthRecords
 {
     public interface IBloodPressureRepository
     {

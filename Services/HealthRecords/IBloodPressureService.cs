@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SeasonsCare.Api.DTOs.Common;
-using SeasonsCare.Api.DTOs.BloodPressures;
+using SeasonsCare.Api.DTOs.HealthRecords.BloodPressures;
 
-namespace SeasonsCare.Api.Services
+namespace SeasonsCare.Api.Services.HealthRecords
 {
     public interface IBloodPressureService
     {

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Models.Entities.HealthRecords;
 
 namespace SeasonsCare.Api.Data
 {

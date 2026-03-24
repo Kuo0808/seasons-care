@@ -1,6 +1,6 @@
 using System;
 
-namespace SeasonsCare.Api.DTOs.BloodPressures
+namespace SeasonsCare.Api.DTOs.HealthRecords.BloodPressures
 {
     public class BloodPressureResponse
     {

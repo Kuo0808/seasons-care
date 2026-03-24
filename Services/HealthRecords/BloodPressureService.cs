@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SeasonsCare.Api.DTOs.Common;
-using SeasonsCare.Api.DTOs.BloodPressures;
+using SeasonsCare.Api.DTOs.HealthRecords.BloodPressures;
 using SeasonsCare.Api.Exceptions;
-using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Models.Entities.HealthRecords;
 using SeasonsCare.Api.Repositories;
+using SeasonsCare.Api.Repositories.HealthRecords;
 
-namespace SeasonsCare.Api.Services
+namespace SeasonsCare.Api.Services.HealthRecords
 {
     public class BloodPressureService : IBloodPressureService
     {
