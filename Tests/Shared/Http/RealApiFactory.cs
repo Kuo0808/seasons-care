@@ -102,6 +102,12 @@ public class RealApiFactory : IDisposable
             return entity as T;
         }
 
+        if (typeof(T) == typeof(BloodOxygenRecord))
+        {
+            var entity = await dbContext.BloodOxygens.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id);
+            return entity as T;
+        }
+
         return await dbContext.Set<T>().FindAsync(id);
     }
 
@@ -131,6 +137,13 @@ public class RealApiFactory : IDisposable
         using var scope = Factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         return await dbContext.BloodPressures.IgnoreQueryFilters().OrderBy(x => x.RecordDate).ToListAsync();
+    }
+
+    public async Task<List<BloodOxygenRecord>> GetBloodOxygensAsync()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await dbContext.BloodOxygens.IgnoreQueryFilters().OrderBy(x => x.RecordDate).ToListAsync();
     }
 
     public void Dispose()

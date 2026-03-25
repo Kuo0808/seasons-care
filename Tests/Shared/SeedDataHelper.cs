@@ -110,4 +110,20 @@ public static class SeedDataHelper
             CreatedBy = TestUsers.DefaultUserId.ToString()
         };
     }
+
+    public static BloodOxygenRecord CreateBloodOxygen(Guid careGroupId, decimal spO2 = 98m, DateTime? timestamp = null)
+    {
+        var now = timestamp ?? new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc);
+        return new BloodOxygenRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            SpO2 = spO2,
+            Notes = "stable",
+            RecordDate = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CreatedBy = TestUsers.DefaultUserId.ToString()
+        };
+    }
 }

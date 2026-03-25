@@ -1,17 +1,9 @@
 {
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "AllowedHosts": "*",
   "Swagger": {
-    "Enabled": false
+    "Enabled": true
   },
   "Cors": {
     "AllowedOrigins": [
-      "http://localhost:3000",
       "https://your-frontend-app.azurestaticapps.net"
     ]
   },

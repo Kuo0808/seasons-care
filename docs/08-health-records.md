@@ -28,6 +28,7 @@ Tests/Integration/HealthRecords/
 
 - `/api/care-groups/{careGroupId}/health-records/blood-sugars`
 - `/api/care-groups/{careGroupId}/health-records/blood-pressures`
+- `/api/care-groups/{careGroupId}/health-records/blood-oxygens`
 
 未來若新增心率、血氧、體溫，也應沿用相同規則。
 
@@ -83,6 +84,24 @@ Tests/Integration/HealthRecords/
 
 - `systolic`：收縮壓
 - `diastolic`：舒張壓
+- `notes`：備註
+- `recordDate`：量測時間，可省略，省略時由後端使用目前 UTC 時間
+
+更新時必填：
+
+- `updatedAt`：前端必須送出上次讀取到的 `updatedAt`，後端會進行 optimistic concurrency 檢查；若不一致，回 `409 Conflict`
+
+### Blood Oxygens
+
+- `GET /api/care-groups/{careGroupId}/health-records/blood-oxygens`
+- `GET /api/care-groups/{careGroupId}/health-records/blood-oxygens/{recordId}`
+- `POST /api/care-groups/{careGroupId}/health-records/blood-oxygens`
+- `PUT /api/care-groups/{careGroupId}/health-records/blood-oxygens/{recordId}`
+- `DELETE /api/care-groups/{careGroupId}/health-records/blood-oxygens/{recordId}`
+
+建立與更新欄位：
+
+- `spO2`：血氧飽和度，範圍應為 `0 < spO2 <= 100`
 - `notes`：備註
 - `recordDate`：量測時間，可省略，省略時由後端使用目前 UTC 時間
 
