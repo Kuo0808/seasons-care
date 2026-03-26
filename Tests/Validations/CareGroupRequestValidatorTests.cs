@@ -6,17 +6,18 @@ namespace SeasonsCare.Api.Tests.Validations;
 public class CareGroupRequestValidatorTests
 {
     [Fact]
-    public void CreateValidator_ReturnsError_WhenNameIsMissing()
+    public void CreateValidator_ReturnsError_WhenRecipientGenderIsMissing()
     {
         var validator = new CreateCareGroupRequestValidator();
         var result = validator.Validate(new CreateCareGroupRequest
         {
-            Name = string.Empty,
-            RecipientName = "Dad"
+            RecipientName = "Dad",
+            RecipientGender = string.Empty,
+            RecipientBirthDate = new DateOnly(1950, 1, 2)
         });
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, x => x.PropertyName == nameof(CreateCareGroupRequest.Name));
+        Assert.Contains(result.Errors, x => x.PropertyName == nameof(CreateCareGroupRequest.RecipientGender));
     }
 
     [Fact]
@@ -26,7 +27,9 @@ public class CareGroupRequestValidatorTests
         var result = validator.Validate(new UpdateCareGroupRequest
         {
             Name = "Home Care",
-            RecipientName = string.Empty
+            RecipientName = string.Empty,
+            RecipientGender = "Male",
+            RecipientBirthDate = new DateOnly(1950, 1, 2)
         });
 
         Assert.False(result.IsValid);

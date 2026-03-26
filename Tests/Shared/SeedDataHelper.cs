@@ -25,6 +25,8 @@ public static class SeedDataHelper
             Id = Guid.NewGuid(),
             Name = name,
             RecipientName = $"{name} Recipient",
+            RecipientGender = "Unknown",
+            RecipientBirthDate = new DateOnly(1950, 1, 2),
             InviteCode = name.Replace(" ", string.Empty).ToUpperInvariant(),
             CreatedBy = "test"
         };

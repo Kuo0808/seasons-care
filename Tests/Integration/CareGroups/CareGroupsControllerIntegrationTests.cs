@@ -11,15 +11,16 @@ namespace SeasonsCare.Api.Tests.Integration.CareGroups;
 public class CareGroupsControllerIntegrationTests
 {
     [Fact]
-    public async Task CreateCareGroup_ReturnsBadRequest_WhenNameIsMissing()
+    public async Task CreateCareGroup_ReturnsBadRequest_WhenRecipientGenderIsMissing()
     {
         using var factory = new StubApiFactory<ICareGroupService>(new StubCareGroupService());
         using var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync("/api/care-groups", new
         {
-            name = "",
-            recipientName = "Dad"
+            recipientName = "Dad",
+            recipientGender = "",
+            recipientBirthDate = "1950-01-02"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -75,8 +76,10 @@ public class CareGroupsControllerIntegrationTests
             return Task.FromResult(new CareGroupResponse
             {
                 Id = Guid.NewGuid(),
-                Name = request.Name,
+                Name = request.RecipientName,
                 RecipientName = request.RecipientName,
+                RecipientGender = request.RecipientGender,
+                RecipientBirthDate = request.RecipientBirthDate,
                 InviteCode = "JOIN1234",
                 MemberCount = 1
             });
@@ -99,6 +102,8 @@ public class CareGroupsControllerIntegrationTests
                 Id = careGroupId,
                 Name = "Home Care",
                 RecipientName = "Dad",
+                RecipientGender = "Male",
+                RecipientBirthDate = new DateOnly(1950, 1, 2),
                 InviteCode = "JOIN1234"
             });
         }
@@ -110,6 +115,8 @@ public class CareGroupsControllerIntegrationTests
                 Id = careGroupId,
                 Name = request.Name,
                 RecipientName = request.RecipientName,
+                RecipientGender = request.RecipientGender,
+                RecipientBirthDate = request.RecipientBirthDate,
                 InviteCode = "JOIN1234",
                 MemberCount = 1
             });

@@ -24,10 +24,10 @@ namespace SeasonsCare.Api.Services
         {
             var careGroup = new CareGroup
             {
-                Name = request.Name,
+                Name = request.RecipientName,
                 RecipientName = request.RecipientName,
-                Description = request.Description,
-                HealthStatus = request.HealthStatus,
+                RecipientGender = request.RecipientGender,
+                RecipientBirthDate = request.RecipientBirthDate,
                 InviteCode = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
                 CreatedBy = currentUserId.ToString()
             };
@@ -50,6 +50,8 @@ namespace SeasonsCare.Api.Services
                 Id = careGroup.Id,
                 Name = careGroup.Name,
                 RecipientName = careGroup.RecipientName,
+                RecipientGender = careGroup.RecipientGender,
+                RecipientBirthDate = careGroup.RecipientBirthDate,
                 Description = careGroup.Description,
                 HealthStatus = careGroup.HealthStatus,
                 InviteCode = careGroup.InviteCode,
@@ -67,6 +69,8 @@ namespace SeasonsCare.Api.Services
                 Id = g.Id,
                 Name = g.Name,
                 RecipientName = g.RecipientName,
+                RecipientGender = g.RecipientGender,
+                RecipientBirthDate = g.RecipientBirthDate,
                 Description = g.Description,
                 HealthStatus = g.HealthStatus,
                 InviteCode = g.InviteCode,
@@ -96,6 +100,8 @@ namespace SeasonsCare.Api.Services
                 Id = group.Id,
                 Name = group.Name,
                 RecipientName = group.RecipientName,
+                RecipientGender = group.RecipientGender,
+                RecipientBirthDate = group.RecipientBirthDate,
                 Description = group.Description,
                 HealthStatus = group.HealthStatus,
                 InviteCode = group.InviteCode,
@@ -128,6 +134,8 @@ namespace SeasonsCare.Api.Services
 
             group.Name = request.Name;
             group.RecipientName = request.RecipientName;
+            group.RecipientGender = request.RecipientGender;
+            group.RecipientBirthDate = request.RecipientBirthDate;
             group.Description = request.Description;
             group.HealthStatus = request.HealthStatus;
             group.UpdatedAt = DateTime.UtcNow;
@@ -139,6 +147,8 @@ namespace SeasonsCare.Api.Services
                 Id = group.Id,
                 Name = group.Name,
                 RecipientName = group.RecipientName,
+                RecipientGender = group.RecipientGender,
+                RecipientBirthDate = group.RecipientBirthDate,
                 Description = group.Description,
                 HealthStatus = group.HealthStatus,
                 InviteCode = group.InviteCode,

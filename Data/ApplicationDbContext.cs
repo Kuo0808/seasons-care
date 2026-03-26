@@ -50,7 +50,11 @@ namespace SeasonsCare.Api.Data
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.RecipientName).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.RecipientGender).HasMaxLength(20);
+                entity.Property(e => e.RecipientBirthDate);
                 entity.Property(e => e.Description).HasMaxLength(500);
+                entity.Property(e => e.HealthStatus).HasMaxLength(1000);
             });
 
             modelBuilder.Entity<CareGroupMember>(entity =>
