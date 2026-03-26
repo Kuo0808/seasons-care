@@ -30,7 +30,7 @@ Avoid function-style route names such as:
 
 - `POST /api/auth/register` is the first-step account creation endpoint.
 - `POST /api/auth/login` is the login endpoint.
-- `PATCH /api/users/me` is the endpoint for updating the current user's profile data such as `username` and `avatarKey`.
+- `PATCH /api/users/me` is the endpoint for updating the current user's profile data such as `userName` and `avatarKey`.
 - Auth responses may include `isProfileCompleted` so the frontend can decide whether onboarding is finished.
 
 ## Care Group Scope Rule

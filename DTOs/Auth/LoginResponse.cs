@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace SeasonsCare.Api.DTOs.Auth
 {
@@ -12,6 +13,7 @@ namespace SeasonsCare.Api.DTOs.Auth
     {
         public Guid Id { get; set; }
         public string Email { get; set; } = string.Empty;
+        [JsonPropertyName("userName")]
         public string Username { get; set; } = string.Empty;
         public string AvatarKey { get; set; } = string.Empty;
         public bool IsProfileCompleted { get; set; }

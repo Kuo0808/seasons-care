@@ -40,7 +40,7 @@ public class AuthOnboardingRealIntegrationTests
 
         var updateResponse = await client.PatchAsJsonAsync("/api/users/me", new
         {
-            username = "tester",
+            userName = "tester",
             avatarKey = "dog_01"
         });
 
@@ -48,7 +48,7 @@ public class AuthOnboardingRealIntegrationTests
 
         using var updatePayload = await JsonDocument.ParseAsync(await updateResponse.Content.ReadAsStreamAsync());
         var updatedUser = updatePayload.RootElement.GetProperty("data").GetProperty("user");
-        Assert.Equal("tester", updatedUser.GetProperty("username").GetString());
+        Assert.Equal("tester", updatedUser.GetProperty("userName").GetString());
         Assert.Equal("dog_01", updatedUser.GetProperty("avatarKey").GetString());
         Assert.True(updatedUser.GetProperty("isProfileCompleted").GetBoolean());
 
@@ -65,7 +65,7 @@ public class AuthOnboardingRealIntegrationTests
 
         using var loginPayload = await JsonDocument.ParseAsync(await loginResponse.Content.ReadAsStreamAsync());
         var loginUser = loginPayload.RootElement.GetProperty("data").GetProperty("user");
-        Assert.Equal("tester", loginUser.GetProperty("username").GetString());
+        Assert.Equal("tester", loginUser.GetProperty("userName").GetString());
         Assert.Equal("dog_01", loginUser.GetProperty("avatarKey").GetString());
         Assert.True(loginUser.GetProperty("isProfileCompleted").GetBoolean());
 

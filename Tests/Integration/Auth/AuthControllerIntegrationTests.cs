@@ -36,7 +36,7 @@ public class AuthControllerIntegrationTests
 
         var response = await client.PatchAsJsonAsync("/api/users/me", new
         {
-            username = "tester",
+            userName = "tester",
             avatarKey = "dog_01"
         });
 
