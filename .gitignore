@@ -5,6 +5,14 @@ bin/*
 Tests/bin/
 obj/
 .vs/
+.azure-temp/
+publish/
+publish.zip
+publish_zip_check/
+*.pubxml.user
+*.csproj.user
+Properties/PublishProfiles/
+Properties/ServiceDependencies/
 
 # 除錯輸出檔，禁止推上版控
 build_err*.txt
@@ -17,3 +25,4 @@ appsettings.json
 appsettings.*.json
 # 保留範例設定檔於版本控制
 !appsettings.json.example
+!appsettings.Production.json.example
