@@ -14,8 +14,7 @@ namespace SeasonsCare.Api.Validations.Auth
             RuleFor(x => x.Password)
                 .NotEmpty().WithMessage("密碼為必填")
                 .MinimumLength(6).WithMessage("密碼長度至少需要 6 碼")
-                .Matches("[A-Z]").WithMessage("密碼至少需要包含一個大寫英文字母")
-                .Matches("[a-z]").WithMessage("密碼至少需要包含一個小寫英文字母");
+                .MaximumLength(12).WithMessage("密碼長度不可超過 12 碼");
 
             RuleFor(x => x.Username)
                 .NotEmpty().WithMessage("使用者名稱為必填")

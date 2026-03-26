@@ -77,6 +77,32 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task LoginAsync_ThrowsUnauthorized_WhenPasswordCaseDoesNotMatch()
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "tester@example.com",
+            Username = "tester",
+            AvatarKey = "dog_01",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("password")
+        };
+
+        var repository = new FakeUserRepository(user: user);
+        var service = new AuthService(repository, BuildConfiguration());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.LoginAsync(new LoginRequest
+            {
+                Email = user.Email,
+                Password = "Password"
+            }));
+
+        Assert.Equal(401, exception.StatusCode);
+        Assert.Equal("LOGIN_FAILED", exception.ErrorCode);
+    }
+
+    [Fact]
     public async Task LoginAsync_ReturnsJwtAndUserPayload_WhenCredentialsAreValid()
     {
         var user = new User

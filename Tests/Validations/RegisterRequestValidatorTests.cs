@@ -28,7 +28,23 @@ public class RegisterRequestValidatorTests
         var result = validator.Validate(new RegisterRequest
         {
             Email = "tester@example.com",
-            Password = "lowercase",
+            Password = "abc",
+            Username = "tester",
+            AvatarKey = "dog_01"
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, x => x.PropertyName == nameof(RegisterRequest.Password));
+    }
+
+    [Fact]
+    public void Validator_ReturnsError_WhenPasswordIsTooLong()
+    {
+        var validator = new RegisterRequestValidator();
+        var result = validator.Validate(new RegisterRequest
+        {
+            Email = "tester@example.com",
+            Password = "abcdefghijklmn",
             Username = "tester",
             AvatarKey = "dog_01"
         });
