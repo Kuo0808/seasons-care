@@ -45,6 +45,7 @@ namespace SeasonsCare.Api.Services
                 {
                     Email = lowercaseEmail,
                     Username = request.Username,
+                    AvatarKey = request.AvatarKey,
                     PasswordHash = passwordHash,
                     CreatedBy = "System"
                 };
@@ -90,7 +91,8 @@ namespace SeasonsCare.Api.Services
                 {
                     Id = user.Id,
                     Email = user.Email,
-                    Username = user.Username
+                    Username = user.Username,
+                    AvatarKey = user.AvatarKey
                 }
             };
         }

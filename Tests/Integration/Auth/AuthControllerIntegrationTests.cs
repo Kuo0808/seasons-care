@@ -20,7 +20,8 @@ public class AuthControllerIntegrationTests
         {
             email = "invalid-email",
             password = "Password1",
-            username = "tester"
+            username = "tester",
+            avatarKey = "dog_01"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -110,7 +111,8 @@ public class AuthControllerIntegrationTests
                 {
                     Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
                     Email = request.Email,
-                    Username = "tester"
+                    Username = "tester",
+                    AvatarKey = "dog_01"
                 }
             });
         }

@@ -14,6 +14,7 @@ public static class SeedDataHelper
             Email = "test@example.com",
             PasswordHash = "hashed",
             Username = "tester",
+            AvatarKey = "dog_01",
             CreatedBy = "test"
         };
     }

@@ -20,7 +20,8 @@ public class AuthServiceTests
             {
                 Email = "tester@example.com",
                 Password = "Password1",
-                Username = "tester"
+                Username = "tester",
+                AvatarKey = "dog_01"
             }));
 
         Assert.Equal(409, exception.StatusCode);
@@ -37,12 +38,14 @@ public class AuthServiceTests
         {
             Email = "Tester@Example.COM",
             Password = "Password1",
-            Username = "tester"
+            Username = "tester",
+            AvatarKey = "dog_01"
         });
 
         var savedUser = Assert.Single(repository.Users);
         Assert.Equal("tester@example.com", savedUser.Email);
         Assert.Equal("tester", savedUser.Username);
+        Assert.Equal("dog_01", savedUser.AvatarKey);
         Assert.NotEqual("Password1", savedUser.PasswordHash);
         Assert.True(BCrypt.Net.BCrypt.Verify("Password1", savedUser.PasswordHash));
     }
@@ -55,6 +58,7 @@ public class AuthServiceTests
             Id = Guid.NewGuid(),
             Email = "tester@example.com",
             Username = "tester",
+            AvatarKey = "dog_01",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password1")
         };
 
@@ -80,6 +84,7 @@ public class AuthServiceTests
             Id = Guid.NewGuid(),
             Email = "tester@example.com",
             Username = "tester",
+            AvatarKey = "dog_01",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password1")
         };
 
@@ -96,6 +101,7 @@ public class AuthServiceTests
         Assert.Equal(user.Id, result.User.Id);
         Assert.Equal(user.Email, result.User.Email);
         Assert.Equal(user.Username, result.User.Username);
+        Assert.Equal(user.AvatarKey, result.User.AvatarKey);
     }
 
     private static IConfiguration BuildConfiguration()

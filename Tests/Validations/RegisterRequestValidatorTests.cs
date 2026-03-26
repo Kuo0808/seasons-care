@@ -13,7 +13,8 @@ public class RegisterRequestValidatorTests
         {
             Email = "invalid-email",
             Password = "Password1",
-            Username = "tester"
+            Username = "tester",
+            AvatarKey = "dog_01"
         });
 
         Assert.False(result.IsValid);
@@ -28,7 +29,8 @@ public class RegisterRequestValidatorTests
         {
             Email = "tester@example.com",
             Password = "lowercase",
-            Username = "tester"
+            Username = "tester",
+            AvatarKey = "dog_01"
         });
 
         Assert.False(result.IsValid);

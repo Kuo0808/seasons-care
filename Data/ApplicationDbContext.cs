@@ -44,6 +44,7 @@ namespace SeasonsCare.Api.Data
                 entity.HasIndex(e => e.Email).IsUnique();
                 entity.Property(e => e.PasswordHash).IsRequired();
                 entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.AvatarKey).IsRequired().HasMaxLength(50);
             });
 
             modelBuilder.Entity<CareGroup>(entity =>
