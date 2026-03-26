@@ -15,6 +15,12 @@
 3. Controller integration tests
 4. Real database integration tests
 
+Auth onboarding changes must include an end-to-end real database integration test for:
+
+1. `POST /api/auth/register`
+2. `PATCH /api/users/me`
+3. `POST /api/auth/login`
+
 ## 測試資料夾結構
 
 所有測試程式碼都必須放在 `Tests/` 下。

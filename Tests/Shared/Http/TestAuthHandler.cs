@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -22,9 +23,14 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        var requestedUserId = Request.Headers.TryGetValue("X-Test-UserId", out var headerUserId)
+            && Guid.TryParse(headerUserId.ToString(), out var parsedUserId)
+                ? parsedUserId
+                : TestUsers.DefaultUserId;
+
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, TestUsers.DefaultUserId.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, requestedUserId.ToString()),
             new Claim(ClaimTypes.Name, "integration-test-user")
         };
 

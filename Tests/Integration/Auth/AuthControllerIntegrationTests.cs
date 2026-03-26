@@ -29,12 +29,12 @@ public class AuthControllerIntegrationTests
     }
 
     [Fact]
-    public async Task CompleteProfile_ReturnsOk_WhenRequestIsValid()
+    public async Task UpdateMyProfile_ReturnsOk_WhenRequestIsValid()
     {
         using var factory = new StubApiFactory<IAuthService>(new StubAuthService());
         using var client = factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/complete-profile", new
+        var response = await client.PatchAsJsonAsync("/api/users/me", new
         {
             username = "tester",
             avatarKey = "dog_01"

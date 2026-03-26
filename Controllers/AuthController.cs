@@ -1,5 +1,4 @@
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SeasonsCare.Api.DTOs.Auth;
 using SeasonsCare.Api.DTOs.Common;
@@ -13,12 +12,10 @@ namespace SeasonsCare.Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
-        private readonly ICurrentUserService _currentUserService;
 
-        public AuthController(IAuthService authService, ICurrentUserService currentUserService)
+        public AuthController(IAuthService authService)
         {
             _authService = authService;
-            _currentUserService = currentUserService;
         }
 
         [HttpPost("register")]
@@ -28,17 +25,6 @@ namespace SeasonsCare.Api.Controllers
             var response = new ApiResponse<LoginResponse>(result, "註冊成功", HttpContext.TraceIdentifier);
 
             return StatusCode(201, response);
-        }
-
-        [Authorize]
-        [HttpPost("complete-profile")]
-        public async Task<IActionResult> CompleteProfile([FromBody] CompleteProfileRequest request)
-        {
-            var currentUserId = _currentUserService.UserId;
-            var result = await _authService.CompleteProfileAsync(currentUserId, request);
-            var response = new ApiResponse<LoginResponse>(result, "個人資料設定成功", HttpContext.TraceIdentifier);
-
-            return Ok(response);
         }
 
         [HttpPost("login")]

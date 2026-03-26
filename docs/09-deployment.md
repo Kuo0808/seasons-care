@@ -33,8 +33,11 @@
 
 1. Open `/swagger` and confirm HTTP 200.
 2. Test `POST /api/auth/register`.
-3. Test `POST /api/auth/login`.
-4. Confirm the app can read and write to the Azure PostgreSQL database.
+3. Confirm the response returns a token and `isProfileCompleted=false`.
+4. Test `PATCH /api/users/me` with the token from register or login.
+5. Confirm the response returns `username`, `avatarKey`, and `isProfileCompleted=true`.
+6. Test `POST /api/auth/login`.
+7. Confirm the app can read and write to the Azure PostgreSQL database.
 
 ## GitHub Actions Auto Deploy
 
