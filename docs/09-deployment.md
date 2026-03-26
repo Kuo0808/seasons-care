@@ -36,6 +36,13 @@
 3. Test `POST /api/auth/login`.
 4. Confirm the app can read and write to the Azure PostgreSQL database.
 
+## GitHub Actions Auto Deploy
+
+- Workflow file: `.github/workflows/deploy-azure-webapp.yml`
+- Trigger: push to `main` or manual run from GitHub Actions
+- Required GitHub secret: `AZURE_WEBAPP_PUBLISH_PROFILE`
+- The workflow builds, publishes, and deploys the ASP.NET Core app to Azure App Service.
+
 ## Repository Rules
 
 - Do not commit real secrets.
