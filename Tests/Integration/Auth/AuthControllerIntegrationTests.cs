@@ -19,15 +19,31 @@ public class AuthControllerIntegrationTests
         var response = await client.PostAsJsonAsync("/api/auth/register", new
         {
             email = "invalid-email",
-            password = "Password1",
-            username = "tester",
-            avatarKey = "dog_01"
+            password = "Password1"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
         using var payload = await JsonResponseHelper.ReadJsonAsync(response);
         Assert.Equal("VALIDATION_FAILED", payload.RootElement.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
+    public async Task CompleteProfile_ReturnsOk_WhenRequestIsValid()
+    {
+        using var factory = new StubApiFactory<IAuthService>(new StubAuthService());
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/auth/complete-profile", new
+        {
+            username = "tester",
+            avatarKey = "dog_01"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.True(payload.RootElement.GetProperty("success").GetBoolean());
     }
 
     [Fact]
@@ -92,9 +108,14 @@ public class AuthControllerIntegrationTests
     {
         public Exception? LoginException { get; init; }
 
-        public Task RegisterAsync(RegisterRequest request)
+        public Task<LoginResponse> RegisterAsync(RegisterRequest request)
         {
-            return Task.CompletedTask;
+            return Task.FromResult(CreateResponse(request.Email, string.Empty, string.Empty, false));
+        }
+
+        public Task<LoginResponse> CompleteProfileAsync(Guid currentUserId, CompleteProfileRequest request)
+        {
+            return Task.FromResult(CreateResponse("tester@example.com", request.Username, request.AvatarKey, true));
         }
 
         public Task<LoginResponse> LoginAsync(LoginRequest request)
@@ -104,17 +125,23 @@ public class AuthControllerIntegrationTests
                 throw LoginException;
             }
 
-            return Task.FromResult(new LoginResponse
+            return Task.FromResult(CreateResponse(request.Email, "tester", "dog_01", true));
+        }
+
+        private static LoginResponse CreateResponse(string email, string username, string avatarKey, bool isProfileCompleted)
+        {
+            return new LoginResponse
             {
                 Token = "stub-token",
                 User = new UserDto
                 {
                     Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-                    Email = request.Email,
-                    Username = "tester",
-                    AvatarKey = "dog_01"
+                    Email = email,
+                    Username = username,
+                    AvatarKey = avatarKey,
+                    IsProfileCompleted = isProfileCompleted
                 }
-            });
+            };
         }
     }
 }

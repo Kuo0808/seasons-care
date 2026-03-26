@@ -1,14 +1,14 @@
 using System;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
-using SeasonsCare.Api.DTOs.Auth;
-using SeasonsCare.Api.Models.Entities;
-using SeasonsCare.Api.Repositories;
-using SeasonsCare.Api.Exceptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
-using System.Text;
+using SeasonsCare.Api.DTOs.Auth;
+using SeasonsCare.Api.Exceptions;
+using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Repositories;
 
 namespace SeasonsCare.Api.Services
 {
@@ -23,7 +23,7 @@ namespace SeasonsCare.Api.Services
             _configuration = configuration;
         }
 
-        public async Task RegisterAsync(RegisterRequest request)
+        public async Task<LoginResponse> RegisterAsync(RegisterRequest request)
         {
             var lowercaseEmail = request.Email.ToLowerInvariant();
 
@@ -38,20 +38,21 @@ namespace SeasonsCare.Api.Services
 
             try
             {
-                // 使用 BCrypt.Net-Next 進行密碼雜湊
                 var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
                 var user = new User
                 {
                     Email = lowercaseEmail,
-                    Username = request.Username,
-                    AvatarKey = request.AvatarKey,
+                    Username = string.Empty,
+                    AvatarKey = string.Empty,
                     PasswordHash = passwordHash,
                     CreatedBy = "System"
                 };
 
                 await _userRepository.AddAsync(user);
                 await _userRepository.SaveChangesAsync();
+
+                return BuildLoginResponse(user);
             }
             catch (DomainException)
             {
@@ -59,13 +60,34 @@ namespace SeasonsCare.Api.Services
             }
             catch (Exception)
             {
-                // 如果發生未預期錯誤，用 DomainException 進行封裝
                 throw new DomainException(
                     "使用者註冊處理時發生未知錯誤，請稍後再試。",
                     "REGISTRATION_FAILED",
                     500
                 );
             }
+        }
+
+        public async Task<LoginResponse> CompleteProfileAsync(Guid currentUserId, CompleteProfileRequest request)
+        {
+            var user = await _userRepository.GetByIdAsync(currentUserId);
+
+            if (user == null)
+            {
+                throw new DomainException(
+                    "使用者不存在",
+                    "NOT_FOUND",
+                    404
+                );
+            }
+
+            user.Username = request.Username;
+            user.AvatarKey = request.AvatarKey;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.SaveChangesAsync();
+
+            return BuildLoginResponse(user);
         }
 
         public async Task<LoginResponse> LoginAsync(LoginRequest request)
@@ -82,6 +104,11 @@ namespace SeasonsCare.Api.Services
                 );
             }
 
+            return BuildLoginResponse(user);
+        }
+
+        private LoginResponse BuildLoginResponse(User user)
+        {
             var token = GenerateJwtToken(user);
 
             return new LoginResponse
@@ -92,7 +119,8 @@ namespace SeasonsCare.Api.Services
                     Id = user.Id,
                     Email = user.Email,
                     Username = user.Username,
-                    AvatarKey = user.AvatarKey
+                    AvatarKey = user.AvatarKey,
+                    IsProfileCompleted = !string.IsNullOrWhiteSpace(user.Username) && !string.IsNullOrWhiteSpace(user.AvatarKey)
                 }
             };
         }

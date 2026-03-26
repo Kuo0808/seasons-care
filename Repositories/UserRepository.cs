@@ -24,6 +24,11 @@ namespace SeasonsCare.Api.Repositories
             return await _context.Set<User>().FirstOrDefaultAsync(u => u.Email == email);
         }
 
+        public async Task<User?> GetByIdAsync(Guid id)
+        {
+            return await _context.Set<User>().FirstOrDefaultAsync(u => u.Id == id);
+        }
+
         public async Task AddAsync(User user)
         {
             await _context.Set<User>().AddAsync(user);

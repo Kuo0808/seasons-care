@@ -6,15 +6,13 @@ namespace SeasonsCare.Api.Tests.Validations;
 public class RegisterRequestValidatorTests
 {
     [Fact]
-    public void Validator_ReturnsError_WhenEmailIsInvalid()
+    public void RegisterValidator_ReturnsError_WhenEmailIsInvalid()
     {
         var validator = new RegisterRequestValidator();
         var result = validator.Validate(new RegisterRequest
         {
             Email = "invalid-email",
-            Password = "Password1",
-            Username = "tester",
-            AvatarKey = "dog_01"
+            Password = "Password1"
         });
 
         Assert.False(result.IsValid);
@@ -22,15 +20,13 @@ public class RegisterRequestValidatorTests
     }
 
     [Fact]
-    public void Validator_ReturnsError_WhenPasswordIsTooWeak()
+    public void RegisterValidator_ReturnsError_WhenPasswordIsTooShort()
     {
         var validator = new RegisterRequestValidator();
         var result = validator.Validate(new RegisterRequest
         {
             Email = "tester@example.com",
-            Password = "abc",
-            Username = "tester",
-            AvatarKey = "dog_01"
+            Password = "abc"
         });
 
         Assert.False(result.IsValid);
@@ -38,18 +34,16 @@ public class RegisterRequestValidatorTests
     }
 
     [Fact]
-    public void Validator_ReturnsError_WhenPasswordIsTooLong()
+    public void CompleteProfileValidator_ReturnsError_WhenAvatarKeyIsMissing()
     {
-        var validator = new RegisterRequestValidator();
-        var result = validator.Validate(new RegisterRequest
+        var validator = new CompleteProfileRequestValidator();
+        var result = validator.Validate(new CompleteProfileRequest
         {
-            Email = "tester@example.com",
-            Password = "abcdefghijklmn",
             Username = "tester",
-            AvatarKey = "dog_01"
+            AvatarKey = string.Empty
         });
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Errors, x => x.PropertyName == nameof(RegisterRequest.Password));
+        Assert.Contains(result.Errors, x => x.PropertyName == nameof(CompleteProfileRequest.AvatarKey));
     }
 }

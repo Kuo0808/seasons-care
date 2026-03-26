@@ -19,9 +19,7 @@ public class AuthServiceTests
             service.RegisterAsync(new RegisterRequest
             {
                 Email = "tester@example.com",
-                Password = "Password1",
-                Username = "tester",
-                AvatarKey = "dog_01"
+                Password = "Password1"
             }));
 
         Assert.Equal(409, exception.StatusCode);
@@ -34,20 +32,45 @@ public class AuthServiceTests
         var repository = new FakeUserRepository();
         var service = new AuthService(repository, BuildConfiguration());
 
-        await service.RegisterAsync(new RegisterRequest
+        var result = await service.RegisterAsync(new RegisterRequest
         {
             Email = "Tester@Example.COM",
-            Password = "Password1",
-            Username = "tester",
-            AvatarKey = "dog_01"
+            Password = "Password1"
         });
 
         var savedUser = Assert.Single(repository.Users);
         Assert.Equal("tester@example.com", savedUser.Email);
-        Assert.Equal("tester", savedUser.Username);
-        Assert.Equal("dog_01", savedUser.AvatarKey);
+        Assert.Equal(string.Empty, savedUser.Username);
+        Assert.Equal(string.Empty, savedUser.AvatarKey);
         Assert.NotEqual("Password1", savedUser.PasswordHash);
         Assert.True(BCrypt.Net.BCrypt.Verify("Password1", savedUser.PasswordHash));
+        Assert.False(result.User.IsProfileCompleted);
+    }
+
+    [Fact]
+    public async Task CompleteProfileAsync_UpdatesUsernameAndAvatar()
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "tester@example.com",
+            Username = string.Empty,
+            AvatarKey = string.Empty,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password1")
+        };
+
+        var repository = new FakeUserRepository(user: user);
+        var service = new AuthService(repository, BuildConfiguration());
+
+        var result = await service.CompleteProfileAsync(user.Id, new CompleteProfileRequest
+        {
+            Username = "tester",
+            AvatarKey = "dog_01"
+        });
+
+        Assert.Equal("tester", user.Username);
+        Assert.Equal("dog_01", user.AvatarKey);
+        Assert.True(result.User.IsProfileCompleted);
     }
 
     [Fact]
@@ -128,6 +151,7 @@ public class AuthServiceTests
         Assert.Equal(user.Email, result.User.Email);
         Assert.Equal(user.Username, result.User.Username);
         Assert.Equal(user.AvatarKey, result.User.AvatarKey);
+        Assert.True(result.User.IsProfileCompleted);
     }
 
     private static IConfiguration BuildConfiguration()
@@ -145,14 +169,12 @@ public class AuthServiceTests
     private sealed class FakeUserRepository : IUserRepository
     {
         private readonly bool _emailExists;
-        private readonly User? _user;
 
         public List<User> Users { get; } = new();
 
         public FakeUserRepository(bool emailExists = false, User? user = null)
         {
             _emailExists = emailExists;
-            _user = user;
 
             if (user is not null)
             {
@@ -168,6 +190,11 @@ public class AuthServiceTests
         public Task<User?> GetByEmailAsync(string email)
         {
             return Task.FromResult(Users.FirstOrDefault(x => x.Email == email));
+        }
+
+        public Task<User?> GetByIdAsync(Guid id)
+        {
+            return Task.FromResult(Users.FirstOrDefault(x => x.Id == id));
         }
 
         public Task AddAsync(User user)
