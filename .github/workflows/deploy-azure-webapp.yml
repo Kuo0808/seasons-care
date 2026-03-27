@@ -26,13 +26,26 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore ${{ env.PROJECT_PATH }}
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
 
       - name: Install dotnet-ef
         run: dotnet tool install --global dotnet-ef
+
+      - name: Add dotnet tools to PATH
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Debug connection string
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
+        run: |
+          if [ -z "$ConnectionStrings__DefaultConnection" ]; then
+            echo "Connection string is empty"
+            exit 1
+          fi
+          echo "$ConnectionStrings__DefaultConnection" | sed 's/Password=[^;]*/Password=***/g'
 
       - name: Apply EF Core migrations
         env:
