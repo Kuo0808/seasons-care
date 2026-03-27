@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: deploy-azure-webapp-main
+  cancel-in-progress: true
+
 env:
   AZURE_WEBAPP_NAME: seasons-care-api
   DOTNET_VERSION: 8.0.x
