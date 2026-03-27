@@ -31,27 +31,6 @@ jobs:
       - name: Build
         run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
 
-      - name: Install dotnet-ef
-        run: dotnet tool install --global dotnet-ef
-
-      - name: Add dotnet tools to PATH
-        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Debug connection string
-        env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
-        run: |
-          if [ -z "$ConnectionStrings__DefaultConnection" ]; then
-            echo "Connection string is empty"
-            exit 1
-          fi
-          echo "$ConnectionStrings__DefaultConnection" | sed 's/Password=[^;]*/Password=***/g'
-
-      - name: Apply EF Core migrations
-        env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
-          Jwt__SecretKey: "dummy_secret_key_for_migrations_only_1234567890"
-        run: dotnet ef database update --project ${{ env.PROJECT_PATH }} --startup-project ${{ env.PROJECT_PATH }}
 
       - name: Publish
         run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ${{ env.PUBLISH_PATH }}

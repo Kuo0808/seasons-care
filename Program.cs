@@ -137,6 +137,13 @@ builder.Services.AddAuthentication(options =>                              //設
 
 var app = builder.Build();
 
+// 自動執行資料庫遷移 (取代 GitHub Action 中的 ef update)
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    dbContext.Database.Migrate();
+}
+
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
