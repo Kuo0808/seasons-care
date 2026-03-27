@@ -31,6 +31,14 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Apply EF Core migrations
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
+        run: dotnet ef database update --project ${{ env.PROJECT_PATH }} --startup-project ${{ env.PROJECT_PATH }}
+
       - name: Publish
         run: dotnet publish ${{ env.PROJECT_PATH }} --configuration Release --no-build --output ${{ env.PUBLISH_PATH }}
 
