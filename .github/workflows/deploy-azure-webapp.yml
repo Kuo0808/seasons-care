@@ -50,6 +50,7 @@ jobs:
       - name: Apply EF Core migrations
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_DB_CONNECTION_STRING }}
+          Jwt__SecretKey: "dummy_secret_key_for_migrations_only_1234567890"
         run: dotnet ef database update --project ${{ env.PROJECT_PATH }} --startup-project ${{ env.PROJECT_PATH }}
 
       - name: Publish
