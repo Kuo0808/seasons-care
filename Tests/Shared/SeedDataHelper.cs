@@ -8,10 +8,12 @@ public static class SeedDataHelper
 {
     public static User CreateUser(Guid? userId = null)
     {
+        var resolvedUserId = userId ?? TestUsers.DefaultUserId;
+
         return new User
         {
-            Id = userId ?? TestUsers.DefaultUserId,
-            Email = "test@example.com",
+            Id = resolvedUserId,
+            Email = $"test-{resolvedUserId:N}@example.com",
             PasswordHash = "hashed",
             Username = "tester",
             AvatarKey = "dog_01",

@@ -50,6 +50,15 @@ namespace SeasonsCare.Api.Repositories
             return (pagedData, totalCount);
         }
 
+        public async Task<List<Guid>> GetAccessibleCareGroupIdsAsync(Guid userId)
+        {
+            return await _context.CareGroups
+                .Where(cg => cg.Members.Any(m => m.UserId == userId))
+                .OrderByDescending(cg => cg.CreatedAt)
+                .Select(cg => cg.Id)
+                .ToListAsync();
+        }
+
         public async Task AddAsync(CareGroup careGroup)
         {
             await _context.CareGroups.AddAsync(careGroup);

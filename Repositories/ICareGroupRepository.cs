@@ -9,6 +9,7 @@ namespace SeasonsCare.Api.Repositories
     {
         Task<CareGroup?> GetByIdAsync(Guid id);
         Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort);
+        Task<List<Guid>> GetAccessibleCareGroupIdsAsync(Guid userId);
         Task AddAsync(CareGroup careGroup);
         Task AddMemberAsync(CareGroupMember member);
         Task<bool> IsMemberAsync(Guid careGroupId, Guid userId);

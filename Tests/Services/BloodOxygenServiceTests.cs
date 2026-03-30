@@ -118,6 +118,7 @@ public class BloodOxygenServiceTests
 
         public Task<CareGroup?> GetByIdAsync(Guid id) => Task.FromResult<CareGroup?>(null);
         public Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort) => Task.FromResult((new List<CareGroup>(), 0));
+        public Task<List<Guid>> GetAccessibleCareGroupIdsAsync(Guid userId) => Task.FromResult(new List<Guid>());
         public Task AddAsync(CareGroup careGroup) => Task.CompletedTask;
         public Task AddMemberAsync(CareGroupMember member) => Task.CompletedTask;
         public Task<bool> IsMemberAsync(Guid careGroupId, Guid userId) => Task.FromResult(_isMember);

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -10,6 +11,7 @@ namespace SeasonsCare.Api.Tests.Shared.Http;
 
 public class StubApiFactory<TService> : WebApplicationFactory<Program> where TService : class
 {
+    private const string TestJwtSecret = "test-secret-key-that-is-at-least-32-chars";
     private readonly TService _service;
 
     public StubApiFactory(TService service)
@@ -19,6 +21,16 @@ public class StubApiFactory<TService> : WebApplicationFactory<Program> where TSe
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Testing");
+
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Jwt:SecretKey"] = TestJwtSecret
+            });
+        });
+
         builder.ConfigureServices(services =>
         {
             services.AddAuthentication(options =>

@@ -7,6 +7,8 @@ namespace SeasonsCare.Api.DTOs.Auth
     {
         public string Token { get; set; } = string.Empty;
         public UserDto User { get; set; } = null!;
+        public int CareGroupCount { get; set; }
+        public Guid? DefaultCareGroupId { get; set; }
     }
 
     public class UserDto

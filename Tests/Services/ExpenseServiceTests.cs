@@ -200,6 +200,11 @@ public class ExpenseServiceTests
             return Task.FromResult((new List<CareGroup>(), 0));
         }
 
+        public Task<List<Guid>> GetAccessibleCareGroupIdsAsync(Guid userId)
+        {
+            return Task.FromResult(new List<Guid>());
+        }
+
         public Task AddAsync(CareGroup careGroup)
         {
             return Task.CompletedTask;

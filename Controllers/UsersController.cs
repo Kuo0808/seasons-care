@@ -30,5 +30,15 @@ namespace SeasonsCare.Api.Controllers
 
             return Ok(response);
         }
+
+        [HttpPatch("me/last-viewed-care-group")]
+        public async Task<IActionResult> UpdateLastViewedCareGroup([FromBody] UpdateLastViewedCareGroupRequest request)
+        {
+            var currentUserId = _currentUserService.UserId;
+            await _authService.UpdateLastViewedCareGroupAsync(currentUserId, request.CareGroupId);
+            var response = new ApiResponse<object?>(null, "更新上次瀏覽群組成功", HttpContext.TraceIdentifier);
+
+            return Ok(response);
+        }
     }
 }

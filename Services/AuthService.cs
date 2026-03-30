@@ -15,11 +15,13 @@ namespace SeasonsCare.Api.Services
     public class AuthService : IAuthService
     {
         private readonly IUserRepository _userRepository;
+        private readonly ICareGroupRepository _careGroupRepository;
         private readonly IConfiguration _configuration;
 
-        public AuthService(IUserRepository userRepository, IConfiguration configuration)
+        public AuthService(IUserRepository userRepository, ICareGroupRepository careGroupRepository, IConfiguration configuration)
         {
             _userRepository = userRepository;
+            _careGroupRepository = careGroupRepository;
             _configuration = configuration;
         }
 
@@ -52,7 +54,7 @@ namespace SeasonsCare.Api.Services
                 await _userRepository.AddAsync(user);
                 await _userRepository.SaveChangesAsync();
 
-                return BuildLoginResponse(user);
+                return await BuildLoginResponseAsync(user);
             }
             catch (DomainException)
             {
@@ -87,7 +89,7 @@ namespace SeasonsCare.Api.Services
 
             await _userRepository.SaveChangesAsync();
 
-            return BuildLoginResponse(user);
+            return await BuildLoginResponseAsync(user);
         }
 
         public async Task<LoginResponse> LoginAsync(LoginRequest request)
@@ -104,16 +106,62 @@ namespace SeasonsCare.Api.Services
                 );
             }
 
-            return BuildLoginResponse(user);
+            return await BuildLoginResponseAsync(user);
         }
 
-        private LoginResponse BuildLoginResponse(User user)
+        public async Task UpdateLastViewedCareGroupAsync(Guid currentUserId, Guid careGroupId)
+        {
+            var user = await _userRepository.GetByIdAsync(currentUserId);
+
+            if (user == null)
+            {
+                throw new DomainException(
+                    "找不到使用者。",
+                    "NOT_FOUND",
+                    404
+                );
+            }
+
+            var isMember = await _careGroupRepository.IsMemberAsync(careGroupId, currentUserId);
+            if (!isMember)
+            {
+                throw new DomainException(
+                    "您不是該照護群組的成員。",
+                    "FORBIDDEN_ACCESS",
+                    403
+                );
+            }
+
+            user.LastViewedCareGroupId = careGroupId;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
+            await _userRepository.SaveChangesAsync();
+        }
+
+        private async Task<LoginResponse> BuildLoginResponseAsync(User user)
         {
             var token = GenerateJwtToken(user);
+            var accessibleCareGroupIds = await _careGroupRepository.GetAccessibleCareGroupIdsAsync(user.Id);
+            Guid? defaultCareGroupId = null;
+
+            if (accessibleCareGroupIds.Count == 1)
+            {
+                defaultCareGroupId = accessibleCareGroupIds[0];
+            }
+            else if (accessibleCareGroupIds.Count > 1)
+            {
+                defaultCareGroupId = user.LastViewedCareGroupId.HasValue
+                    && accessibleCareGroupIds.Contains(user.LastViewedCareGroupId.Value)
+                    ? user.LastViewedCareGroupId.Value
+                    : accessibleCareGroupIds[0];
+            }
 
             return new LoginResponse
             {
                 Token = token,
+                CareGroupCount = accessibleCareGroupIds.Count,
+                DefaultCareGroupId = defaultCareGroupId,
                 User = new UserDto
                 {
                     Id = user.Id,

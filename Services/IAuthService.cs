@@ -9,5 +9,6 @@ namespace SeasonsCare.Api.Services
         Task<LoginResponse> RegisterAsync(RegisterRequest request);
         Task<LoginResponse> CompleteProfileAsync(Guid currentUserId, CompleteProfileRequest request);
         Task<LoginResponse> LoginAsync(LoginRequest request);
+        Task UpdateLastViewedCareGroupAsync(Guid currentUserId, Guid careGroupId);
     }
 }

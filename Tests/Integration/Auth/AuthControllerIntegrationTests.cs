@@ -47,6 +47,23 @@ public class AuthControllerIntegrationTests
     }
 
     [Fact]
+    public async Task UpdateLastViewedCareGroup_ReturnsOk_WhenRequestIsValid()
+    {
+        using var factory = new StubApiFactory<IAuthService>(new StubAuthService());
+        using var client = factory.CreateClient();
+
+        var response = await client.PatchAsJsonAsync("/api/users/me/last-viewed-care-group", new
+        {
+            careGroupId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.True(payload.RootElement.GetProperty("success").GetBoolean());
+    }
+
+    [Fact]
     public async Task Login_ReturnsBadRequest_WhenPasswordIsMissing()
     {
         using var factory = new StubApiFactory<IAuthService>(new StubAuthService());
@@ -128,11 +145,18 @@ public class AuthControllerIntegrationTests
             return Task.FromResult(CreateResponse(request.Email, "tester", "dog_01", true));
         }
 
+        public Task UpdateLastViewedCareGroupAsync(Guid currentUserId, Guid careGroupId)
+        {
+            return Task.CompletedTask;
+        }
+
         private static LoginResponse CreateResponse(string email, string username, string avatarKey, bool isProfileCompleted)
         {
             return new LoginResponse
             {
                 Token = "stub-token",
+                CareGroupCount = 0,
+                DefaultCareGroupId = null,
                 User = new UserDto
                 {
                     Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),

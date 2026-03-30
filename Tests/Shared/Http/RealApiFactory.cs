@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -14,6 +16,7 @@ namespace SeasonsCare.Api.Tests.Shared.Http;
 
 public class RealApiFactory : IDisposable
 {
+    private const string TestJwtSecret = "test-secret-key-that-is-at-least-32-chars";
     private readonly SqliteConnection _connection;
     public WebApplicationFactory<Program> Factory { get; }
 
@@ -25,6 +28,16 @@ public class RealApiFactory : IDisposable
         Factory = new WebApplicationFactory<Program>()
             .WithWebHostBuilder(builder =>
             {
+                builder.UseEnvironment("Testing");
+
+                builder.ConfigureAppConfiguration((_, config) =>
+                {
+                    config.AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["Jwt:SecretKey"] = TestJwtSecret
+                    });
+                });
+
                 builder.ConfigureServices(services =>
                 {
                     services.RemoveAll<DbContextOptions<ApplicationDbContext>>();

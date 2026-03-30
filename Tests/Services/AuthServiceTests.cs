@@ -13,7 +13,7 @@ public class AuthServiceTests
     public async Task RegisterAsync_ThrowsConflict_WhenEmailAlreadyExists()
     {
         var repository = new FakeUserRepository(emailExists: true);
-        var service = new AuthService(repository, BuildConfiguration());
+        var service = new AuthService(repository, new FakeCareGroupRepository(), BuildConfiguration());
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.RegisterAsync(new RegisterRequest
@@ -30,7 +30,7 @@ public class AuthServiceTests
     public async Task RegisterAsync_StoresLowercaseEmail_AndHashedPassword()
     {
         var repository = new FakeUserRepository();
-        var service = new AuthService(repository, BuildConfiguration());
+        var service = new AuthService(repository, new FakeCareGroupRepository(), BuildConfiguration());
 
         var result = await service.RegisterAsync(new RegisterRequest
         {
@@ -60,7 +60,7 @@ public class AuthServiceTests
         };
 
         var repository = new FakeUserRepository(user: user);
-        var service = new AuthService(repository, BuildConfiguration());
+        var service = new AuthService(repository, new FakeCareGroupRepository(), BuildConfiguration());
 
         var result = await service.CompleteProfileAsync(user.Id, new CompleteProfileRequest
         {
@@ -86,7 +86,7 @@ public class AuthServiceTests
         };
 
         var repository = new FakeUserRepository(user: user);
-        var service = new AuthService(repository, BuildConfiguration());
+        var service = new AuthService(repository, new FakeCareGroupRepository(), BuildConfiguration());
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.LoginAsync(new LoginRequest
@@ -112,7 +112,7 @@ public class AuthServiceTests
         };
 
         var repository = new FakeUserRepository(user: user);
-        var service = new AuthService(repository, BuildConfiguration());
+        var service = new AuthService(repository, new FakeCareGroupRepository(), BuildConfiguration());
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.LoginAsync(new LoginRequest
@@ -138,7 +138,7 @@ public class AuthServiceTests
         };
 
         var repository = new FakeUserRepository(user: user);
-        var service = new AuthService(repository, BuildConfiguration());
+        var service = new AuthService(repository, new FakeCareGroupRepository(), BuildConfiguration());
 
         var result = await service.LoginAsync(new LoginRequest
         {
@@ -152,6 +152,89 @@ public class AuthServiceTests
         Assert.Equal(user.Username, result.User.Username);
         Assert.Equal(user.AvatarKey, result.User.AvatarKey);
         Assert.True(result.User.IsProfileCompleted);
+        Assert.Equal(0, result.CareGroupCount);
+        Assert.Null(result.DefaultCareGroupId);
+    }
+
+    [Fact]
+    public async Task LoginAsync_ReturnsLastViewedCareGroup_WhenUserHasMultipleGroups()
+    {
+        var lastViewedCareGroupId = Guid.NewGuid();
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "tester@example.com",
+            Username = "tester",
+            AvatarKey = "dog_01",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password1"),
+            LastViewedCareGroupId = lastViewedCareGroupId
+        };
+
+        var repository = new FakeUserRepository(user: user);
+        var careGroupRepository = new FakeCareGroupRepository
+        {
+            AccessibleCareGroupIds =
+            {
+                Guid.NewGuid(),
+                lastViewedCareGroupId
+            }
+        };
+        var service = new AuthService(repository, careGroupRepository, BuildConfiguration());
+
+        var result = await service.LoginAsync(new LoginRequest
+        {
+            Email = user.Email,
+            Password = "Password1"
+        });
+
+        Assert.Equal(2, result.CareGroupCount);
+        Assert.Equal(lastViewedCareGroupId, result.DefaultCareGroupId);
+    }
+
+    [Fact]
+    public async Task UpdateLastViewedCareGroupAsync_ThrowsForbidden_WhenUserIsNotMember()
+    {
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "tester@example.com",
+            Username = "tester",
+            AvatarKey = "dog_01",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password1")
+        };
+
+        var repository = new FakeUserRepository(user: user);
+        var service = new AuthService(repository, new FakeCareGroupRepository(), BuildConfiguration());
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.UpdateLastViewedCareGroupAsync(user.Id, Guid.NewGuid()));
+
+        Assert.Equal(403, exception.StatusCode);
+        Assert.Equal("FORBIDDEN_ACCESS", exception.ErrorCode);
+    }
+
+    [Fact]
+    public async Task UpdateLastViewedCareGroupAsync_StoresCareGroupId_WhenUserIsMember()
+    {
+        var careGroupId = Guid.NewGuid();
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = "tester@example.com",
+            Username = "tester",
+            AvatarKey = "dog_01",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword("Password1")
+        };
+
+        var repository = new FakeUserRepository(user: user);
+        var careGroupRepository = new FakeCareGroupRepository();
+        careGroupRepository.MemberLookup[(careGroupId, user.Id)] = true;
+        var service = new AuthService(repository, careGroupRepository, BuildConfiguration());
+
+        await service.UpdateLastViewedCareGroupAsync(user.Id, careGroupId);
+
+        Assert.Equal(careGroupId, user.LastViewedCareGroupId);
+        Assert.NotNull(user.UpdatedAt);
     }
 
     private static IConfiguration BuildConfiguration()
@@ -203,9 +286,40 @@ public class AuthServiceTests
             return Task.CompletedTask;
         }
 
+        public Task UpdateAsync(User user)
+        {
+            return Task.CompletedTask;
+        }
+
         public Task SaveChangesAsync()
         {
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeCareGroupRepository : ICareGroupRepository
+    {
+        public List<Guid> AccessibleCareGroupIds { get; } = new();
+        public Dictionary<(Guid CareGroupId, Guid UserId), bool> MemberLookup { get; } = new();
+
+        public Task<CareGroup?> GetByIdAsync(Guid id) => Task.FromResult<CareGroup?>(null);
+
+        public Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort)
+            => Task.FromResult((new List<CareGroup>(), 0));
+
+        public Task<List<Guid>> GetAccessibleCareGroupIdsAsync(Guid userId)
+            => Task.FromResult(AccessibleCareGroupIds.ToList());
+
+        public Task AddAsync(CareGroup careGroup) => Task.CompletedTask;
+
+        public Task AddMemberAsync(CareGroupMember member) => Task.CompletedTask;
+
+        public Task<bool> IsMemberAsync(Guid careGroupId, Guid userId)
+            => Task.FromResult(MemberLookup.ContainsKey((careGroupId, userId)));
+
+        public Task<CareGroupMember?> GetMemberAsync(Guid careGroupId, Guid userId)
+            => Task.FromResult<CareGroupMember?>(null);
+
+        public Task SaveChangesAsync() => Task.CompletedTask;
     }
 }

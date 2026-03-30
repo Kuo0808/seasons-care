@@ -34,6 +34,12 @@ namespace SeasonsCare.Api.Repositories
             await _context.Set<User>().AddAsync(user);
         }
 
+        public Task UpdateAsync(User user)
+        {
+            _context.Set<User>().Update(user);
+            return Task.CompletedTask;
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();

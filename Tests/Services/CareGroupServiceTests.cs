@@ -146,6 +146,11 @@ public class CareGroupServiceTests
             return Task.FromResult((Groups.ToList(), Groups.Count));
         }
 
+        public Task<List<Guid>> GetAccessibleCareGroupIdsAsync(Guid userId)
+        {
+            return Task.FromResult(Groups.Select(x => x.Id).ToList());
+        }
+
         public Task AddAsync(CareGroup careGroup)
         {
             Groups.Add(careGroup);

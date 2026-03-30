@@ -45,6 +45,10 @@ namespace SeasonsCare.Api.Data
                 entity.Property(e => e.PasswordHash).IsRequired();
                 entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.AvatarKey).IsRequired().HasMaxLength(50);
+                entity.HasOne<CareGroup>()
+                    .WithMany()
+                    .HasForeignKey(e => e.LastViewedCareGroupId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<CareGroup>(entity =>

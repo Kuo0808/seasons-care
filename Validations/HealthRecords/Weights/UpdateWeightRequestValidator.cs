@@ -10,7 +10,7 @@ namespace SeasonsCare.Api.Validations.HealthRecords.Weights
             Include(new CreateWeightRequestValidator());
 
             RuleFor(x => x.UpdatedAt)
-                .NotNull().WithMessage("缺少 updatedAt 欄位，請重新整理後再試");
+                .NotEqual(default(DateTime)).WithMessage("缺少 updatedAt 欄位，請重新整理後再試");
         }
     }
 }

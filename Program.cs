@@ -17,6 +17,7 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 var isSwaggerEnabled = builder.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Swagger:Enabled");
+const string JwtPlaceholderSecret = "<YOUR_JWT_SECRET_KEY_AT_LEAST_32_CHARS>";
 
 // Add services to the container.
 builder.Services.AddControllers()
@@ -111,6 +112,12 @@ builder.Services.AddScoped<ICareLogService, CareLogService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddHealthRecordsModule();
 
+if (!builder.Environment.IsEnvironment("Testing") &&
+    string.Equals(builder.Configuration["Jwt:SecretKey"], JwtPlaceholderSecret, StringComparison.Ordinal))
+{
+    throw new InvalidOperationException("JWT SecretKey is still using the placeholder value. Configure a real secret before starting the API.");
+}
+
 // Configure Authentication & Authorization
 var jwtSettings = builder.Configuration.GetSection("Jwt");                 //從 appsettings.json 中取得 JWT 設定
 var secretKey = jwtSettings["SecretKey"]
@@ -138,8 +145,9 @@ builder.Services.AddAuthentication(options =>                              //設
 var app = builder.Build();
 
 // 自動執行資料庫遷移 (取代 GitHub Action 中的 ef update)
-using (var scope = app.Services.CreateScope())
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     dbContext.Database.Migrate();
 }

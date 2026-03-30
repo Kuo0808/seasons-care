@@ -14,6 +14,8 @@ namespace SeasonsCare.Api.Models.Entities
 
         public string AvatarKey { get; set; } = string.Empty;
 
+        public Guid? LastViewedCareGroupId { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         
         public DateTime? UpdatedAt { get; set; }
