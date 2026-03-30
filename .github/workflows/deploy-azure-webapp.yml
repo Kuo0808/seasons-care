@@ -29,11 +29,22 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 8.*
+
       - name: Restore
         run: dotnet restore ${{ env.PROJECT_PATH }}
 
       - name: Build
         run: dotnet build ${{ env.PROJECT_PATH }} --configuration Release --no-restore
+
+      - name: Apply EF Core migrations
+        env:
+          PATH: ${{ env.PATH }}:/home/runner/.dotnet/tools
+          ASPNETCORE_ENVIRONMENT: Production
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_DATABASE_CONNECTION_STRING }}
+          Jwt__SecretKey: ${{ secrets.AZURE_JWT_SECRET_KEY }}
+        run: dotnet ef database update --project ${{ env.PROJECT_PATH }} --startup-project ${{ env.PROJECT_PATH }} --configuration Release --no-build
 
 
       - name: Publish

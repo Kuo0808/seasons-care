@@ -44,7 +44,9 @@
 - Workflow file: `.github/workflows/deploy-azure-webapp.yml`
 - Trigger: push to `main` or manual run from GitHub Actions
 - Required GitHub secret: `AZURE_WEBAPP_PUBLISH_PROFILE`
-- The workflow builds, publishes, and deploys the ASP.NET Core app to Azure App Service.
+- Required GitHub secret: `AZURE_DATABASE_CONNECTION_STRING`
+- Required GitHub secret: `AZURE_JWT_SECRET_KEY`
+- The workflow restores, builds, applies EF Core migrations to Azure PostgreSQL, then publishes and deploys the ASP.NET Core app to Azure App Service.
 
 ## Repository Rules
 
