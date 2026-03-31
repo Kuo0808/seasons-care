@@ -12,6 +12,8 @@ namespace SeasonsCare.Api.Controllers
     [Authorize]
     [ApiController]
     [Route("api/care-groups")]
+    // [架構導覽] 展示層 (Presentation Layer) - Controller
+    // 職責：負責路由定義 (Routing)、接收 HTTP 請求、驗證輸入資料 (透過 Filter) 並回傳統一格式結果。本身不處理實質的商業規則。
     public class CareGroupsController : ControllerBase
     {
         private readonly ICareGroupService _careGroupService;
@@ -31,9 +33,13 @@ namespace SeasonsCare.Api.Controllers
         [EndpointDescription("建立新的照護群組。前端需在 request body 提供 recipientName，其他欄位如 recipientGender、recipientBirthDate 可選填；成功後會回傳新群組資料，並自動把目前登入者加入為管理員。")]
         public async Task<IActionResult> CreateCareGroup([FromBody] CreateCareGroupRequest request)
         {
+            // 步驟 1：解析請求上下文 (例如：取得目前登入使用者 ID)
             var currentUserId = _currentUserService.UserId;
+            
+            // 步驟 2：將請求參數轉交給 Service 層 (大腦) 處理實質的商業邏輯
             var result = await _careGroupService.CreateAsync(currentUserId, request);
 
+            // 步驟 3：包裝為專案統一標準的 ApiResponse 並回傳對應的 HTTP 狀態碼
             var response = new ApiResponse<CareGroupResponse>(result, "照護群組建立成功", HttpContext.TraceIdentifier);
             return StatusCode(201, response);
         }

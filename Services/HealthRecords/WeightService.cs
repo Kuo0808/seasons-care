@@ -11,6 +11,8 @@ using SeasonsCare.Api.Repositories.HealthRecords;
 
 namespace SeasonsCare.Api.Services.HealthRecords
 {
+    // [架構導覽] 商業邏輯層 (Business Logic Layer) - Service
+    // 職責：負責執行體重紀錄的特定領域規則 (Domain Rules)、查核所屬群組權限、進行實體轉換。驗證後方能交由 Repository 存取。
     public class WeightService : IWeightService
     {
         private readonly IWeightRepository _repository;
@@ -56,8 +58,10 @@ namespace SeasonsCare.Api.Services.HealthRecords
 
         public async Task<WeightResponse> CreateRecordAsync(Guid currentUserId, Guid careGroupId, CreateWeightRequest request)
         {
+            // 步驟 1：執行前置邏輯校驗與權限審核
             await ValidateCareGroupAccessAsync(careGroupId, currentUserId);
 
+            // 步驟 2：將前端請求 DTO 封裝為標準資料庫實體 Entity
             var record = new WeightRecord
             {
                 CareGroupId = careGroupId,
@@ -67,7 +71,10 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 CreatedBy = currentUserId.ToString()
             };
 
+            // 步驟 3：透過 Repository 層保存 Entity，並藉由 Entity Framework 取得寫入後生成的完整資料 (如遞增 ID)
             var created = await _repository.AddAsync(record);
+            
+            // 步驟 4：進行資料映射 (Map to Response)，不對外曝露真實實體
             return MapToResponse(created);
         }
 

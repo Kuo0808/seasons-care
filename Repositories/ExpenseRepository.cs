@@ -8,6 +8,8 @@ using SeasonsCare.Api.Models.Entities;
 
 namespace SeasonsCare.Api.Repositories
 {
+    // [架構導覽] 資料存取層 (Data Access Layer) - Repository
+    // 職責：隔離對底層資料庫的直接依賴。封裝 O/RM (Entity Framework Core) 語法，與資料庫進行實際交涉。不應含有 if/else 的業務權限判斷。
     public class ExpenseRepository : IExpenseRepository
     {
         private readonly ApplicationDbContext _context;
@@ -44,6 +46,7 @@ namespace SeasonsCare.Api.Repositories
 
         public async Task AddAsync(ExpenseRecord expense)
         {
+            // 單純宣告向 EF Core 的追蹤器 (Tracker) 註冊這筆新增，但不馬上異動資料庫實體
             await _context.Expenses.AddAsync(expense);
         }
 
@@ -55,6 +58,7 @@ namespace SeasonsCare.Api.Repositories
 
         public async Task SaveChangesAsync()
         {
+            // 將上述所有追蹤到的變更 (工作單元)，一次性送交指令給資料庫
             await _context.SaveChangesAsync();
         }
     }

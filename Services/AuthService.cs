@@ -12,6 +12,8 @@ using SeasonsCare.Api.Repositories;
 
 namespace SeasonsCare.Api.Services
 {
+    // [架構導覽] 商業邏輯層 (Business Logic Layer) - Service
+    // 職責：系統的核心大腦。負責執行特定領域規則 (Domain Rules)、查核身分驗證、並跨越多個 Repository 進行系統級操作整合。
     public class AuthService : IAuthService
     {
         private readonly IUserRepository _userRepository;
@@ -27,8 +29,10 @@ namespace SeasonsCare.Api.Services
 
         public async Task<LoginResponse> RegisterAsync(RegisterRequest request)
         {
+            // 步驟 1：前置準備與資料正規化 (Email 小寫轉換避免重複註冊漏洞)
             var lowercaseEmail = request.Email.ToLowerInvariant();
 
+            // 步驟 2：核心領域規則驗證 (檢核 Email 是否已存在)
             if (await _userRepository.EmailExistsAsync(lowercaseEmail))
             {
                 throw new DomainException(
@@ -40,8 +44,10 @@ namespace SeasonsCare.Api.Services
 
             try
             {
+                // 步驟 3：機敏資料處理 (使用 BCrypt 進行密碼單向雜湊加密)
                 var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
+                // 步驟 4：封裝為標準資料庫實體 Entity
                 var user = new User
                 {
                     Email = lowercaseEmail,
@@ -51,9 +57,11 @@ namespace SeasonsCare.Api.Services
                     CreatedBy = "System"
                 };
 
+                // 步驟 5：透過單一工作單元 (Unit of Work) 宣告新增並將實體寫入資料庫
                 await _userRepository.AddAsync(user);
                 await _userRepository.SaveChangesAsync();
 
+                // 步驟 6：呼叫內部輔助方法核發 JWT Token，並封裝成 Response DTO 往外回傳
                 return await BuildLoginResponseAsync(user);
             }
             catch (DomainException)

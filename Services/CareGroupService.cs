@@ -11,6 +11,8 @@ using SeasonsCare.Api.Repositories;
 
 namespace SeasonsCare.Api.Services
 {
+    // [架構導覽] 商業邏輯層 (Business Logic Layer) - Service
+    // 職責：系統的核心大腦。負責執行特定領域規則 (Domain Rules)、跨實體操作、權限查核與資料映射。確保每次呼叫 Repository 都是合法且正確的狀態。
     public class CareGroupService : ICareGroupService
     {
         private readonly ICareGroupRepository _careGroupRepository;
@@ -22,6 +24,7 @@ namespace SeasonsCare.Api.Services
 
         public async Task<CareGroupResponse> CreateAsync(Guid currentUserId, CreateCareGroupRequest request)
         {
+            // 步驟 1：依據傳入的 DTO 初始化核心的領域實體 (Entity)，並設定基礎屬性 (自動產生邀請碼)
             var careGroup = new CareGroup
             {
                 Name = request.RecipientName,
@@ -32,8 +35,10 @@ namespace SeasonsCare.Api.Services
                 CreatedBy = currentUserId.ToString()
             };
 
+            // 步驟 2：利用單一工作單元 (Unit of Work) 宣告新增群組行為
             await _careGroupRepository.AddAsync(careGroup);
 
+            // 步驟 3：補充建立關聯實體 (將建立者本人預設為群組管理員)
             var member = new CareGroupMember
             {
                 CareGroupId = careGroup.Id,
@@ -43,8 +48,11 @@ namespace SeasonsCare.Api.Services
             };
 
             await _careGroupRepository.AddMemberAsync(member);
+            
+            // 步驟 4：統一觸發 SaveChanges，確保群組與管理員身分被綁在同一個交易任務 (Transaction) 中寫入資料庫
             await _careGroupRepository.SaveChangesAsync();
 
+            // 步驟 5：將結果封裝成 Response DTO 再往前端吐回，不對展示層曝露實際資料庫實體本身
             return new CareGroupResponse
             {
                 Id = careGroup.Id,

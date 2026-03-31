@@ -8,6 +8,8 @@ using SeasonsCare.Api.Models.Entities;
 
 namespace SeasonsCare.Api.Repositories
 {
+    // [架構導覽] 資料存取層 (Data Access Layer) - Repository
+    // 職責：隔離對底層資料庫的直接依賴。封裝 O/RM (Entity Framework Core) 語法，僅提供新增、查詢、修改與儲存等基礎操作。不應包含業務判斷邏輯。
     public class CareLogRepository : ICareLogRepository
     {
         private readonly ApplicationDbContext _context;
@@ -44,6 +46,7 @@ namespace SeasonsCare.Api.Repositories
 
         public async Task AddAsync(CareLog careLog)
         {
+            // 僅執行單向的 ORM 資料新增宣告，不主動 Commit 以確保多個動作可涵蓋於單一工作單元 (Unit of Work) 內
             await _context.CareLogs.AddAsync(careLog);
         }
 
@@ -55,6 +58,7 @@ namespace SeasonsCare.Api.Repositories
 
         public async Task SaveChangesAsync()
         {
+            // 真正將變更寫入實體關聯式資料庫 (PostgreSQL) 中
             await _context.SaveChangesAsync();
         }
     }

@@ -11,6 +11,8 @@ using SeasonsCare.Api.Repositories.HealthRecords;
 
 namespace SeasonsCare.Api.Services.HealthRecords
 {
+    // [架構導覽] 商業邏輯層 (Business Logic Layer) - Service
+    // 職責：系統的核心大腦。負責執行特定領域規則 (Domain Rules)、查核權限、進行資料映射與轉換。完成驗證後方能呼叫 Repository。
     public class BloodPressureService : IBloodPressureService
     {
         private readonly IBloodPressureRepository _repository;
@@ -56,8 +58,10 @@ namespace SeasonsCare.Api.Services.HealthRecords
 
         public async Task<BloodPressureResponse> CreateRecordAsync(Guid currentUserId, Guid careGroupId, CreateBloodPressureRequest request)
         {
+            // 步驟 1：執行前置邏輯校驗與權限審核
             await ValidateCareGroupAccessAsync(careGroupId, currentUserId);
 
+            // 步驟 2：將前端請求 DTO 封裝為標準資料庫實體 Entity
             var record = new BloodPressureRecord
             {
                 CareGroupId = careGroupId,
@@ -68,7 +72,10 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 CreatedBy = currentUserId.ToString()
             };
 
+            // 步驟 3：透過 Repository 層將 Entity 保存入庫，並取得剛寫入資料庫的完整實體
             var created = await _repository.AddAsync(record);
+            
+            // 步驟 4：將結果進行資料映射 (Map to Response)，不對外曝露真實 Entity
             return MapToResponse(created);
         }
 

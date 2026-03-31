@@ -13,6 +13,8 @@ namespace SeasonsCare.Api.Controllers
     [Authorize]
     [ApiController]
     [Route("api/care-groups/{careGroupId}/care-logs")]
+    // [架構導覽] 展示層 (Presentation Layer) - Controller
+    // 職責：負責路由定義 (Routing)、接收 HTTP 請求、驗證輸入資料 (透過 Filter)，並將請求轉派給 Service 層。Controller 本身不處理實質的商業規則。
     public class CareLogsController : ControllerBase
     {
         private readonly ICareLogService _careLogService;
@@ -66,8 +68,13 @@ namespace SeasonsCare.Api.Controllers
         [EndpointDescription("在指定照護群組底下建立新的照護日誌。前端需在 path 帶入 careGroupId，並在 request body 提供 title；content、logType、recordDate 可依需求填寫。")]
         public async Task<IActionResult> CreateLog(Guid careGroupId, [FromBody] CreateCareLogRequest request)
         {
+            // 步驟 1：解析請求上下文 (例如：取得目前登入使用者 ID)
             var currentUserId = _currentUserService.UserId;
+            
+            // 步驟 2：將資料完整交接至 Service 層 (大腦) 進行邏輯運算與執行
             var result = await _careLogService.CreateLogAsync(currentUserId, careGroupId, request);
+            
+            // 步驟 3：整合回傳結果，定義統一格式 (ApiResponse) 與對應的 HTTP 狀態碼
             var response = new ApiResponse<CareLogResponse>(result, "建立照護日誌成功", HttpContext.TraceIdentifier);
             return StatusCode(201, response);
         }

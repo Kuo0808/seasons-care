@@ -10,6 +10,8 @@ using SeasonsCare.Api.Services;
 
 namespace SeasonsCare.Api.Controllers
 {
+    // [架構導覽] 展示層 (Presentation Layer) - Controller
+    // 職責：負責路由定義 (Routing)、接收 HTTP 請求、驗證輸入資料 (透過 Filter) 並回傳統一格式結果。本身不處理實質的商業規則。
     [Authorize]
     [ApiController]
     [Route("api/care-groups/{careGroupId}/expenses")]
@@ -66,8 +68,11 @@ namespace SeasonsCare.Api.Controllers
         [EndpointDescription("在指定照護群組底下建立新的支出紀錄。前端需在 path 帶入 careGroupId，並在 request body 提供 title 與 amount；category、notes、expenseDate 可依需求填寫。")]
         public async Task<IActionResult> CreateExpense(Guid careGroupId, [FromBody] CreateExpenseRequest request)
         {
+            // 步驟 1：解析請求上下文 (取得目前登入使用者 ID)
             var currentUserId = _currentUserService.UserId;
+            // 步驟 2：將請求參數轉交給 Service 層 (大腦) 處理實質的商業邏輯
             var result = await _expenseService.CreateExpenseAsync(currentUserId, careGroupId, request);
+            // 步驟 3：包裝為專案統一標準的 ApiResponse 並回傳對應的 HTTP 狀態碼
             var response = new ApiResponse<ExpenseResponse>(result, "建立支出紀錄成功", HttpContext.TraceIdentifier);
             return StatusCode(201, response);
         }

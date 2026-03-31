@@ -11,6 +11,8 @@ using SeasonsCare.Api.Repositories.HealthRecords;
 
 namespace SeasonsCare.Api.Services.HealthRecords
 {
+    // [架構導覽] 商業邏輯層 (Business Logic Layer) - Service
+    // 職責：負責執行血氧紀錄的特定領域規則 (Domain Rules)、查核所屬群組權限、進行實體轉換。驗證後方能交由 Repository 存取。
     public class BloodOxygenService : IBloodOxygenService
     {
         private readonly IBloodOxygenRepository _repository;
@@ -56,10 +58,12 @@ namespace SeasonsCare.Api.Services.HealthRecords
 
         public async Task<BloodOxygenResponse> CreateRecordAsync(Guid currentUserId, Guid careGroupId, CreateBloodOxygenRequest request)
         {
+            // 步驟 1：執行前置邏輯校驗與權限審核
             await ValidateCareGroupAccessAsync(careGroupId, currentUserId);
 
             var now = GetUtcNowRoundedToMilliseconds();
 
+            // 步驟 2：將前端請求 DTO 封裝為標準資料庫實體 Entity
             var record = new BloodOxygenRecord
             {
                 CareGroupId = careGroupId,
@@ -71,7 +75,10 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 CreatedBy = currentUserId.ToString()
             };
 
+            // 步驟 3：透過 Repository 層保存 Entity
             var created = await _repository.AddAsync(record);
+            
+            // 步驟 4：進行資料映射 (Map to Response)
             return MapToResponse(created);
         }
 

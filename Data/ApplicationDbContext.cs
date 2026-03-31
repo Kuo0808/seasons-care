@@ -166,6 +166,8 @@ namespace SeasonsCare.Api.Data
             });
         }
 
+        // [架構導覽] 核心基礎設施 (Core Infrastructure) - 全域查詢過濾器 (Global Query Filter)
+        // 職責：作為最底層的防護網。在查詢任何受保護的領域實體前，Entity Framework 將自動附加此設定，實現系統級的多租戶隔離 (Multi-Tenant) 與軟刪除 (Soft Delete) 過濾。
         private void ApplyGlobalFilters<T>(ModelBuilder modelBuilder) where T : class
         {
             bool isSoftDelete = typeof(ISoftDeleteEntity).IsAssignableFrom(typeof(T));

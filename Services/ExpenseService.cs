@@ -9,6 +9,8 @@ using SeasonsCare.Api.Repositories;
 
 namespace SeasonsCare.Api.Services
 {
+    // [架構導覽] 商業邏輯層 (Business Logic Layer) - Service
+    // 職責：系統的核心大腦。負責執行特定領域規則 (Domain Rules)、查核權限、進行資料映射與轉換。完成驗證後方能呼叫 Repository。
     public class ExpenseService : IExpenseService
     {
         private readonly IExpenseRepository _expenseRepository;
@@ -59,10 +61,12 @@ namespace SeasonsCare.Api.Services
 
         public async Task<ExpenseResponse> CreateExpenseAsync(Guid currentUserId, Guid careGroupId, CreateExpenseRequest request)
         {
+            // 步驟 1：執行前置邏輯校驗與權限審核
             await CheckMembershipAsync(careGroupId, currentUserId);
 
             var now = GetUtcNowRoundedToMilliseconds();
 
+            // 步驟 2：將前端請求 DTO (Data Transfer Object) 封裝為標準資料庫實體 Entity
             var expense = new ExpenseRecord
             {
                 Title = request.Title,
@@ -76,9 +80,11 @@ namespace SeasonsCare.Api.Services
                 CreatedBy = currentUserId.ToString()
             };
 
+            // 步驟 3：透過 Repository 層將 Entity 保存入庫
             await _expenseRepository.AddAsync(expense);
             await _expenseRepository.SaveChangesAsync();
 
+            // 步驟 4：將結果進行資料映射 (Map to Response)，不把內部 Entity 直接曝露給前端
             return MapToResponse(expense);
         }
 
