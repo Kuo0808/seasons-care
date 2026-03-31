@@ -83,16 +83,16 @@ namespace SeasonsCare.Api.Services
 
         public async Task<CareGroupDetailResponse> GetByIdAsync(Guid currentUserId, Guid careGroupId)
         {
-            var isMember = await _careGroupRepository.IsMemberAsync(careGroupId, currentUserId);
-            if (!isMember)
-            {
-                throw new DomainException("您不是該照護群組的成員。", "FORBIDDEN_ACCESS", 403);
-            }
-
             var group = await _careGroupRepository.GetByIdAsync(careGroupId);
             if (group == null)
             {
-                throw new DomainException("找不到該照護群組。", "NOT_FOUND", 404);
+                throw new DomainException("Care group not found.", "NOT_FOUND", 404);
+            }
+
+            var isMember = await _careGroupRepository.IsMemberAsync(careGroupId, currentUserId);
+            if (!isMember)
+            {
+                throw new DomainException("You are not a member of this care group.", "FORBIDDEN_ACCESS", 403);
             }
 
             return new CareGroupDetailResponse
@@ -120,16 +120,16 @@ namespace SeasonsCare.Api.Services
 
         public async Task<CareGroupResponse> UpdateAsync(Guid currentUserId, Guid careGroupId, UpdateCareGroupRequest request)
         {
-            var isMember = await _careGroupRepository.IsMemberAsync(careGroupId, currentUserId);
-            if (!isMember)
-            {
-                throw new DomainException("您不是該照護群組的成員。", "FORBIDDEN_ACCESS", 403);
-            }
-
             var group = await _careGroupRepository.GetByIdAsync(careGroupId);
             if (group == null)
             {
-                throw new DomainException("找不到該照護群組。", "NOT_FOUND", 404);
+                throw new DomainException("Care group not found.", "NOT_FOUND", 404);
+            }
+
+            var isMember = await _careGroupRepository.IsMemberAsync(careGroupId, currentUserId);
+            if (!isMember)
+            {
+                throw new DomainException("You are not a member of this care group.", "FORBIDDEN_ACCESS", 403);
             }
 
             group.Name = request.Name;
@@ -159,24 +159,34 @@ namespace SeasonsCare.Api.Services
 
         public async Task JoinAsync(Guid currentUserId, Guid careGroupId, JoinCareGroupRequest request)
         {
-            var isMember = await _careGroupRepository.IsMemberAsync(careGroupId, currentUserId);
-            if (isMember)
-            {
-                throw new DomainException("您已經是該照護群組的成員了。", "CONFLICT", 409);
-            }
-
             var group = await _careGroupRepository.GetByIdAsync(careGroupId);
             if (group == null)
             {
-                throw new DomainException("找不到該照護群組。", "NOT_FOUND", 404);
+                throw new DomainException("Care group not found.", "NOT_FOUND", 404);
+            }
+
+            var existingMember = await _careGroupRepository.GetMemberIncludingDeletedAsync(careGroupId, currentUserId);
+            if (existingMember != null && existingMember.DeletedAt == null)
+            {
+                throw new DomainException("You are already a member of this care group.", "CONFLICT", 409);
             }
 
             if (!string.IsNullOrEmpty(group.InviteCode))
             {
                 if (string.IsNullOrEmpty(request.InviteCode) || !string.Equals(group.InviteCode, request.InviteCode, StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new DomainException("邀請碼不正確。", "UNAUTHORIZED_JOIN", 401);
+                    throw new DomainException("Invite code is invalid.", "UNAUTHORIZED_JOIN", 401);
                 }
+            }
+
+            if (existingMember != null)
+            {
+                existingMember.Role = CareGroupRole.Member;
+                existingMember.JoinedAt = DateTime.UtcNow;
+                existingMember.DeletedAt = null;
+                existingMember.UpdatedAt = DateTime.UtcNow;
+                await _careGroupRepository.SaveChangesAsync();
+                return;
             }
 
             var newMember = new CareGroupMember
@@ -196,27 +206,24 @@ namespace SeasonsCare.Api.Services
             var group = await _careGroupRepository.GetByIdAsync(careGroupId);
             if (group == null)
             {
-                throw new DomainException("找不到該照護群組。", "NOT_FOUND", 404);
+                throw new DomainException("Care group not found.", "NOT_FOUND", 404);
             }
 
             var currentUserMember = await _careGroupRepository.GetMemberAsync(careGroupId, currentUserId);
             if (currentUserMember == null)
             {
-                throw new DomainException("您不是該照護群組的成員。", "FORBIDDEN_ACCESS", 403);
+                throw new DomainException("You are not a member of this care group.", "FORBIDDEN_ACCESS", 403);
             }
 
-            if (currentUserId != memberUserId)
+            if (currentUserId != memberUserId && currentUserMember.Role != CareGroupRole.Admin)
             {
-                if (currentUserMember.Role != CareGroupRole.Admin)
-                {
-                    throw new DomainException("只有管理員可以移除其他成員。", "FORBIDDEN_ACCESS", 403);
-                }
+                throw new DomainException("Only admins can remove other members.", "FORBIDDEN_ACCESS", 403);
             }
 
             var memberToRemove = await _careGroupRepository.GetMemberAsync(careGroupId, memberUserId);
             if (memberToRemove == null)
             {
-                throw new DomainException("該成員不在群組內。", "NOT_FOUND", 404);
+                throw new DomainException("Member not found.", "NOT_FOUND", 404);
             }
 
             memberToRemove.DeletedAt = DateTime.UtcNow;

@@ -50,18 +50,64 @@ public class CareGroupServiceTests
     }
 
     [Fact]
-    public async Task JoinAsync_ThrowsConflict_WhenUserAlreadyJoined()
+    public async Task GetByIdAsync_ThrowsNotFound_WhenGroupDoesNotExist()
     {
-        var group = new CareGroup { Id = Guid.NewGuid(), Name = "Home Care", RecipientName = "Dad", RecipientGender = "Male", RecipientBirthDate = new DateOnly(1950, 1, 2), InviteCode = "JOIN1234" };
-        var repository = new FakeCareGroupRepository(group);
-        repository.IsMemberResult = true;
+        var repository = new FakeCareGroupRepository();
         var service = new CareGroupService(repository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
-            service.JoinAsync(Guid.NewGuid(), group.Id, new JoinCareGroupRequest { InviteCode = "JOIN1234" }));
+            service.GetByIdAsync(Guid.NewGuid(), Guid.NewGuid()));
+
+        Assert.Equal(404, exception.StatusCode);
+        Assert.Equal("NOT_FOUND", exception.ErrorCode);
+    }
+
+    [Fact]
+    public async Task JoinAsync_ThrowsConflict_WhenUserAlreadyJoined()
+    {
+        var userId = Guid.NewGuid();
+        var group = new CareGroup { Id = Guid.NewGuid(), Name = "Home Care", RecipientName = "Dad", RecipientGender = "Male", RecipientBirthDate = new DateOnly(1950, 1, 2), InviteCode = "JOIN1234" };
+        var activeMember = new CareGroupMember
+        {
+            CareGroupId = group.Id,
+            UserId = userId,
+            Role = CareGroupRole.Member
+        };
+
+        var repository = new FakeCareGroupRepository(group);
+        repository.MemberLookup[(group.Id, userId)] = activeMember;
+        var service = new CareGroupService(repository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.JoinAsync(userId, group.Id, new JoinCareGroupRequest { InviteCode = "JOIN1234" }));
 
         Assert.Equal(409, exception.StatusCode);
         Assert.Equal("CONFLICT", exception.ErrorCode);
+    }
+
+    [Fact]
+    public async Task JoinAsync_RestoresSoftDeletedMembership_WhenUserRejoins()
+    {
+        var userId = Guid.NewGuid();
+        var group = new CareGroup { Id = Guid.NewGuid(), Name = "Home Care", RecipientName = "Dad", RecipientGender = "Male", RecipientBirthDate = new DateOnly(1950, 1, 2), InviteCode = "JOIN1234" };
+        var deletedMember = new CareGroupMember
+        {
+            CareGroupId = group.Id,
+            UserId = userId,
+            Role = CareGroupRole.Member,
+            DeletedAt = DateTime.UtcNow.AddDays(-1)
+        };
+
+        var repository = new FakeCareGroupRepository(group);
+        repository.MemberLookup[(group.Id, userId)] = deletedMember;
+        var service = new CareGroupService(repository);
+
+        await service.JoinAsync(userId, group.Id, new JoinCareGroupRequest { InviteCode = "JOIN1234" });
+
+        Assert.Empty(repository.Members);
+        Assert.Null(deletedMember.DeletedAt);
+        Assert.NotNull(deletedMember.UpdatedAt);
+        Assert.Equal(CareGroupRole.Member, deletedMember.Role);
     }
 
     [Fact]
@@ -166,10 +212,20 @@ public class CareGroupServiceTests
 
         public Task<bool> IsMemberAsync(Guid careGroupId, Guid userId)
         {
-            return Task.FromResult(IsMemberResult || MemberLookup.ContainsKey((careGroupId, userId)));
+            return Task.FromResult(IsMemberResult || (MemberLookup.TryGetValue((careGroupId, userId), out var member) && member.DeletedAt == null));
         }
 
         public Task<CareGroupMember?> GetMemberAsync(Guid careGroupId, Guid userId)
+        {
+            MemberLookup.TryGetValue((careGroupId, userId), out var member);
+            if (member?.DeletedAt != null)
+            {
+                member = null;
+            }
+            return Task.FromResult(member);
+        }
+
+        public Task<CareGroupMember?> GetMemberIncludingDeletedAsync(Guid careGroupId, Guid userId)
         {
             MemberLookup.TryGetValue((careGroupId, userId), out var member);
             return Task.FromResult(member);

@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.DTOs.Expenses;
-using Microsoft.AspNetCore.Http;
 using SeasonsCare.Api.Services;
 
 namespace SeasonsCare.Api.Controllers
@@ -29,15 +29,15 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("取得支出紀錄列表")]
-        [EndpointDescription("取得指定照護群組下的支出紀錄列表，支援分頁參數。")]
+        [EndpointDescription("取得指定照護群組底下的支出紀錄列表。前端需在 path 帶入 careGroupId，通常來自照護群組列表或目前選取中的群組；可另外用 query string 傳入 page、pageSize、sort。")]
         public async Task<IActionResult> GetExpenses(Guid careGroupId, [FromQuery] PaginationRequest paginationRequest)
         {
             var currentUserId = _currentUserService.UserId;
             var pagedResult = await _expenseService.GetExpensesAsync(currentUserId, careGroupId, paginationRequest);
             var response = new ApiResponse<IEnumerable<ExpenseResponse>>(
-                pagedResult.Items, 
-                "取得支出紀錄列表成功", 
-                HttpContext.TraceIdentifier, 
+                pagedResult.Items,
+                "取得支出紀錄列表成功",
+                HttpContext.TraceIdentifier,
                 pagedResult.Pagination);
             return Ok(response);
         }
@@ -47,9 +47,8 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
-        [EndpointSummary("取得單筆支出紀錄")]
-        [EndpointDescription("依照支出 ID 取得單筆花費紀錄。")]
+        [EndpointSummary("依照 expenseId 取得單筆支出紀錄")]
+        [EndpointDescription("依照 path 參數 careGroupId 與 expenseId 取得單筆支出紀錄。前端通常會先呼叫支出列表 API，再把回傳資料中的 id 當作 expenseId 帶入；若該資料不屬於目前 careGroupId，會回傳 404。")]
         public async Task<IActionResult> GetExpenseById(Guid careGroupId, Guid expenseId)
         {
             var currentUserId = _currentUserService.UserId;
@@ -64,7 +63,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("建立支出紀錄")]
-        [EndpointDescription("在指定的照護群組內建立一筆新的支出花費紀錄。")]
+        [EndpointDescription("在指定照護群組底下建立新的支出紀錄。前端需在 path 帶入 careGroupId，並在 request body 提供 title 與 amount；category、notes、expenseDate 可依需求填寫。")]
         public async Task<IActionResult> CreateExpense(Guid careGroupId, [FromBody] CreateExpenseRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -81,7 +80,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("更新支出紀錄")]
-        [EndpointDescription("更新既有的支出紀錄內容。前端需帶入 updatedAt 作為樂觀鎖判定。")]
+        [EndpointDescription("更新指定的支出紀錄。前端需在 path 帶入 careGroupId 與 expenseId，並在 request body 提供要更新的欄位與 updatedAt；updatedAt 應來自先前查詢單筆或列表 API 回傳的資料，用於樂觀鎖檢查。")]
         public async Task<IActionResult> UpdateExpense(Guid careGroupId, Guid expenseId, [FromBody] UpdateExpenseRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -95,8 +94,9 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("刪除支出紀錄")]
-        [EndpointDescription("刪除指定的支出紀錄（Soft Delete）。")]
+        [EndpointDescription("刪除指定的支出紀錄。前端需在 path 帶入 careGroupId 與 expenseId；這兩個值通常來自支出列表或單筆查詢結果。此操作為 soft delete，不會物理刪除資料。")]
         public async Task<IActionResult> DeleteExpense(Guid careGroupId, Guid expenseId)
         {
             var currentUserId = _currentUserService.UserId;

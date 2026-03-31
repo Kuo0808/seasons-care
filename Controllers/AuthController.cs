@@ -1,10 +1,10 @@
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SeasonsCare.Api.DTOs.Auth;
 using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Services;
-using Microsoft.AspNetCore.Http;
 
 namespace SeasonsCare.Api.Controllers
 {
@@ -23,8 +23,8 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
-        [EndpointSummary("使用者註冊")]
-        [EndpointDescription("建立新使用者帳號，成功註冊後會自動登入並回傳 JWT Token 與使用者資訊。")]
+        [EndpointSummary("註冊新帳號")]
+        [EndpointDescription("建立新使用者帳號。前端需在 request body 提供 email 與 password；成功後會直接回傳 JWT token、使用者資訊，以及登入後可用的初始資料。")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             var result = await _authService.RegisterAsync(request);
@@ -38,13 +38,13 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [EndpointSummary("使用者登入")]
-        [EndpointDescription("透過 Email 與密碼進行登入，登入成功會回傳 JWT Token 與使用者基本資訊。")]
+        [EndpointDescription("使用既有帳號登入。前端需在 request body 提供 email 與 password；成功後會回傳 JWT token、使用者資訊，以及目前可存取的照護群組相關資料。")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
             {
                 throw new DomainException(
-                    "登入請求資料不完整",
+                    "登入請求缺少必要欄位。",
                     "INVALID_LOGIN_REQUEST",
                     400
                 );

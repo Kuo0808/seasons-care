@@ -1,13 +1,11 @@
 using System;
-using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SeasonsCare.Api.DTOs.CareGroups;
 using SeasonsCare.Api.DTOs.Common;
-using Microsoft.AspNetCore.Http;
 using SeasonsCare.Api.Services;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace SeasonsCare.Api.Controllers
 {
@@ -30,30 +28,29 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [EndpointSummary("建立照護群組")]
-        [EndpointDescription("建立一個新的照護群組，並將建立者設為管理員 (Admin)。將會自動生成邀請碼 (InviteCode)。")]
+        [EndpointDescription("建立新的照護群組。前端需在 request body 提供 recipientName，其他欄位如 recipientGender、recipientBirthDate 可選填；成功後會回傳新群組資料，並自動把目前登入者加入為管理員。")]
         public async Task<IActionResult> CreateCareGroup([FromBody] CreateCareGroupRequest request)
         {
             var currentUserId = _currentUserService.UserId;
             var result = await _careGroupService.CreateAsync(currentUserId, request);
-            
-            var response = new ApiResponse<CareGroupResponse>(result, "建立照護群組成功", HttpContext.TraceIdentifier);
-            // CreatedAtAction expects route values, here we just return StatusCode 201 with response
+
+            var response = new ApiResponse<CareGroupResponse>(result, "照護群組建立成功", HttpContext.TraceIdentifier);
             return StatusCode(201, response);
         }
 
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<System.Collections.Generic.IEnumerable<CareGroupResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [EndpointSummary("取得我的照護群組列表")]
-        [EndpointDescription("取得目前登入使用者所參與的所有照護群組列表，支援分頁參數。")]
+        [EndpointSummary("取得我可存取的照護群組列表")]
+        [EndpointDescription("取得目前登入使用者可存取的照護群組列表。前端可用 query string 傳入 page、pageSize、sort；回傳資料中的每筆 id 可作為後續取得單筆、更新群組或查詢群組底下資料的 careGroupId。")]
         public async Task<IActionResult> GetMyGroups([FromQuery] PaginationRequest paginationRequest)
         {
             var currentUserId = _currentUserService.UserId;
             var pagedResult = await _careGroupService.GetMyGroupsAsync(currentUserId, paginationRequest);
             var response = new ApiResponse<System.Collections.Generic.IEnumerable<CareGroupResponse>>(
-                pagedResult.Items, 
-                "取得照護群組列表成功", 
-                HttpContext.TraceIdentifier, 
+                pagedResult.Items,
+                "取得照護群組列表成功",
+                HttpContext.TraceIdentifier,
                 pagedResult.Pagination);
             return Ok(response);
         }
@@ -63,14 +60,13 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
-        [EndpointSummary("取得照護群組詳細資料")]
-        [EndpointDescription("根據 ID 取得特定的照護群組詳細內容及其所有成員列表。")]
+        [EndpointSummary("依照群組 ID 取得單一照護群組")]
+        [EndpointDescription("依照 path 參數 id 取得單一照護群組的詳細資料。前端通常會先呼叫照護群組列表 API，再把回傳資料中的 id 帶到這支 API；成功後會回傳群組基本資料與成員列表。")]
         public async Task<IActionResult> GetById(Guid id)
         {
             var currentUserId = _currentUserService.UserId;
             var group = await _careGroupService.GetByIdAsync(currentUserId, id);
-            var response = new ApiResponse<CareGroupDetailResponse>(group, "取得照護群組詳細資料成功", HttpContext.TraceIdentifier);
+            var response = new ApiResponse<CareGroupDetailResponse>(group, "取得照護群組成功", HttpContext.TraceIdentifier);
             return Ok(response);
         }
 
@@ -82,7 +78,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("更新照護群組")]
-        [EndpointDescription("更新特定的照護群組與被照護者資訊。")]
+        [EndpointDescription("更新指定照護群組的基本資料。前端需在 path 帶入 id，並在 request body 提供 name、recipientName 及其他可編輯欄位；id 通常來自照護群組列表或單筆群組查詢結果。")]
         public async Task<IActionResult> UpdateCareGroup(Guid id, [FromBody] UpdateCareGroupRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -98,7 +94,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("加入照護群組")]
-        [EndpointDescription("如果該群組有設定邀請碼，則可以透過輸入正確的邀請碼加入特定的照護群組。")]
+        [EndpointDescription("把目前登入使用者加入指定照護群組。前端需在 path 帶入群組 id，通常來自照護群組列表或邀請流程；若群組有邀請碼，則需在 request body 提供 inviteCode。")]
         public async Task<IActionResult> JoinCareGroup(Guid id, [FromBody] JoinCareGroupRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -112,13 +108,14 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [EndpointSummary("移除成員或退出群組")]
-        [EndpointDescription("如果是管理員，則可以移除其他成員；或成員本人可透過此 API 自行退出群組 (Soft Delete)。")]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [EndpointSummary("移除成員或自行退出群組")]
+        [EndpointDescription("移除指定群組中的某位成員，或由使用者自己退出群組。前端需在 path 帶入群組 id 與要移除的 userId；群組 id 通常來自照護群組資料，userId 可來自群組成員列表。")]
         public async Task<IActionResult> RemoveMember(Guid id, Guid userId)
         {
             var currentUserId = _currentUserService.UserId;
             await _careGroupService.RemoveMemberAsync(currentUserId, id, userId);
-            var response = new ApiResponse<object>(null, "移除成員或退出群組成功", HttpContext.TraceIdentifier);
+            var response = new ApiResponse<object>(null, "成員移除成功", HttpContext.TraceIdentifier);
             return Ok(response);
         }
     }

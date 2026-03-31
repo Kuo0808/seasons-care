@@ -225,6 +225,11 @@ public class ExpenseServiceTests
             return Task.FromResult<CareGroupMember?>(null);
         }
 
+        public Task<CareGroupMember?> GetMemberIncludingDeletedAsync(Guid careGroupId, Guid userId)
+        {
+            return Task.FromResult<CareGroupMember?>(null);
+        }
+
         public Task SaveChangesAsync()
         {
             return Task.CompletedTask;

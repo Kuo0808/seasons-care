@@ -31,9 +31,9 @@ namespace SeasonsCare.Api.Repositories
                 .Where(cg => cg.Members.Any(m => m.UserId == userId))
                 .Include(cg => cg.Members);
 
-            if (sort.Equals("createdAt_desc", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(sort, "createdAt_asc", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.OrderByDescending(g => g.CreatedAt);
+                query = query.OrderBy(g => g.CreatedAt);
             }
             else
             {
@@ -78,6 +78,13 @@ namespace SeasonsCare.Api.Repositories
         public async Task<CareGroupMember?> GetMemberAsync(Guid careGroupId, Guid userId)
         {
             return await _context.CareGroupMembers
+                .FirstOrDefaultAsync(m => m.CareGroupId == careGroupId && m.UserId == userId);
+        }
+
+        public async Task<CareGroupMember?> GetMemberIncludingDeletedAsync(Guid careGroupId, Guid userId)
+        {
+            return await _context.CareGroupMembers
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(m => m.CareGroupId == careGroupId && m.UserId == userId);
         }
 

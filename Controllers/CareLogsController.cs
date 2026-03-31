@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using SeasonsCare.Api.DTOs.Common;
-using SeasonsCare.Api.DTOs.CareLogs;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using SeasonsCare.Api.DTOs.CareLogs;
+using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Services;
 
 namespace SeasonsCare.Api.Controllers
@@ -29,15 +29,15 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("取得照護日誌列表")]
-        [EndpointDescription("取得指定照護群組下的紀錄列表，支援分頁參數。")]
+        [EndpointDescription("取得指定照護群組底下的照護日誌列表。前端需在 path 帶入 careGroupId，通常來自照護群組列表或目前選取中的群組；可另外用 query string 傳入 page、pageSize、sort。")]
         public async Task<IActionResult> GetLogs(Guid careGroupId, [FromQuery] PaginationRequest paginationRequest)
         {
             var currentUserId = _currentUserService.UserId;
             var pagedResult = await _careLogService.GetLogsAsync(currentUserId, careGroupId, paginationRequest);
             var response = new ApiResponse<IEnumerable<CareLogResponse>>(
-                pagedResult.Items, 
-                "取得照護日誌列表成功", 
-                HttpContext.TraceIdentifier, 
+                pagedResult.Items,
+                "取得照護日誌列表成功",
+                HttpContext.TraceIdentifier,
                 pagedResult.Pagination);
             return Ok(response);
         }
@@ -47,9 +47,8 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
-        [EndpointSummary("取得單筆照護日誌")]
-        [EndpointDescription("依照日誌 ID 取得單筆照護紀錄，若該紀錄不屬於目前 careGroupId，應會回傳 403 / 404。")]
+        [EndpointSummary("依照 logId 取得單筆照護日誌")]
+        [EndpointDescription("依照 path 參數 careGroupId 與 logId 取得單筆照護日誌。前端通常會先呼叫照護日誌列表 API，再把回傳資料中的 id 當作 logId 帶入；若該資料不屬於目前 careGroupId，會回傳 404。")]
         public async Task<IActionResult> GetLogById(Guid careGroupId, Guid logId)
         {
             var currentUserId = _currentUserService.UserId;
@@ -64,7 +63,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("建立照護日誌")]
-        [EndpointDescription("建立一筆新的照護日誌紀錄。")]
+        [EndpointDescription("在指定照護群組底下建立新的照護日誌。前端需在 path 帶入 careGroupId，並在 request body 提供 title；content、logType、recordDate 可依需求填寫。")]
         public async Task<IActionResult> CreateLog(Guid careGroupId, [FromBody] CreateCareLogRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -81,7 +80,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("更新照護日誌")]
-        [EndpointDescription("更新既有的照護日誌內容。前端必須帶入 updatedAt，後端會用於 optimistic concurrency 檢查。")]
+        [EndpointDescription("更新指定的照護日誌。前端需在 path 帶入 careGroupId 與 logId，並在 request body 提供要更新的欄位與 updatedAt；updatedAt 應來自先前查詢單筆或列表 API 回傳的資料，用於樂觀鎖檢查。")]
         public async Task<IActionResult> UpdateLog(Guid careGroupId, Guid logId, [FromBody] UpdateCareLogRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -95,8 +94,9 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("刪除照護日誌")]
-        [EndpointDescription("刪除指定照護日誌。此操作為 soft delete，資料仍保留於資料庫中。")]
+        [EndpointDescription("刪除指定的照護日誌。前端需在 path 帶入 careGroupId 與 logId；這兩個值通常來自照護日誌列表或單筆查詢結果。此操作為 soft delete，不會物理刪除資料。")]
         public async Task<IActionResult> DeleteLog(Guid careGroupId, Guid logId)
         {
             var currentUserId = _currentUserService.UserId;

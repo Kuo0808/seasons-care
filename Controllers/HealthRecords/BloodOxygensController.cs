@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -28,19 +27,18 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<BloodOxygenResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [EndpointSummary("取得血氧紀錄列表")]
-        [EndpointDescription("取得指定照護群組下的血氧紀錄列表，支援分頁參數。")]
+        [EndpointDescription("取得指定照護群組底下的血氧紀錄列表。前端需在 path 帶入 careGroupId，通常來自照護群組列表或目前選取中的群組；可另外用 query string 傳入 page、pageSize、sort。")]
         public async Task<IActionResult> GetRecords(Guid careGroupId, [FromQuery] PaginationRequest request)
         {
             var currentUserId = _currentUserService.UserId;
             var pagedResult = await _bloodOxygenService.GetRecordsAsync(currentUserId, careGroupId, request);
-            
+
             var response = new ApiResponse<IEnumerable<BloodOxygenResponse>>(
-                pagedResult.Items, 
-                "取得血氧紀錄列表成功", 
-                HttpContext.TraceIdentifier, 
+                pagedResult.Items,
+                "取得血氧紀錄列表成功",
+                HttpContext.TraceIdentifier,
                 pagedResult.Pagination);
             return Ok(response);
         }
@@ -49,8 +47,8 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         [ProducesResponseType(typeof(ApiResponse<BloodOxygenResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("取得單筆血氧紀錄")]
-        [EndpointDescription("依照 recordId 取得單筆血氧紀錄，若該紀錄不屬於目前 careGroupId，應回傳 404。")]
+        [EndpointSummary("依照 recordId 取得單筆血氧紀錄")]
+        [EndpointDescription("依照 path 參數 careGroupId 與 recordId 取得單筆血氧紀錄。前端通常會先呼叫血氧列表 API，再把回傳資料中的 id 當作 recordId 帶入；若該資料不屬於目前 careGroupId，會回傳 404。")]
         public async Task<IActionResult> GetRecordById(Guid careGroupId, Guid recordId)
         {
             var currentUserId = _currentUserService.UserId;
@@ -64,7 +62,7 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("建立血氧紀錄")]
-        [EndpointDescription("建立一筆新的血氧紀錄。")]
+        [EndpointDescription("在指定照護群組底下建立新的血氧紀錄。前端需在 path 帶入 careGroupId，並在 request body 提供 spO2；notes 與 recordDate 可依需求填寫。")]
         public async Task<IActionResult> CreateRecord(Guid careGroupId, [FromBody] CreateBloodOxygenRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -79,7 +77,7 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("更新血氧紀錄")]
-        [EndpointDescription("更新既有血氧紀錄。前端必須帶入 updatedAt，後端會用於 optimistic concurrency 檢查。")]
+        [EndpointDescription("更新指定的血氧紀錄。前端需在 path 帶入 careGroupId 與 recordId，並在 request body 提供要更新的欄位與 updatedAt；updatedAt 應來自先前查詢單筆或列表 API 回傳的資料，用於樂觀鎖檢查。")]
         public async Task<IActionResult> UpdateRecord(Guid careGroupId, Guid recordId, [FromBody] UpdateBloodOxygenRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -92,8 +90,9 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("刪除血氧紀錄")]
-        [EndpointDescription("刪除指定血氧紀錄。此操作為 soft delete，資料仍保留於資料庫中。")]
+        [EndpointDescription("刪除指定的血氧紀錄。前端需在 path 帶入 careGroupId 與 recordId；這兩個值通常來自血氧列表或單筆查詢結果。此操作為 soft delete，不會物理刪除資料。")]
         public async Task<IActionResult> DeleteRecord(Guid careGroupId, Guid recordId)
         {
             var currentUserId = _currentUserService.UserId;

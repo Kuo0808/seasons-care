@@ -43,6 +43,36 @@ public class CareGroupsTenantIsolationIntegrationTests
     }
 
     [Fact]
+    public async Task GetMyGroups_SortsAscending_WhenRequested()
+    {
+        using var factory = new RealApiFactory();
+        using var client = factory.Factory.CreateClient();
+
+        var currentUser = SeedDataHelper.CreateUser();
+        var olderGroup = SeedDataHelper.CreateCareGroup("Older Group");
+        olderGroup.CreatedAt = new DateTime(2026, 3, 20, 0, 0, 0, DateTimeKind.Utc);
+        var newerGroup = SeedDataHelper.CreateCareGroup("Newer Group");
+        newerGroup.CreatedAt = new DateTime(2026, 3, 21, 0, 0, 0, DateTimeKind.Utc);
+
+        await factory.SeedAsync(
+            currentUser,
+            olderGroup,
+            newerGroup,
+            SeedDataHelper.CreateMember(olderGroup.Id, currentUser.Id),
+            SeedDataHelper.CreateMember(newerGroup.Id, currentUser.Id));
+
+        var response = await client.GetAsync("/api/care-groups?sort=createdAt_asc");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var items = payload.RootElement.GetProperty("data").EnumerateArray().ToList();
+        Assert.Equal(2, items.Count);
+        Assert.Equal("Older Group", items[0].GetProperty("name").GetString());
+        Assert.Equal("Newer Group", items[1].GetProperty("name").GetString());
+    }
+
+    [Fact]
     public async Task CreateCareGroup_PersistsGroup_AndCreatorMembership()
     {
         using var factory = new RealApiFactory();
@@ -100,6 +130,40 @@ public class CareGroupsTenantIsolationIntegrationTests
 
         Assert.NotNull(membership);
         Assert.Equal(CareGroupRole.Member, membership!.Role);
+    }
+
+    [Fact]
+    public async Task JoinCareGroup_RestoresSoftDeletedMembership_WhenUserRejoins()
+    {
+        using var factory = new RealApiFactory();
+        using var client = factory.Factory.CreateClient();
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        careGroup.InviteCode = "JOIN1234";
+        var deletedMembership = SeedDataHelper.CreateMember(careGroup.Id, TestUsers.DefaultUserId, CareGroupRole.Member);
+        deletedMembership.DeletedAt = DateTime.UtcNow.AddDays(-1);
+
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            deletedMembership);
+
+        var response = await client.PostAsJsonAsync($"/api/care-groups/{careGroup.Id}/members", new
+        {
+            inviteCode = "JOIN1234"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = factory.Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var memberships = await dbContext.CareGroupMembers
+            .IgnoreQueryFilters()
+            .Where(x => x.CareGroupId == careGroup.Id && x.UserId == TestUsers.DefaultUserId)
+            .ToListAsync();
+
+        Assert.Single(memberships);
+        Assert.Null(memberships[0].DeletedAt);
     }
 
     [Fact]

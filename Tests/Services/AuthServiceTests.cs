@@ -320,6 +320,9 @@ public class AuthServiceTests
         public Task<CareGroupMember?> GetMemberAsync(Guid careGroupId, Guid userId)
             => Task.FromResult<CareGroupMember?>(null);
 
+        public Task<CareGroupMember?> GetMemberIncludingDeletedAsync(Guid careGroupId, Guid userId)
+            => Task.FromResult<CareGroupMember?>(null);
+
         public Task SaveChangesAsync() => Task.CompletedTask;
     }
 }

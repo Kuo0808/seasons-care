@@ -125,6 +125,7 @@ public class BloodPressureServiceTests
         public Task AddMemberAsync(CareGroupMember member) => Task.CompletedTask;
         public Task<bool> IsMemberAsync(Guid careGroupId, Guid userId) => Task.FromResult(_isMember);
         public Task<CareGroupMember?> GetMemberAsync(Guid careGroupId, Guid userId) => Task.FromResult<CareGroupMember?>(null);
+        public Task<CareGroupMember?> GetMemberIncludingDeletedAsync(Guid careGroupId, Guid userId) => Task.FromResult<CareGroupMember?>(null);
         public Task SaveChangesAsync() => Task.CompletedTask;
     }
 }
