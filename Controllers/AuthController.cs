@@ -4,6 +4,7 @@ using SeasonsCare.Api.DTOs.Auth;
 using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Services;
+using Microsoft.AspNetCore.Http;
 
 namespace SeasonsCare.Api.Controllers
 {
@@ -19,6 +20,11 @@ namespace SeasonsCare.Api.Controllers
         }
 
         [HttpPost("register")]
+        [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [EndpointSummary("使用者註冊")]
+        [EndpointDescription("建立新使用者帳號，成功註冊後會自動登入並回傳 JWT Token 與使用者資訊。")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             var result = await _authService.RegisterAsync(request);
@@ -28,6 +34,11 @@ namespace SeasonsCare.Api.Controllers
         }
 
         [HttpPost("login")]
+        [ProducesResponseType(typeof(ApiResponse<LoginResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [EndpointSummary("使用者登入")]
+        [EndpointDescription("透過 Email 與密碼進行登入，登入成功會回傳 JWT Token 與使用者基本資訊。")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))

@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace SeasonsCare.Api.Models.Entities
 {
@@ -18,6 +19,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         
+        [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }
         
         public string CreatedBy { get; set; } = string.Empty;

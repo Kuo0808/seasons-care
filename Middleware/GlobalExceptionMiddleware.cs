@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using SeasonsCare.Api.Exceptions;
 
 namespace SeasonsCare.Api.Middleware
@@ -56,6 +57,20 @@ namespace SeasonsCare.Api.Middleware
                     errorCode = domainEx.ErrorCode,
                     traceId = context.TraceIdentifier,
                     errors = domainEx.Errors
+                };
+            }
+            else if (exception is DbUpdateConcurrencyException)
+            {
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                response = new
+                {
+                    type = "https://api.seasons-care.com/errors/concurrency-conflict",
+                    title = GetTitleByStatusCode(StatusCodes.Status409Conflict),
+                    status = StatusCodes.Status409Conflict,
+                    detail = "資料已被其他人更新，請重新整理後再試。",
+                    errorCode = "CONCURRENCY_CONFLICT",
+                    traceId = context.TraceIdentifier,
+                    errors = (IDictionary<string, string[]>?)null
                 };
             }
 
