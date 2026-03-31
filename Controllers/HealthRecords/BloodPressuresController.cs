@@ -28,6 +28,7 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<BloodPressureResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [EndpointSummary("取得血壓紀錄列表")]
         [EndpointDescription("取得指定照護群組下的血壓紀錄列表，支援分頁參數。")]

@@ -47,6 +47,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("取得單筆支出紀錄")]
         [EndpointDescription("依照支出 ID 取得單筆花費紀錄。")]
         public async Task<IActionResult> GetExpenseById(Guid careGroupId, Guid expenseId)

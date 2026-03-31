@@ -28,6 +28,7 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<BloodSugarResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [EndpointSummary("取得血糖紀錄列表")]
         [EndpointDescription("取得指定照護群組下的血糖紀錄列表，支援分頁參數。")]

@@ -28,6 +28,7 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<TemperatureResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [EndpointSummary("取得體溫紀錄列表")]
         [EndpointDescription("取得指定照護群組下的體溫紀錄列表，支援分頁參數。")]

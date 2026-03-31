@@ -27,6 +27,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("更新個人資料")]
         [EndpointDescription("更新目前登入使用者的個人資料 (例如姓名、頭像)。常在註冊後的引導流程中使用。")]
         public async Task<IActionResult> UpdateMyProfile([FromBody] CompleteProfileRequest request)
@@ -44,6 +45,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("更新最後查看的照護群組")]
         [EndpointDescription("紀錄使用者最後一次登入時查看的照護群組 ID，方便下次登入直接跳轉預設群組。")]
         public async Task<IActionResult> UpdateLastViewedCareGroup([FromBody] UpdateLastViewedCareGroupRequest request)

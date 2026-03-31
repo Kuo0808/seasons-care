@@ -63,6 +63,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("取得照護群組詳細資料")]
         [EndpointDescription("根據 ID 取得特定的照護群組詳細內容及其所有成員列表。")]
         public async Task<IActionResult> GetById(Guid id)
@@ -79,6 +80,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("更新照護群組")]
         [EndpointDescription("更新特定的照護群組與被照護者資訊。")]
         public async Task<IActionResult> UpdateCareGroup(Guid id, [FromBody] UpdateCareGroupRequest request)

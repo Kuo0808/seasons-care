@@ -47,6 +47,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("取得單筆照護日誌")]
         [EndpointDescription("依照日誌 ID 取得單筆照護紀錄，若該紀錄不屬於目前 careGroupId，應會回傳 403 / 404。")]
         public async Task<IActionResult> GetLogById(Guid careGroupId, Guid logId)
