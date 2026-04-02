@@ -131,4 +131,36 @@ public static class SeedDataHelper
             CreatedBy = TestUsers.DefaultUserId.ToString()
         };
     }
+
+    public static TemperatureRecord CreateTemperature(Guid careGroupId, decimal value = 36.5m, DateTime? timestamp = null)
+    {
+        var now = timestamp ?? new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc);
+        return new TemperatureRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            Value = value,
+            Notes = "stable",
+            RecordDate = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CreatedBy = TestUsers.DefaultUserId.ToString()
+        };
+    }
+
+    public static WeightRecord CreateWeight(Guid careGroupId, decimal value = 60m, DateTime? timestamp = null)
+    {
+        var now = timestamp ?? new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc);
+        return new WeightRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            Value = value,
+            Notes = "stable",
+            RecordDate = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CreatedBy = TestUsers.DefaultUserId.ToString()
+        };
+    }
 }

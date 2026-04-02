@@ -121,6 +121,18 @@ public class RealApiFactory : IDisposable
             return entity as T;
         }
 
+        if (typeof(T) == typeof(TemperatureRecord))
+        {
+            var entity = await dbContext.Temperatures.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id);
+            return entity as T;
+        }
+
+        if (typeof(T) == typeof(WeightRecord))
+        {
+            var entity = await dbContext.Weights.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id);
+            return entity as T;
+        }
+
         return await dbContext.Set<T>().FindAsync(id);
     }
 
@@ -157,6 +169,20 @@ public class RealApiFactory : IDisposable
         using var scope = Factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         return await dbContext.BloodOxygens.IgnoreQueryFilters().OrderBy(x => x.RecordDate).ToListAsync();
+    }
+
+    public async Task<List<TemperatureRecord>> GetTemperaturesAsync()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await dbContext.Temperatures.IgnoreQueryFilters().OrderBy(x => x.RecordDate).ToListAsync();
+    }
+
+    public async Task<List<WeightRecord>> GetWeightsAsync()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await dbContext.Weights.IgnoreQueryFilters().OrderBy(x => x.RecordDate).ToListAsync();
     }
 
     public void Dispose()
