@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SeasonsCare.Api.Exceptions;
 
 namespace SeasonsCare.Api.Middleware
@@ -11,10 +12,12 @@ namespace SeasonsCare.Api.Middleware
     public class GlobalExceptionMiddleware
     {
         private readonly RequestDelegate _next;
+        private readonly ILogger<GlobalExceptionMiddleware> _logger;
 
-        public GlobalExceptionMiddleware(RequestDelegate next)
+        public GlobalExceptionMiddleware(RequestDelegate next, ILogger<GlobalExceptionMiddleware> logger)
         {
             _next = next;
+            _logger = logger;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -25,14 +28,22 @@ namespace SeasonsCare.Api.Middleware
             }
             catch (Exception ex)
             {
-                await HandleExceptionAsync(context, ex);
+                await HandleExceptionAsync(context, ex, _logger);
             }
         }
 
-        private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
+        private static async Task HandleExceptionAsync(HttpContext context, Exception exception, ILogger logger)
         {
             context.Response.ContentType = "application/problem+json";
             context.Response.StatusCode = 500;
+
+            logger.LogError(
+                exception,
+                "Unhandled exception. TraceId: {TraceId}, Method: {Method}, Path: {Path}, QueryString: {QueryString}",
+                context.TraceIdentifier,
+                context.Request.Method,
+                context.Request.Path,
+                context.Request.QueryString.Value);
 
             var response = new
             {
