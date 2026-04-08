@@ -120,6 +120,7 @@ namespace SeasonsCare.Api.Services
                     {
                         UserId = m.UserId,
                         Username = m.User.Username,
+                        AvatarKey = m.User.AvatarKey,
                         Role = m.Role,
                         JoinedAt = m.JoinedAt
                     }).ToList()

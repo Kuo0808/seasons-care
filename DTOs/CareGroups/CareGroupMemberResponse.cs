@@ -7,6 +7,7 @@ namespace SeasonsCare.Api.DTOs.CareGroups
     {
         public Guid UserId { get; set; }
         public string Username { get; set; } = string.Empty;
+        public string AvatarKey { get; set; } = string.Empty;
         public CareGroupRole Role { get; set; }
         public DateTime JoinedAt { get; set; }
     }
