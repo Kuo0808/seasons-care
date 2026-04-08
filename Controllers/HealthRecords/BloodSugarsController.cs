@@ -12,6 +12,10 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
 {
     // [架構導覽] 展示層 (Presentation Layer) - Controller
     // 職責：負責路由定義 (Routing)、接收 HTTP 請求、驗證輸入資料 (透過 Filter) 並回傳統一格式結果。本身不處理實質的商業規則。
+    /// <summary>
+    /// 血糖紀錄 API。
+    /// 管理各照護群組下的血糖測量資料。
+    /// </summary>
     [Authorize]
     [ApiController]
     [Route("api/care-groups/{careGroupId}/health-records/blood-sugars")]

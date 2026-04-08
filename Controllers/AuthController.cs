@@ -10,6 +10,10 @@ namespace SeasonsCare.Api.Controllers
 {
     // [架構導覽] 展示層 (Presentation Layer) - Controller
     // 職責：負責路由定義 (Routing)、接收 HTTP 請求、驗證輸入資料 (透過 Filter) 並回傳統一格式結果。本身不處理實質的商業規則。
+    /// <summary>
+    /// 使用者與身分驗證 API。
+    /// 處理使用者註冊、登入與 Auth 相關功能。
+    /// </summary>
     [ApiController]
     [Route("api/auth")]
     public class AuthController : ControllerBase

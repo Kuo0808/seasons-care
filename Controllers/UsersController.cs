@@ -8,6 +8,10 @@ using SeasonsCare.Api.Services;
 
 namespace SeasonsCare.Api.Controllers
 {
+    /// <summary>
+    /// 使用者個人資訊 API。
+    /// 管理目前登入使用者的個人檔案與偏好設定。
+    /// </summary>
     [Authorize]
     [ApiController]
     [Route("api/users")]

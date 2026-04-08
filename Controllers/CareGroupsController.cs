@@ -9,6 +9,10 @@ using SeasonsCare.Api.Services;
 
 namespace SeasonsCare.Api.Controllers
 {
+    /// <summary>
+    /// 照護群組 API。
+    /// 管理照護群組的建立、更新、以及成員加入機制。
+    /// </summary>
     [Authorize]
     [ApiController]
     [Route("api/care-groups")]
