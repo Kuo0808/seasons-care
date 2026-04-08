@@ -34,8 +34,10 @@ namespace SeasonsCare.Api.Repositories
             query = sort switch
             {
                 "createdAt_asc" => query.OrderBy(l => l.CreatedAt),
-                "recordDate_desc" => query.OrderByDescending(l => l.RecordDate),
-                "recordDate_asc" => query.OrderBy(l => l.RecordDate),
+                "startsAt_desc" => query.OrderByDescending(l => l.StartsAt),
+                "startsAt_asc" => query.OrderBy(l => l.StartsAt),
+                "recordDate_desc" => query.OrderByDescending(l => l.StartsAt),
+                "recordDate_asc" => query.OrderBy(l => l.StartsAt),
                 _ => query.OrderByDescending(l => l.CreatedAt) // default to createdAt_desc per rules
             };
 

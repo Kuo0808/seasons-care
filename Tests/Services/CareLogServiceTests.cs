@@ -1,5 +1,4 @@
 using SeasonsCare.Api.DTOs.CareLogs;
-using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Entities;
 using SeasonsCare.Api.Repositories;
@@ -27,27 +26,57 @@ public class CareLogServiceTests
     }
 
     [Fact]
-    public async Task CreateLogAsync_CreatesCareLog_WithInitialConcurrencyTimestamp()
+    public async Task CreateLogAsync_CreatesCareLog_WithFrontendFields()
     {
         var repository = new FakeCareLogRepository();
-        var groupRepository = new FakeCareGroupRepository(isMember: true);
-        var service = new CareLogService(repository, groupRepository);
         var userId = Guid.NewGuid();
         var careGroupId = Guid.NewGuid();
+        var memberUserId = Guid.NewGuid();
+        var groupRepository = new FakeCareGroupRepository(isMember: true, groupMembers: new[] { userId, memberUserId });
+        var service = new CareLogService(repository, groupRepository);
 
         var result = await service.CreateLogAsync(userId, careGroupId, new CreateCareLogRequest
         {
             Title = "Medication taken",
-            Content = "After breakfast",
-            LogType = "Medical"
+            Description = "After breakfast",
+            StartsAt = new DateTime(2026, 3, 20, 1, 0, 0, DateTimeKind.Utc),
+            RepeatPattern = "daily",
+            Participants = new List<string> { userId.ToString(), memberUserId.ToString() },
+            Status = "scheduled",
+            IsImportant = true
         });
 
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal(careGroupId, result.CareGroupId);
         Assert.Equal(userId.ToString(), result.CreatedBy);
+        Assert.Equal("After breakfast", result.Description);
+        Assert.Equal("daily", result.RepeatPattern);
+        Assert.Equal(new[] { userId.ToString(), memberUserId.ToString() }, result.Participants);
+        Assert.Equal("scheduled", result.Status);
+        Assert.True(result.IsImportant);
         Assert.NotNull(result.UpdatedAt);
         Assert.Equal(result.CreatedAt, result.UpdatedAt);
         Assert.Single(repository.Logs);
+    }
+
+    [Fact]
+    public async Task CreateLogAsync_ThrowsBadRequest_WhenParticipantIsNotGroupMember()
+    {
+        var repository = new FakeCareLogRepository();
+        var userId = Guid.NewGuid();
+        var careGroupId = Guid.NewGuid();
+        var groupRepository = new FakeCareGroupRepository(isMember: true, groupMembers: new[] { userId });
+        var service = new CareLogService(repository, groupRepository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CreateLogAsync(userId, careGroupId, new CreateCareLogRequest
+            {
+                Title = "Medication taken",
+                Participants = new List<string> { Guid.NewGuid().ToString() }
+            }));
+
+        Assert.Equal(400, exception.StatusCode);
+        Assert.Equal("VALIDATION_FAILED", exception.ErrorCode);
     }
 
     [Fact]
@@ -62,7 +91,7 @@ public class CareLogServiceTests
         };
 
         var repository = new FakeCareLogRepository(existing);
-        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var groupRepository = new FakeCareGroupRepository(isMember: true, groupMembers: new[] { Guid.NewGuid() });
         var service = new CareLogService(repository, groupRepository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
@@ -87,7 +116,7 @@ public class CareLogServiceTests
         };
 
         var repository = new FakeCareLogRepository(existing);
-        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var groupRepository = new FakeCareGroupRepository(isMember: true, groupMembers: new[] { Guid.NewGuid() });
         var service = new CareLogService(repository, groupRepository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
@@ -105,33 +134,41 @@ public class CareLogServiceTests
     public async Task UpdateLogAsync_UpdatesCareLog_WhenUpdatedAtMatches()
     {
         var existingUpdatedAt = new DateTime(2026, 3, 20, 2, 0, 0, 123, DateTimeKind.Utc);
+        var memberUserId = Guid.NewGuid();
         var existing = new CareLog
         {
             Id = Guid.NewGuid(),
             CareGroupId = Guid.NewGuid(),
             Title = "Initial title",
-            Content = "Old content",
-            LogType = "Daily",
-            RecordDate = new DateTime(2026, 3, 20, 1, 0, 0, DateTimeKind.Utc),
+            Description = "Old description",
+            Status = "scheduled",
+            StartsAt = new DateTime(2026, 3, 20, 1, 0, 0, DateTimeKind.Utc),
+            Participants = new[] { memberUserId.ToString() },
             UpdatedAt = existingUpdatedAt
         };
 
         var repository = new FakeCareLogRepository(existing);
-        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var groupRepository = new FakeCareGroupRepository(isMember: true, groupMembers: new[] { memberUserId });
         var service = new CareLogService(repository, groupRepository);
 
         var result = await service.UpdateLogAsync(Guid.NewGuid(), existing.CareGroupId, existing.Id, new UpdateCareLogRequest
         {
             Title = "Changed title",
-            Content = "New content",
-            LogType = "Medical",
-            RecordDate = existing.RecordDate.AddHours(1),
+            Description = "New description",
+            Status = "done",
+            StartsAt = existing.StartsAt.AddHours(1),
+            RepeatPattern = "weekly",
+            Participants = new List<string> { memberUserId.ToString() },
+            IsImportant = true,
             UpdatedAt = existingUpdatedAt
         });
 
         Assert.Equal("Changed title", result.Title);
-        Assert.Equal("New content", result.Content);
-        Assert.Equal("Medical", result.LogType);
+        Assert.Equal("New description", result.Description);
+        Assert.Equal("done", result.Status);
+        Assert.Equal("weekly", result.RepeatPattern);
+        Assert.Equal(new[] { memberUserId.ToString() }, result.Participants);
+        Assert.True(result.IsImportant);
         Assert.NotNull(result.UpdatedAt);
         Assert.NotEqual(existingUpdatedAt, result.UpdatedAt.Value);
     }
@@ -176,15 +213,29 @@ public class CareLogServiceTests
     private sealed class FakeCareGroupRepository : ICareGroupRepository
     {
         private readonly bool _isMember;
+        private readonly Guid[] _groupMembers;
 
-        public FakeCareGroupRepository(bool isMember)
+        public FakeCareGroupRepository(bool isMember, Guid[]? groupMembers = null)
         {
             _isMember = isMember;
+            _groupMembers = groupMembers ?? Array.Empty<Guid>();
         }
 
         public Task<CareGroup?> GetByIdAsync(Guid id)
         {
-            return Task.FromResult<CareGroup?>(null);
+            return Task.FromResult<CareGroup?>(new CareGroup
+            {
+                Id = id,
+                Name = "Test Group",
+                RecipientName = "Recipient",
+                InviteCode = "TEST1234",
+                Members = _groupMembers.Select(userId => new CareGroupMember
+                {
+                    Id = Guid.NewGuid(),
+                    CareGroupId = id,
+                    UserId = userId
+                }).ToList()
+            });
         }
 
         public Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort)

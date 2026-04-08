@@ -85,7 +85,12 @@ namespace SeasonsCare.Api.Data
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.Content).HasColumnType("text");
+                entity.Property(e => e.Description).HasColumnType("text").HasColumnName("content");
+                entity.Property(e => e.StartsAt).HasColumnName("record_date");
+                entity.Property(e => e.Status).HasMaxLength(50).HasColumnName("log_type");
+                entity.Property(e => e.RepeatPattern).HasMaxLength(50);
+                entity.Property(e => e.Participants).HasColumnType("text[]");
+                entity.Property(e => e.IsImportant).HasDefaultValue(false);
                 
                 entity.HasOne(e => e.CareGroup)
                       .WithMany()

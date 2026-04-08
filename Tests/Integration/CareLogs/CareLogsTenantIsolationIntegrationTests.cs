@@ -66,7 +66,7 @@ public class CareLogsTenantIsolationIntegrationTests
     {
         using var factory = new RealApiFactory();
         using var client = factory.Factory.CreateClient();
-        var recordDate = DateTime.UtcNow.AddMinutes(-1);
+        var startsAt = DateTime.UtcNow.AddMinutes(-1);
 
         var careGroup = SeedDataHelper.CreateCareGroup("Group A");
         await factory.SeedAsync(
@@ -77,9 +77,12 @@ public class CareLogsTenantIsolationIntegrationTests
         var response = await client.PostAsJsonAsync($"/api/care-groups/{careGroup.Id}/care-logs", new
         {
             title = "Created from API",
-            content = "content",
-            logType = "Daily",
-            recordDate
+            description = "description",
+            startsAt,
+            repeatPattern = "daily",
+            participants = new[] { TestUsers.DefaultUserId.ToString() },
+            status = "scheduled",
+            isImportant = true
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -92,6 +95,10 @@ public class CareLogsTenantIsolationIntegrationTests
         Assert.NotNull(saved);
         Assert.Equal(careGroup.Id, saved!.CareGroupId);
         Assert.Equal("Created from API", saved.Title);
+        Assert.Equal("description", saved.Description);
+        Assert.Equal("daily", saved.RepeatPattern);
+        Assert.Equal("scheduled", saved.Status);
+        Assert.True(saved.IsImportant);
         Assert.NotNull(saved.UpdatedAt);
     }
 
@@ -100,7 +107,7 @@ public class CareLogsTenantIsolationIntegrationTests
     {
         using var factory = new RealApiFactory();
         using var client = factory.Factory.CreateClient();
-        var updatedRecordDate = DateTime.UtcNow.AddMinutes(-1);
+        var updatedStartsAt = DateTime.UtcNow.AddMinutes(-1);
 
         var careGroup = SeedDataHelper.CreateCareGroup("Group A");
         var existingLog = SeedDataHelper.CreateCareLog(careGroup.Id, "Before Update");
@@ -114,9 +121,12 @@ public class CareLogsTenantIsolationIntegrationTests
         var response = await client.PutAsJsonAsync($"/api/care-groups/{careGroup.Id}/care-logs/{existingLog.Id}", new
         {
             title = "After Update",
-            content = "updated content",
-            logType = "Medical",
-            recordDate = updatedRecordDate,
+            description = "updated description",
+            startsAt = updatedStartsAt,
+            repeatPattern = "weekly",
+            participants = new[] { TestUsers.DefaultUserId.ToString() },
+            status = "done",
+            isImportant = true,
             updatedAt = persistedLog!.UpdatedAt!.Value
         });
 
@@ -125,9 +135,11 @@ public class CareLogsTenantIsolationIntegrationTests
         var saved = await factory.FindAsync<CareLog>(existingLog.Id);
         Assert.NotNull(saved);
         Assert.Equal("After Update", saved!.Title);
-        Assert.Equal("updated content", saved.Content);
-        Assert.Equal("Medical", saved.LogType);
-        Assert.Equal(updatedRecordDate, saved.RecordDate);
+        Assert.Equal("updated description", saved.Description);
+        Assert.Equal("weekly", saved.RepeatPattern);
+        Assert.Equal("done", saved.Status);
+        Assert.Equal(updatedStartsAt, saved.StartsAt);
+        Assert.True(saved.IsImportant);
         Assert.True(saved.UpdatedAt > persistedLog.UpdatedAt);
     }
 

@@ -30,4 +30,18 @@ public class CareLogRequestValidatorTests
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, x => x.PropertyName == nameof(UpdateCareLogRequest.UpdatedAt));
     }
+
+    [Fact]
+    public void CreateValidator_ReturnsError_WhenParticipantsContainsEmptyValue()
+    {
+        var validator = new CreateCareLogRequestValidator();
+        var result = validator.Validate(new CreateCareLogRequest
+        {
+            Title = "Daily note",
+            Participants = new List<string> { "mom", string.Empty }
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, x => x.PropertyName == "Participants[1]");
+    }
 }

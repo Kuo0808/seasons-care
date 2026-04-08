@@ -12,11 +12,19 @@ namespace SeasonsCare.Api.Models.Entities
         [MaxLength(100)]
         public string Title { get; set; } = string.Empty;
 
-        public string? Content { get; set; }
+        public string? Description { get; set; }
 
-        public string? LogType { get; set; } // e.g., "Daily", "Medical", "Emergency", "Other"
+        public DateTime StartsAt { get; set; } = DateTime.UtcNow;
 
-        public DateTime RecordDate { get; set; } = DateTime.UtcNow;
+        [MaxLength(50)]
+        public string? RepeatPattern { get; set; }
+
+        public string[] Participants { get; set; } = Array.Empty<string>();
+
+        [MaxLength(50)]
+        public string? Status { get; set; }
+
+        public bool IsImportant { get; set; }
 
         [Required]
         public Guid CareGroupId { get; set; }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SeasonsCare.Api.DTOs.CareLogs;
@@ -9,8 +10,6 @@ using SeasonsCare.Api.Repositories;
 
 namespace SeasonsCare.Api.Services
 {
-    // [架構導覽] 商業邏輯層 (Business Logic Layer) - Service
-    // 職責：系統的核心大腦。負責執行領域邏輯規範 (Domain Rules)、查核權限、進行資料映射與轉換。完成驗證後方能呼叫 Repository。
     public class CareLogService : ICareLogService
     {
         private readonly ICareLogRepository _careLogRepository;
@@ -27,8 +26,46 @@ namespace SeasonsCare.Api.Services
             var isMember = await _careGroupRepository.IsMemberAsync(careGroupId, userId);
             if (!isMember)
             {
-                throw new DomainException("無權存取此 Care Group 的資料", "FORBIDDEN", 403);
+                throw new DomainException("You are not a member of this care group.", "FORBIDDEN", 403);
             }
+        }
+
+        private async Task<string[]> ValidateParticipantsAsync(Guid careGroupId, IEnumerable<string>? participants)
+        {
+            var participantValues = participants?
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray()
+                ?? Array.Empty<string>();
+
+            if (participantValues.Length == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            if (participantValues.Any(x => !Guid.TryParse(x, out _)))
+            {
+                throw new DomainException("participants must contain care group member userIds.", "VALIDATION_FAILED", 400);
+            }
+
+            var group = await _careGroupRepository.GetByIdAsync(careGroupId);
+            if (group == null)
+            {
+                throw new DomainException("Care log not found.", "NOT_FOUND", 404);
+            }
+
+            var memberUserIds = group.Members
+                .Where(m => m.DeletedAt == null)
+                .Select(m => m.UserId.ToString())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (participantValues.Any(x => !memberUserIds.Contains(x)))
+            {
+                throw new DomainException("participants can only include userIds of members in this care group.", "VALIDATION_FAILED", 400);
+            }
+
+            return participantValues;
         }
 
         public async Task<PagedResponse<CareLogResponse>> GetLogsAsync(Guid currentUserId, Guid careGroupId, PaginationRequest pagination)
@@ -36,9 +73,9 @@ namespace SeasonsCare.Api.Services
             await CheckMembershipAsync(careGroupId, currentUserId);
 
             var (data, totalCount) = await _careLogRepository.GetPagedByCareGroupIdAsync(
-                careGroupId, 
-                pagination.Page, 
-                pagination.PageSize, 
+                careGroupId,
+                pagination.Page,
+                pagination.PageSize,
                 pagination.Sort);
 
             var items = data.Select(MapToResponse).ToList();
@@ -53,7 +90,7 @@ namespace SeasonsCare.Api.Services
             var log = await _careLogRepository.GetByIdAsync(logId);
             if (log == null || log.CareGroupId != careGroupId)
             {
-                throw new DomainException("找不到此照護日誌", "NOT_FOUND", 404);
+                throw new DomainException("Care log not found.", "NOT_FOUND", 404);
             }
 
             return MapToResponse(log);
@@ -61,29 +98,29 @@ namespace SeasonsCare.Api.Services
 
         public async Task<CareLogResponse> CreateLogAsync(Guid currentUserId, Guid careGroupId, CreateCareLogRequest request)
         {
-            // 步驟 1：執行前置邏輯校驗與權限審核
             await CheckMembershipAsync(careGroupId, currentUserId);
 
             var now = GetUtcNowRoundedToMilliseconds();
+            var validatedParticipants = await ValidateParticipantsAsync(careGroupId, request.Participants);
 
-            // 步驟 2：將前端請求 DTO (Data Transfer Object) 封裝為標準資料庫實體 Entity
             var log = new CareLog
             {
                 Title = request.Title,
-                Content = request.Content,
-                LogType = request.LogType,
-                RecordDate = request.RecordDate ?? now,
+                Description = request.Description,
+                StartsAt = request.StartsAt ?? now,
+                RepeatPattern = request.RepeatPattern,
+                Participants = validatedParticipants,
+                Status = request.Status,
+                IsImportant = request.IsImportant,
                 CareGroupId = careGroupId,
                 CreatedAt = now,
                 UpdatedAt = now,
                 CreatedBy = currentUserId.ToString()
             };
 
-            // 步驟 3：透過 Repository 層將 Entity 保存入庫
             await _careLogRepository.AddAsync(log);
             await _careLogRepository.SaveChangesAsync();
 
-            // 步驟 4：將結果進行資料映射 (Map to Response)，不把內部 Entity 直接曝露給前端
             return MapToResponse(log);
         }
 
@@ -94,27 +131,32 @@ namespace SeasonsCare.Api.Services
             var log = await _careLogRepository.GetByIdAsync(logId);
             if (log == null || log.CareGroupId != careGroupId)
             {
-                throw new DomainException("找不到此照護日誌", "NOT_FOUND", 404);
+                throw new DomainException("Care log not found.", "NOT_FOUND", 404);
             }
 
             if (!request.UpdatedAt.HasValue || !log.UpdatedAt.HasValue)
             {
-                throw new DomainException("缺少併發控制資訊，請重新整理後再試", "CONCURRENCY_CONFLICT", 409);
+                throw new DomainException("Missing updatedAt for concurrency check.", "CONCURRENCY_CONFLICT", 409);
             }
 
             if (NormalizeTimestamp(request.UpdatedAt.Value) != NormalizeTimestamp(log.UpdatedAt.Value))
             {
-                throw new DomainException("資料已被修改，請重新整理後再試", "CONCURRENCY_CONFLICT", 409);
+                throw new DomainException("Care log has been modified by another request.", "CONCURRENCY_CONFLICT", 409);
             }
 
+            var validatedParticipants = await ValidateParticipantsAsync(careGroupId, request.Participants);
+
             log.Title = request.Title;
-            log.Content = request.Content;
-            log.LogType = request.LogType;
-            if (request.RecordDate.HasValue)
+            log.Description = request.Description;
+            log.RepeatPattern = request.RepeatPattern;
+            log.Participants = validatedParticipants;
+            log.Status = request.Status;
+            log.IsImportant = request.IsImportant;
+            if (request.StartsAt.HasValue)
             {
-                log.RecordDate = request.RecordDate.Value;
+                log.StartsAt = request.StartsAt.Value;
             }
-            
+
             log.UpdatedAt = GetUtcNowRoundedToMilliseconds();
 
             await _careLogRepository.UpdateAsync(log);
@@ -130,11 +172,11 @@ namespace SeasonsCare.Api.Services
             var log = await _careLogRepository.GetByIdAsync(logId);
             if (log == null || log.CareGroupId != careGroupId)
             {
-                throw new DomainException("找不到此照護日誌", "NOT_FOUND", 404);
+                throw new DomainException("Care log not found.", "NOT_FOUND", 404);
             }
 
             var now = GetUtcNowRoundedToMilliseconds();
-            log.DeletedAt = now; // Soft delete
+            log.DeletedAt = now;
             log.UpdatedAt = now;
 
             await _careLogRepository.UpdateAsync(log);
@@ -147,9 +189,12 @@ namespace SeasonsCare.Api.Services
             {
                 Id = log.Id,
                 Title = log.Title,
-                Content = log.Content,
-                LogType = log.LogType,
-                RecordDate = log.RecordDate,
+                Description = log.Description,
+                StartsAt = log.StartsAt,
+                RepeatPattern = log.RepeatPattern,
+                Participants = log.Participants.ToList(),
+                Status = log.Status,
+                IsImportant = log.IsImportant,
                 CareGroupId = log.CareGroupId,
                 CreatedAt = log.CreatedAt,
                 UpdatedAt = log.UpdatedAt,

@@ -19,7 +19,7 @@ public class CareLogsControllerIntegrationTests
         var response = await client.PostAsJsonAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/care-logs", new
         {
             title = "",
-            content = "note"
+            description = "note"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -114,7 +114,13 @@ public class CareLogsControllerIntegrationTests
             {
                 Id = Guid.NewGuid(),
                 CareGroupId = careGroupId,
-                Title = request.Title
+                Title = request.Title,
+                Description = request.Description,
+                StartsAt = request.StartsAt ?? DateTime.UtcNow,
+                RepeatPattern = request.RepeatPattern,
+                Participants = request.Participants ?? new List<string>(),
+                Status = request.Status,
+                IsImportant = request.IsImportant
             });
         }
 
@@ -130,6 +136,12 @@ public class CareLogsControllerIntegrationTests
                 Id = logId,
                 CareGroupId = careGroupId,
                 Title = request.Title,
+                Description = request.Description,
+                StartsAt = request.StartsAt ?? DateTime.UtcNow,
+                RepeatPattern = request.RepeatPattern,
+                Participants = request.Participants ?? new List<string>(),
+                Status = request.Status,
+                IsImportant = request.IsImportant,
                 UpdatedAt = request.UpdatedAt
             });
         }
