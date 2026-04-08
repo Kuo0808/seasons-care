@@ -200,7 +200,7 @@ namespace SeasonsCare.Api.Services
                 issuer: jwtSettings["Issuer"],
                 audience: jwtSettings["Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(2),
+                expires: DateTime.UtcNow.AddMonths(3),
                 signingCredentials: creds
             );
 
