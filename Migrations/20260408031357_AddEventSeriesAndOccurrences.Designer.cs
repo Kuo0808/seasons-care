@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SeasonsCare.Api.Data;
@@ -11,9 +12,11 @@ using SeasonsCare.Api.Data;
 namespace SeasonsCare.Api.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260408031357_AddEventSeriesAndOccurrences")]
+    partial class AddEventSeriesAndOccurrences
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -284,9 +287,8 @@ namespace SeasonsCare.Api.Migrations
                     b.HasIndex("CareGroupId")
                         .HasDatabaseName("ix_event_occurrences_care_group_id");
 
-                    b.HasIndex("EventSeriesId", "ScheduledStartAt")
-                        .IsUnique()
-                        .HasDatabaseName("ix_event_occurrences_event_series_id_scheduled_start_at");
+                    b.HasIndex("EventSeriesId")
+                        .HasDatabaseName("ix_event_occurrences_event_series_id");
 
                     b.ToTable("event_occurrences", (string)null);
                 });
@@ -421,10 +423,6 @@ namespace SeasonsCare.Api.Migrations
                     b.Property<DateTime>("ExpenseDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expense_date");
-
-                    b.Property<bool>("IsSplitRequired")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_split_required");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")

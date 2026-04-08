@@ -10,6 +10,7 @@ namespace SeasonsCare.Api.DTOs.Expenses
         public string? Category { get; set; }
         public string? Notes { get; set; }
         public DateTime ExpenseDate { get; set; }
+        public bool IsSplitRequired { get; set; }
         
         public Guid CareGroupId { get; set; }
         public DateTime CreatedAt { get; set; }

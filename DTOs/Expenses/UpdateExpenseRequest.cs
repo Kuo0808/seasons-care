@@ -9,6 +9,7 @@ namespace SeasonsCare.Api.DTOs.Expenses
         public string? Category { get; set; }
         public string? Notes { get; set; }
         public DateTime? ExpenseDate { get; set; }
+        public bool IsSplitRequired { get; set; }
         
         // 用於樂觀鎖比對
         public DateTime? UpdatedAt { get; set; }

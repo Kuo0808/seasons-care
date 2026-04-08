@@ -24,6 +24,9 @@ namespace SeasonsCare.Api.Models.Entities
         public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
 
         [Required]
+        public bool IsSplitRequired { get; set; } = false;
+
+        [Required]
         public Guid CareGroupId { get; set; }
 
         [ForeignKey("CareGroupId")]

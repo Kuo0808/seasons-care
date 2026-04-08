@@ -112,6 +112,8 @@ builder.Services.AddScoped<DbContext>(provider => provider.GetRequiredService<Ap
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICareGroupRepository, CareGroupRepository>();
 builder.Services.AddScoped<ICareLogRepository, CareLogRepository>();
+builder.Services.AddScoped<IEventSeriesRepository, EventSeriesRepository>();
+builder.Services.AddScoped<IEventOccurrenceRepository, EventOccurrenceRepository>();
 builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
 
 // [架構導覽] 階段四：依賴注入 - 商業邏輯層 (Business Logic Layer)
@@ -121,6 +123,8 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICareGroupService, CareGroupService>();
 builder.Services.AddScoped<ICareLogService, CareLogService>();
+builder.Services.AddScoped<IEventSeriesService, EventSeriesService>();
+builder.Services.AddScoped<IEventOccurrenceService, EventOccurrenceService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddHealthRecordsModule();
 

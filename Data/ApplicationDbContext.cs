@@ -16,6 +16,8 @@ namespace SeasonsCare.Api.Data
         public DbSet<CareGroup> CareGroups { get; set; }
         public DbSet<CareGroupMember> CareGroupMembers { get; set; }
         public DbSet<CareLog> CareLogs { get; set; }
+        public DbSet<EventSeries> EventSeries { get; set; }
+        public DbSet<EventOccurrence> EventOccurrences { get; set; }
         public DbSet<ExpenseRecord> Expenses { get; set; }
         public DbSet<BloodPressureRecord> BloodPressures { get; set; }
         public DbSet<BloodSugarRecord> BloodSugars { get; set; }
@@ -92,6 +94,42 @@ namespace SeasonsCare.Api.Data
                 entity.Property(e => e.Participants).HasColumnType("text[]");
                 entity.Property(e => e.IsImportant).HasDefaultValue(false);
                 
+                entity.HasOne(e => e.CareGroup)
+                      .WithMany()
+                      .HasForeignKey(e => e.CareGroupId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<EventSeries>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Description).HasColumnType("text");
+                entity.Property(e => e.RepeatPattern).HasConversion<int>();
+                entity.Property(e => e.EndType).HasConversion<int>();
+                entity.Property(e => e.Status).HasMaxLength(50);
+                entity.Property(e => e.Participants).HasColumnType("text[]");
+
+                entity.HasOne(e => e.CareGroup)
+                      .WithMany()
+                      .HasForeignKey(e => e.CareGroupId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<EventOccurrence>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.OverrideTitle).HasMaxLength(100);
+                entity.Property(e => e.OverrideDescription).HasColumnType("text");
+                entity.Property(e => e.OverrideParticipants).HasColumnType("text[]");
+                entity.Property(e => e.Status).HasConversion<int>();
+                entity.HasIndex(e => new { e.EventSeriesId, e.ScheduledStartAt }).IsUnique();
+
+                entity.HasOne(e => e.EventSeries)
+                      .WithMany(x => x.Occurrences)
+                      .HasForeignKey(e => e.EventSeriesId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
                 entity.HasOne(e => e.CareGroup)
                       .WithMany()
                       .HasForeignKey(e => e.CareGroupId)

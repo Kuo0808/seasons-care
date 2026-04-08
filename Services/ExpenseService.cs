@@ -74,6 +74,7 @@ namespace SeasonsCare.Api.Services
                 Category = request.Category,
                 Notes = request.Notes,
                 ExpenseDate = request.ExpenseDate ?? now,
+                IsSplitRequired = request.IsSplitRequired,
                 CareGroupId = careGroupId,
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -116,6 +117,7 @@ namespace SeasonsCare.Api.Services
             {
                 expense.ExpenseDate = request.ExpenseDate.Value;
             }
+            expense.IsSplitRequired = request.IsSplitRequired;
             
             expense.UpdatedAt = GetUtcNowRoundedToMilliseconds();
 
@@ -153,6 +155,7 @@ namespace SeasonsCare.Api.Services
                 Category = expense.Category,
                 Notes = expense.Notes,
                 ExpenseDate = expense.ExpenseDate,
+                IsSplitRequired = expense.IsSplitRequired,
                 CareGroupId = expense.CareGroupId,
                 CreatedAt = expense.CreatedAt,
                 UpdatedAt = expense.UpdatedAt,
