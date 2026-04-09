@@ -18,10 +18,6 @@ namespace SeasonsCare.Api.Validations.CareLogs
             RuleFor(x => x.Status)
                 .MaximumLength(50).WithMessage("狀態長度不可超過 50 字元");
 
-            RuleFor(x => x.StartsAt)
-                .LessThanOrEqualTo(_ => DateTime.UtcNow.AddMinutes(5))
-                .When(x => x.StartsAt.HasValue)
-                .WithMessage("開始時間不可晚於目前時間太多");
 
             RuleForEach(x => x.Participants)
                 .NotEmpty().WithMessage("participants 不可包含空白值");
