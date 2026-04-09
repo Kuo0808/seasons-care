@@ -122,6 +122,7 @@ builder.Services.AddScoped<ICareLogRepository, CareLogRepository>();
 builder.Services.AddScoped<IEventSeriesRepository, EventSeriesRepository>();
 builder.Services.AddScoped<IEventOccurrenceRepository, EventOccurrenceRepository>();
 builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
+builder.Services.AddScoped<IAiHealthInsightRepository, AiHealthInsightRepository>();
 
 // [架構導覽] 階段四：依賴注入 - 商業邏輯層 (Business Logic Layer)
 // 註冊 Service 服務。系統將從此處解析 Controller 所需的商業邏輯與介面實作。
@@ -133,6 +134,7 @@ builder.Services.AddScoped<ICareLogService, CareLogService>();
 builder.Services.AddScoped<IEventSeriesService, EventSeriesService>();
 builder.Services.AddScoped<IEventOccurrenceService, EventOccurrenceService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
+builder.Services.AddScoped<IAiHealthInsightService, AiHealthInsightService>();
 builder.Services.AddHealthRecordsModule();
 
 if (!builder.Environment.IsEnvironment("Testing") &&

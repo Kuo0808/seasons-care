@@ -135,6 +135,29 @@ public static class SeedDataHelper
         };
     }
 
+    public static AiHealthInsight CreateAiHealthInsight(Guid careGroupId, string reportType = "daily", DateTime? generatedAt = null)
+    {
+        var now = generatedAt ?? new DateTime(2026, 4, 9, 8, 0, 0, DateTimeKind.Utc);
+        return new AiHealthInsight
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            ReportType = reportType,
+            DateFrom = now.Date,
+            DateTo = now.Date.AddDays(1).AddTicks(-1),
+            OverallSummary = "Summary",
+            KeyInsights = "Insights",
+            Recommendations = "Recommendations",
+            SourceDataHash = "hash",
+            ModelName = "gpt-test",
+            PromptVersion = "v1",
+            GeneratedAt = now,
+            CreatedAt = now,
+            UpdatedAt = now,
+            CreatedBy = TestUsers.DefaultUserId.ToString()
+        };
+    }
+
     public static TemperatureRecord CreateTemperature(Guid careGroupId, decimal value = 36.5m, DateTime? timestamp = null)
     {
         var now = timestamp ?? new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc);

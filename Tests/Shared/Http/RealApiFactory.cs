@@ -133,6 +133,12 @@ public class RealApiFactory : IDisposable
             return entity as T;
         }
 
+        if (typeof(T) == typeof(AiHealthInsight))
+        {
+            var entity = await dbContext.AiHealthInsights.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == id);
+            return entity as T;
+        }
+
         return await dbContext.Set<T>().FindAsync(id);
     }
 
@@ -183,6 +189,13 @@ public class RealApiFactory : IDisposable
         using var scope = Factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         return await dbContext.Weights.IgnoreQueryFilters().OrderBy(x => x.RecordDate).ToListAsync();
+    }
+
+    public async Task<List<AiHealthInsight>> GetAiHealthInsightsAsync()
+    {
+        using var scope = Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await dbContext.AiHealthInsights.IgnoreQueryFilters().OrderBy(x => x.GeneratedAt).ToListAsync();
     }
 
     public void Dispose()

@@ -18,6 +18,7 @@ namespace SeasonsCare.Api.Data
         public DbSet<CareLog> CareLogs { get; set; }
         public DbSet<EventSeries> EventSeries { get; set; }
         public DbSet<EventOccurrence> EventOccurrences { get; set; }
+        public DbSet<AiHealthInsight> AiHealthInsights { get; set; }
         public DbSet<ExpenseRecord> Expenses { get; set; }
         public DbSet<BloodPressureRecord> BloodPressures { get; set; }
         public DbSet<BloodSugarRecord> BloodSugars { get; set; }
@@ -129,6 +130,24 @@ namespace SeasonsCare.Api.Data
                       .WithMany(x => x.Occurrences)
                       .HasForeignKey(e => e.EventSeriesId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.CareGroup)
+                      .WithMany()
+                      .HasForeignKey(e => e.CareGroupId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<AiHealthInsight>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.ReportType).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.OverallSummary).HasColumnType("text");
+                entity.Property(e => e.KeyInsights).HasColumnType("text");
+                entity.Property(e => e.Recommendations).HasColumnType("text");
+                entity.Property(e => e.SourceDataHash).HasMaxLength(128);
+                entity.Property(e => e.ModelName).HasMaxLength(100);
+                entity.Property(e => e.PromptVersion).HasMaxLength(50);
+                entity.HasIndex(e => new { e.CareGroupId, e.ReportType, e.DateFrom, e.DateTo }).IsUnique();
 
                 entity.HasOne(e => e.CareGroup)
                       .WithMany()
