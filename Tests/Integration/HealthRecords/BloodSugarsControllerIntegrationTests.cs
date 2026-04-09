@@ -50,6 +50,20 @@ public class BloodSugarsControllerIntegrationTests
         Assert.Equal("CONCURRENCY_CONFLICT", payload.RootElement.GetProperty("errorCode").GetString());
     }
 
+    [Fact]
+    public async Task GetRecords_ReturnsBadRequest_WhenStartDateIsAfterEndDate()
+    {
+        using var factory = new StubApiFactory<IBloodSugarService>(new StubBloodSugarService());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/health-records/blood-sugars?startDate=2026-04-10&endDate=2026-04-09");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.Equal("VALIDATION_FAILED", payload.RootElement.GetProperty("errorCode").GetString());
+    }
+
     private sealed class StubBloodSugarService : IBloodSugarService
     {
         public Exception? UpdateException { get; init; }

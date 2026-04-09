@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SeasonsCare.Api.Data;
+using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Models.Entities;
 
 namespace SeasonsCare.Api.Repositories
@@ -26,6 +27,7 @@ namespace SeasonsCare.Api.Repositories
 
         public async Task<(List<ExpenseRecord> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, int page, int pageSize, string sort)
         {
+            // 以業務日期作為主時間軸，避免前端一次抓取全量歷史資料。
             var query = _context.Expenses.Where(e => e.CareGroupId == careGroupId);
 
             var totalCount = await query.CountAsync();
@@ -40,6 +42,33 @@ namespace SeasonsCare.Api.Repositories
             };
 
             var data = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+            return (data, totalCount);
+        }
+
+        public async Task<(List<ExpenseRecord> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, PaginationRequest request)
+        {
+            var query = _context.Expenses
+                .Where(e => e.CareGroupId == careGroupId)
+                .ApplyDateRange(request, e => e.ExpenseDate);
+
+            var totalCount = await query.CountAsync();
+
+            query = request.Sort switch
+            {
+                "expenseDate_asc" => query.OrderBy(e => e.ExpenseDate),
+                "expenseDate_desc" => query.OrderByDescending(e => e.ExpenseDate),
+                "amount_asc" => query.OrderBy(e => e.Amount),
+                "amount_desc" => query.OrderByDescending(e => e.Amount),
+                "createdAt_asc" => query.OrderBy(e => e.CreatedAt),
+                "createdAt_desc" => query.OrderByDescending(e => e.CreatedAt),
+                _ => query.OrderByDescending(e => e.ExpenseDate)
+            };
+
+            var data = await query
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync();
 
             return (data, totalCount);
         }

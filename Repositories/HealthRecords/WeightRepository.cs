@@ -24,7 +24,16 @@ namespace SeasonsCare.Api.Repositories.HealthRecords
         {
             var query = _context.Set<WeightRecord>()
                 .Where(x => x.CareGroupId == careGroupId)
-                .OrderByDescending(x => x.RecordDate);
+                .ApplyDateRange(request, x => x.RecordDate);
+
+            query = request.Sort switch
+            {
+                "recordDate_asc" => query.OrderBy(x => x.RecordDate),
+                "recordDate_desc" => query.OrderByDescending(x => x.RecordDate),
+                "createdAt_asc" => query.OrderBy(x => x.CreatedAt),
+                "createdAt_desc" => query.OrderByDescending(x => x.CreatedAt),
+                _ => query.OrderByDescending(x => x.RecordDate)
+            };
 
             var totalCount = await query.CountAsync();
             var items = await query

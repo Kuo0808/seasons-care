@@ -36,7 +36,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("取得支出紀錄列表")]
         [EndpointDescription("取得指定照護群組底下的支出紀錄列表。前端需在 path 帶入 careGroupId，通常來自照護群組列表或目前選取中的群組；可另外用 query string 傳入 page、pageSize、sort。")]
-        public async Task<IActionResult> GetExpenses(Guid careGroupId, [FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetExpenses(Guid careGroupId, [FromQuery] DateRangePaginationRequest paginationRequest)
         {
             var currentUserId = _currentUserService.UserId;
             var pagedResult = await _expenseService.GetExpensesAsync(currentUserId, careGroupId, paginationRequest);

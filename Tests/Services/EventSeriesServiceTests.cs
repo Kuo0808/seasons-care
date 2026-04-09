@@ -77,6 +77,11 @@ public class EventSeriesServiceTests
             return Task.FromResult((data, data.Count));
         }
 
+        public Task<List<EventSeries>> GetAllByCareGroupIdAsync(Guid careGroupId)
+        {
+            return Task.FromResult(Items.Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null).ToList());
+        }
+
         public Task AddAsync(EventSeries series)
         {
             Items.Add(series);

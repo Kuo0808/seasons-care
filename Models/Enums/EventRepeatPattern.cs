@@ -1,11 +1,13 @@
 namespace SeasonsCare.Api.Models.Enums
 {
     /// <summary>
-    /// 事件重複規則。
+    /// 定義事件系列支援的重複規則。
     /// </summary>
     public enum EventRepeatPattern
     {
         None = 0,
-        Weekly = 1
+        Daily = 1,
+        Weekly = 2,
+        Monthly = 3
     }
 }

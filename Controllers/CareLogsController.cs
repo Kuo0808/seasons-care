@@ -39,7 +39,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("取得照護日誌列表")]
         [EndpointDescription("取得指定照護群組底下的照護日誌列表。前端需在 path 帶入 careGroupId，可另外用 query string 傳入 page、pageSize、sort。回傳欄位採前端事件模型命名，例如 title、description、startsAt、participants。")]
-        public async Task<IActionResult> GetLogs(Guid careGroupId, [FromQuery] PaginationRequest paginationRequest)
+        public async Task<IActionResult> GetLogs(Guid careGroupId, [FromQuery] DateRangePaginationRequest paginationRequest)
         {
             var currentUserId = _currentUserService.UserId;
             var pagedResult = await _careLogService.GetLogsAsync(currentUserId, careGroupId, paginationRequest);

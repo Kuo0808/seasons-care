@@ -36,6 +36,30 @@ public class BloodSugarsTenantIsolationIntegrationTests
     }
 
     [Fact]
+    public async Task GetRecords_FiltersByRecordDateRange()
+    {
+        using var factory = new RealApiFactory();
+        using var client = factory.Factory.CreateClient();
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            SeedDataHelper.CreateMember(careGroup.Id),
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 100m, "old", new DateTime(2026, 1, 15, 2, 0, 0, DateTimeKind.Utc)),
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 140m, "april", new DateTime(2026, 4, 15, 2, 0, 0, DateTimeKind.Utc)));
+
+        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-records/blood-sugars?startDate=2026-04-01&endDate=2026-04-30");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var items = payload.RootElement.GetProperty("data");
+        Assert.Equal(1, items.GetArrayLength());
+        Assert.Equal(140m, items[0].GetProperty("glucoseLevel").GetDecimal());
+    }
+
+    [Fact]
     public async Task CreateRecord_PersistsBloodSugar_InRequestedCareGroup()
     {
         using var factory = new RealApiFactory();

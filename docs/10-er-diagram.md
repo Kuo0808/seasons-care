@@ -121,7 +121,7 @@ erDiagram
         DateTime RecordDate
         DateTime CreatedAt
         DateTime UpdatedAt
-        string CreatedBy
+         string CreatedBy
         DateTime DeletedAt
     }
 

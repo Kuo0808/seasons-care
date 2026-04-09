@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SeasonsCare.Api.Data;
+using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Models.Entities;
 
 namespace SeasonsCare.Api.Repositories
@@ -42,6 +43,34 @@ namespace SeasonsCare.Api.Repositories
             };
 
             var data = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+            return (data, totalCount);
+        }
+
+        public async Task<(List<CareLog> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, PaginationRequest request)
+        {
+            // 以日誌發生時間作為主查詢欄位，供時間軸與區間查詢共用。
+            var query = _context.CareLogs
+                .Where(l => l.CareGroupId == careGroupId)
+                .ApplyDateRange(request, l => l.StartsAt);
+
+            var totalCount = await query.CountAsync();
+
+            query = request.Sort switch
+            {
+                "createdAt_asc" => query.OrderBy(l => l.CreatedAt),
+                "createdAt_desc" => query.OrderByDescending(l => l.CreatedAt),
+                "startsAt_asc" => query.OrderBy(l => l.StartsAt),
+                "startsAt_desc" => query.OrderByDescending(l => l.StartsAt),
+                "recordDate_asc" => query.OrderBy(l => l.StartsAt),
+                "recordDate_desc" => query.OrderByDescending(l => l.StartsAt),
+                _ => query.OrderByDescending(l => l.StartsAt)
+            };
+
+            var data = await query
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync();
 
             return (data, totalCount);
         }

@@ -49,10 +49,27 @@ List APIs should support:
 - `page`
 - `pageSize`
 - `sort`
+- `startDate`
+- `endDate`
 
 Default sort example:
 
 - `createdAt_desc`
+
+## Date Range Filter
+
+For cumulative list resources such as care logs, expenses, and health records:
+
+- `startDate`: inclusive start date of the business timeline
+- `endDate`: inclusive end date of the business timeline
+- when both dates are omitted, backend should return the most recent 30 days by default
+- business date should be used instead of `createdAt`
+
+Examples:
+
+- care logs use `startsAt`
+- expenses use `expenseDate`
+- health records use `recordDate`
 
 ## Success Response Format
 

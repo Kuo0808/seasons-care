@@ -86,6 +86,114 @@ public class EventOccurrenceServiceTests
         Assert.Single(occurrenceRepository.Items);
     }
 
+    [Fact]
+    public async Task CompleteOccurrenceAsync_CreatesCompletedOverride_ForSingleOccurrence()
+    {
+        var careGroupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+        var seriesRepository = new FakeEventSeriesRepository(
+            new EventSeries
+            {
+                Id = seriesId,
+                CareGroupId = careGroupId,
+                Title = "Medication Reminder",
+                StartsAt = new DateTime(2026, 4, 6, 15, 0, 0, DateTimeKind.Utc),
+                RepeatPattern = EventRepeatPattern.Daily,
+                RepeatInterval = 1,
+                EndType = EventSeriesEndType.Never,
+                Participants = new[] { userId.ToString() },
+                CreatedBy = userId.ToString()
+            });
+        var occurrenceRepository = new FakeEventOccurrenceRepository();
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var service = new EventOccurrenceService(seriesRepository, occurrenceRepository, groupRepository);
+        var targetOccurrence = new DateTime(2026, 4, 8, 15, 0, 0, DateTimeKind.Utc);
+
+        await service.CompleteOccurrenceAsync(userId, careGroupId, seriesId, targetOccurrence);
+
+        var items = await service.GetOccurrencesAsync(
+            userId,
+            careGroupId,
+            new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 4, 30, 23, 59, 59, DateTimeKind.Utc));
+
+        var completed = items.Single(x => x.ScheduledStartAt == targetOccurrence);
+        Assert.Equal(EventOccurrenceStatus.Completed, completed.Status);
+        Assert.True(completed.HasOverrides);
+        Assert.Single(occurrenceRepository.Items);
+    }
+
+    [Fact]
+    public async Task GetOccurrencesAsync_ExpandsDailySeriesWithinRange()
+    {
+        var careGroupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var seriesRepository = new FakeEventSeriesRepository(
+            new EventSeries
+            {
+                Id = Guid.NewGuid(),
+                CareGroupId = careGroupId,
+                Title = "Daily Check",
+                StartsAt = new DateTime(2026, 4, 1, 8, 30, 0, DateTimeKind.Utc),
+                RepeatPattern = EventRepeatPattern.Daily,
+                RepeatInterval = 2,
+                EndType = EventSeriesEndType.Never,
+                Participants = new[] { userId.ToString() },
+                CreatedBy = userId.ToString()
+            });
+        var occurrenceRepository = new FakeEventOccurrenceRepository();
+        var service = new EventOccurrenceService(seriesRepository, occurrenceRepository, groupRepository);
+
+        var items = await service.GetOccurrencesAsync(
+            userId,
+            careGroupId,
+            new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 4, 7, 23, 59, 59, DateTimeKind.Utc));
+
+        Assert.Equal(4, items.Count);
+        Assert.Equal(new DateTime(2026, 4, 1, 8, 30, 0, DateTimeKind.Utc), items[0].ScheduledStartAt);
+        Assert.Equal(new DateTime(2026, 4, 3, 8, 30, 0, DateTimeKind.Utc), items[1].ScheduledStartAt);
+        Assert.Equal(new DateTime(2026, 4, 5, 8, 30, 0, DateTimeKind.Utc), items[2].ScheduledStartAt);
+        Assert.Equal(new DateTime(2026, 4, 7, 8, 30, 0, DateTimeKind.Utc), items[3].ScheduledStartAt);
+    }
+
+    [Fact]
+    public async Task GetOccurrencesAsync_ExpandsMonthlySeriesAndClampsMissingDayToMonthEnd()
+    {
+        var careGroupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var seriesRepository = new FakeEventSeriesRepository(
+            new EventSeries
+            {
+                Id = Guid.NewGuid(),
+                CareGroupId = careGroupId,
+                Title = "Monthly Billing",
+                StartsAt = new DateTime(2026, 1, 31, 10, 0, 0, DateTimeKind.Utc),
+                RepeatPattern = EventRepeatPattern.Monthly,
+                RepeatInterval = 1,
+                EndType = EventSeriesEndType.Never,
+                Participants = new[] { userId.ToString() },
+                CreatedBy = userId.ToString()
+            });
+        var occurrenceRepository = new FakeEventOccurrenceRepository();
+        var service = new EventOccurrenceService(seriesRepository, occurrenceRepository, groupRepository);
+
+        var items = await service.GetOccurrencesAsync(
+            userId,
+            careGroupId,
+            new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 4, 30, 23, 59, 59, DateTimeKind.Utc));
+
+        Assert.Equal(4, items.Count);
+        Assert.Equal(new DateTime(2026, 1, 31, 10, 0, 0, DateTimeKind.Utc), items[0].ScheduledStartAt);
+        Assert.Equal(new DateTime(2026, 2, 28, 10, 0, 0, DateTimeKind.Utc), items[1].ScheduledStartAt);
+        Assert.Equal(new DateTime(2026, 3, 31, 10, 0, 0, DateTimeKind.Utc), items[2].ScheduledStartAt);
+        Assert.Equal(new DateTime(2026, 4, 30, 10, 0, 0, DateTimeKind.Utc), items[3].ScheduledStartAt);
+    }
+
     private sealed class FakeEventSeriesRepository : IEventSeriesRepository
     {
         private readonly List<EventSeries> _items;

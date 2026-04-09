@@ -55,6 +55,24 @@ namespace SeasonsCare.Api.Services
 
         public async Task CancelOccurrenceAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
         {
+            await UpsertOccurrenceStatusAsync(currentUserId, careGroupId, eventSeriesId, scheduledStartAt, EventOccurrenceStatus.Cancelled);
+        }
+
+        public async Task CompleteOccurrenceAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
+        {
+            await UpsertOccurrenceStatusAsync(currentUserId, careGroupId, eventSeriesId, scheduledStartAt, EventOccurrenceStatus.Completed);
+        }
+
+        /// <summary>
+        /// 建立或更新單次事件的 override 狀態，例如 cancelled 或 completed。
+        /// </summary>
+        private async Task UpsertOccurrenceStatusAsync(
+            Guid currentUserId,
+            Guid careGroupId,
+            Guid eventSeriesId,
+            DateTime scheduledStartAt,
+            EventOccurrenceStatus status)
+        {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
             var series = await _eventSeriesRepository.GetByIdAsync(eventSeriesId);
@@ -87,7 +105,7 @@ namespace SeasonsCare.Api.Services
                     CareGroupId = careGroupId,
                     ScheduledStartAt = normalizedStartAt,
                     ScheduledEndAt = CalculateScheduledEndAt(normalizedStartAt, series.DurationMinutes),
-                    Status = EventOccurrenceStatus.Cancelled,
+                    Status = status,
                     CreatedAt = now,
                     UpdatedAt = now,
                     CreatedBy = currentUserId.ToString()
@@ -97,7 +115,7 @@ namespace SeasonsCare.Api.Services
             }
             else
             {
-                existing.Status = EventOccurrenceStatus.Cancelled;
+                existing.Status = status;
                 existing.UpdatedAt = now;
                 await _eventOccurrenceRepository.UpdateAsync(existing);
             }
@@ -123,7 +141,9 @@ namespace SeasonsCare.Api.Services
             return series.RepeatPattern switch
             {
                 EventRepeatPattern.None => ExpandNonRecurring(series, from, to, overrideLookup),
+                EventRepeatPattern.Daily => ExpandDaily(series, from, to, overrideLookup),
                 EventRepeatPattern.Weekly => ExpandWeekly(series, from, to, overrideLookup),
+                EventRepeatPattern.Monthly => ExpandMonthly(series, from, to, overrideLookup),
                 _ => Enumerable.Empty<EventOccurrenceResponse>()
             };
         }
@@ -173,6 +193,92 @@ namespace SeasonsCare.Api.Services
             }
         }
 
+        private static IEnumerable<EventOccurrenceResponse> ExpandDaily(
+            EventSeries series,
+            DateTime from,
+            DateTime to,
+            IReadOnlyDictionary<(Guid SeriesId, DateTime ScheduledStartAt), EventOccurrence> overrideLookup)
+        {
+            var occurrenceIndex = 0;
+            foreach (var scheduledStartAt in EnumerateDailyOccurrences(series, to))
+            {
+                occurrenceIndex++;
+
+                if (series.OccurrenceCount.HasValue &&
+                    series.EndType == EventSeriesEndType.AfterOccurrences &&
+                    occurrenceIndex > series.OccurrenceCount.Value)
+                {
+                    yield break;
+                }
+
+                if (scheduledStartAt < from)
+                {
+                    continue;
+                }
+
+                if (scheduledStartAt > to)
+                {
+                    yield break;
+                }
+
+                yield return BuildOccurrenceResponse(series, scheduledStartAt, overrideLookup);
+            }
+        }
+
+        private static IEnumerable<EventOccurrenceResponse> ExpandMonthly(
+            EventSeries series,
+            DateTime from,
+            DateTime to,
+            IReadOnlyDictionary<(Guid SeriesId, DateTime ScheduledStartAt), EventOccurrence> overrideLookup)
+        {
+            var occurrenceIndex = 0;
+            foreach (var scheduledStartAt in EnumerateMonthlyOccurrences(series, to))
+            {
+                occurrenceIndex++;
+
+                if (series.OccurrenceCount.HasValue &&
+                    series.EndType == EventSeriesEndType.AfterOccurrences &&
+                    occurrenceIndex > series.OccurrenceCount.Value)
+                {
+                    yield break;
+                }
+
+                if (scheduledStartAt < from)
+                {
+                    continue;
+                }
+
+                if (scheduledStartAt > to)
+                {
+                    yield break;
+                }
+
+                yield return BuildOccurrenceResponse(series, scheduledStartAt, overrideLookup);
+            }
+        }
+
+        // Daily 規則直接依 repeatInterval 以天數遞增。
+        private static IEnumerable<DateTime> EnumerateDailyOccurrences(EventSeries series, DateTime rangeEnd)
+        {
+            var start = NormalizeTimestamp(series.StartsAt);
+            var effectiveEnd = series.EndType == EventSeriesEndType.OnDate && series.EndAt.HasValue
+                ? Min(NormalizeTimestamp(series.EndAt.Value), rangeEnd)
+                : rangeEnd;
+
+            if (effectiveEnd < start)
+            {
+                yield break;
+            }
+
+            var current = start;
+            var interval = Math.Max(series.RepeatInterval, 1);
+            while (current <= effectiveEnd)
+            {
+                yield return current;
+                current = current.AddDays(interval);
+            }
+        }
+
         private static IEnumerable<DateTime> EnumerateWeeklyOccurrences(EventSeries series, DateTime rangeEnd)
         {
             var start = NormalizeTimestamp(series.StartsAt);
@@ -213,6 +319,54 @@ namespace SeasonsCare.Api.Services
 
                 currentDate = currentDate.AddDays(1);
             }
+        }
+
+        // Monthly 規則沿用 startsAt 的日與時間；若該月沒有相同日，則退到該月最後一天。
+        private static IEnumerable<DateTime> EnumerateMonthlyOccurrences(EventSeries series, DateTime rangeEnd)
+        {
+            var start = NormalizeTimestamp(series.StartsAt);
+            var effectiveEnd = series.EndType == EventSeriesEndType.OnDate && series.EndAt.HasValue
+                ? Min(NormalizeTimestamp(series.EndAt.Value), rangeEnd)
+                : rangeEnd;
+
+            if (effectiveEnd < start)
+            {
+                yield break;
+            }
+
+            var interval = Math.Max(series.RepeatInterval, 1);
+            var occurrenceMonth = 0;
+
+            while (true)
+            {
+                var scheduledStartAt = BuildMonthlyOccurrenceStart(start, occurrenceMonth);
+
+                if (scheduledStartAt > effectiveEnd)
+                {
+                    yield break;
+                }
+
+                yield return scheduledStartAt;
+                occurrenceMonth += interval;
+            }
+        }
+
+        // 每月重複固定沿用 startsAt 的日與時間；若該月沒有該日，則落在該月最後一天。
+        private static DateTime BuildMonthlyOccurrenceStart(DateTime start, int monthsToAdd)
+        {
+            var targetMonth = start.AddMonths(monthsToAdd);
+            var daysInMonth = DateTime.DaysInMonth(targetMonth.Year, targetMonth.Month);
+            var day = Math.Min(start.Day, daysInMonth);
+
+            return new DateTime(
+                targetMonth.Year,
+                targetMonth.Month,
+                day,
+                start.Hour,
+                start.Minute,
+                start.Second,
+                start.Millisecond,
+                DateTimeKind.Utc);
         }
 
         private static bool IsMatchingWeeklyInterval(DateTime seriesStart, DateTime occurrenceStart, int repeatInterval)

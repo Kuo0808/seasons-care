@@ -36,6 +36,30 @@ public class CareLogsTenantIsolationIntegrationTests
     }
 
     [Fact]
+    public async Task GetLogs_FiltersByStartsAtDateRange()
+    {
+        using var factory = new RealApiFactory();
+        using var client = factory.Factory.CreateClient();
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            SeedDataHelper.CreateMember(careGroup.Id),
+            SeedDataHelper.CreateCareLog(careGroup.Id, "Old Log", new DateTime(2026, 1, 15, 2, 0, 0, DateTimeKind.Utc)),
+            SeedDataHelper.CreateCareLog(careGroup.Id, "April Log", new DateTime(2026, 4, 15, 2, 0, 0, DateTimeKind.Utc)));
+
+        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/care-logs?startDate=2026-04-01&endDate=2026-04-30");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var items = payload.RootElement.GetProperty("data");
+        Assert.Equal(1, items.GetArrayLength());
+        Assert.Equal("April Log", items[0].GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task GetLogById_ReturnsNotFound_WhenLogIsInDifferentCareGroup()
     {
         using var factory = new RealApiFactory();

@@ -37,6 +37,7 @@ namespace SeasonsCare.Api.DTOs.EventSeries
         /// <summary>
         /// 重複規則。前端欄位名稱為 repeatPattern。
         /// </summary>
+        // API 回傳時會序列化為 none、daily、weeklyDay、monthly。
         public EventRepeatPattern RepeatPattern { get; set; }
 
         /// <summary>

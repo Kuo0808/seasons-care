@@ -164,6 +164,12 @@ public class ExpenseServiceTests
             return Task.FromResult((data, data.Count));
         }
 
+        public Task<(List<ExpenseRecord> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, PaginationRequest request)
+        {
+            var data = Expenses.Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null).ToList();
+            return Task.FromResult((data, data.Count));
+        }
+
         public Task AddAsync(ExpenseRecord expense)
         {
             Expenses.Add(expense);

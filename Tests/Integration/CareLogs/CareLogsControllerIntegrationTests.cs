@@ -83,6 +83,20 @@ public class CareLogsControllerIntegrationTests
         Assert.Equal("CONCURRENCY_CONFLICT", payload.RootElement.GetProperty("errorCode").GetString());
     }
 
+    [Fact]
+    public async Task GetLogs_ReturnsBadRequest_WhenStartDateIsAfterEndDate()
+    {
+        using var factory = new StubApiFactory<ICareLogService>(new StubCareLogService());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/care-logs?startDate=2026-04-10&endDate=2026-04-09");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.Equal("VALIDATION_FAILED", payload.RootElement.GetProperty("errorCode").GetString());
+    }
+
     private sealed class StubCareLogService : ICareLogService
     {
         public Exception? GetLogByIdException { get; init; }

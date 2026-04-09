@@ -85,6 +85,20 @@ public class ExpensesControllerIntegrationTests
         Assert.Equal("CONCURRENCY_CONFLICT", payload.RootElement.GetProperty("errorCode").GetString());
     }
 
+    [Fact]
+    public async Task GetExpenses_ReturnsBadRequest_WhenStartDateIsAfterEndDate()
+    {
+        using var factory = new StubApiFactory<IExpenseService>(new StubExpenseService());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/expenses?startDate=2026-04-10&endDate=2026-04-09");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.Equal("VALIDATION_FAILED", payload.RootElement.GetProperty("errorCode").GetString());
+    }
+
     private sealed class StubExpenseService : IExpenseService
     {
         public Exception? GetExpenseByIdException { get; init; }

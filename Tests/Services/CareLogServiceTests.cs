@@ -1,4 +1,5 @@
 using SeasonsCare.Api.DTOs.CareLogs;
+using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Entities;
 using SeasonsCare.Api.Repositories;
@@ -188,6 +189,12 @@ public class CareLogServiceTests
         }
 
         public Task<(List<CareLog> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, int page, int pageSize, string sort)
+        {
+            var data = Logs.Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null).ToList();
+            return Task.FromResult((data, data.Count));
+        }
+
+        public Task<(List<CareLog> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, PaginationRequest request)
         {
             var data = Logs.Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null).ToList();
             return Task.FromResult((data, data.Count));

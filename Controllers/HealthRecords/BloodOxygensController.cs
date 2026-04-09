@@ -36,7 +36,7 @@ namespace SeasonsCare.Api.Controllers.HealthRecords
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [EndpointSummary("取得血氧紀錄列表")]
         [EndpointDescription("取得指定照護群組底下的血氧紀錄列表。前端需在 path 帶入 careGroupId，通常來自照護群組列表或目前選取中的群組；可另外用 query string 傳入 page、pageSize、sort。")]
-        public async Task<IActionResult> GetRecords(Guid careGroupId, [FromQuery] PaginationRequest request)
+        public async Task<IActionResult> GetRecords(Guid careGroupId, [FromQuery] DateRangePaginationRequest request)
         {
             var currentUserId = _currentUserService.UserId;
             var pagedResult = await _bloodOxygenService.GetRecordsAsync(currentUserId, careGroupId, request);

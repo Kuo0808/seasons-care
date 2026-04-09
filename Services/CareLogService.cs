@@ -72,15 +72,13 @@ namespace SeasonsCare.Api.Services
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
-            var (data, totalCount) = await _careLogRepository.GetPagedByCareGroupIdAsync(
-                careGroupId,
-                pagination.Page,
-                pagination.PageSize,
-                pagination.Sort);
+            // 列表查詢統一走日期區間，供平日記事與時間軸重用。
+            var request = pagination.ToDateRangeRequest();
+            var (data, totalCount) = await _careLogRepository.GetPagedByCareGroupIdAsync(careGroupId, request);
 
             var items = data.Select(MapToResponse).ToList();
 
-            return new PagedResponse<CareLogResponse>(items, totalCount, pagination.Page, pagination.PageSize);
+            return new PagedResponse<CareLogResponse>(items, totalCount, request.Page, request.PageSize);
         }
 
         public async Task<CareLogResponse> GetLogByIdAsync(Guid currentUserId, Guid careGroupId, Guid logId)

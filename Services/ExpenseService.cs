@@ -35,15 +35,13 @@ namespace SeasonsCare.Api.Services
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
-            var (data, totalCount) = await _expenseRepository.GetPagedByCareGroupIdAsync(
-                careGroupId, 
-                pagination.Page, 
-                pagination.PageSize, 
-                pagination.Sort);
+            // 列表查詢改以日期區間為主，避免載入整包歷史分帳資料。
+            var request = pagination.ToDateRangeRequest();
+            var (data, totalCount) = await _expenseRepository.GetPagedByCareGroupIdAsync(careGroupId, request);
 
             var items = data.Select(MapToResponse).ToList();
 
-            return new PagedResponse<ExpenseResponse>(items, totalCount, pagination.Page, pagination.PageSize);
+            return new PagedResponse<ExpenseResponse>(items, totalCount, request.Page, request.PageSize);
         }
 
         public async Task<ExpenseResponse> GetExpenseByIdAsync(Guid currentUserId, Guid careGroupId, Guid expenseId)

@@ -15,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.IO;
 using Microsoft.OpenApi.Models;
+using SeasonsCare.Api.Config.Json;
 
 // [架構導覽] 階段一：應用程式建構與設定初始化 (Application Bootstrapping)
 // 載入 appsettings.json、環境變數，並準備註冊所需元件。
@@ -25,6 +26,12 @@ const string JwtPlaceholderSecret = "<YOUR_JWT_SECRET_KEY_AT_LEAST_32_CHARS>";
 // [架構導覽] 階段二：服務註冊 (Service Registration)
 // 將 Controller、驗證規則等基礎服務註冊至相依性注入 (DI) 容器中。
 builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // 讓前端可直接傳遞 repeatPattern 字串，例如 none、daily、weeklyDay、monthly。
+        options.JsonSerializerOptions.Converters.Add(new EventRepeatPatternJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new EventOccurrenceStatusJsonConverter());
+    })
     .ConfigureApiBehaviorOptions(options =>
     {
         options.InvalidModelStateResponseFactory = context =>
