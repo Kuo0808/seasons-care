@@ -21,3 +21,8 @@
 - 所有程式碼命名、類別名稱、方法名稱、資料表欄位、API 路由必須使用英文。
 - 嚴禁使用簡體中文。
 - JSON 欄位名稱統一使用 camelCase。
+## Handoff Rules
+
+- `handoff/` 專門存放臨時協作文檔
+- 臨時文件不放在 `docs/`
+- `handoff/` 已加入 `.gitignore`，不會進入 GitHub

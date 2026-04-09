@@ -13,6 +13,7 @@ publish_zip_check/
 *.csproj.user
 Properties/PublishProfiles/
 Properties/ServiceDependencies/
+handoff/
 
 # 除錯輸出檔，禁止推上版控
 build_err*.txt
