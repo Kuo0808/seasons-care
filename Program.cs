@@ -31,6 +31,7 @@ builder.Services.AddControllers()
         // 讓前端可直接傳遞 repeatPattern 字串，例如 none、daily、weeklyDay、monthly。
         options.JsonSerializerOptions.Converters.Add(new EventRepeatPatternJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new EventOccurrenceStatusJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new ExpenseSplitStatusJsonConverter());
     })
     .ConfigureApiBehaviorOptions(options =>
     {

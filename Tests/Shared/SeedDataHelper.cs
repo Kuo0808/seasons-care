@@ -76,9 +76,10 @@ public static class SeedDataHelper
             CareGroupId = careGroupId,
             Title = title,
             Amount = amount,
-            Category = "Daily",
+            Category = "food",
             Notes = $"note-{title}",
             ExpenseDate = now,
+            SplitStatus = ExpenseSplitStatus.None,
             CreatedAt = now,
             UpdatedAt = now,
             CreatedBy = "test"

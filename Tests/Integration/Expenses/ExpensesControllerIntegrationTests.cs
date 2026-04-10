@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using SeasonsCare.Api.DTOs.Expenses;
 using SeasonsCare.Api.Exceptions;
+using SeasonsCare.Api.Models.Enums;
 using SeasonsCare.Api.Services;
 using SeasonsCare.Api.Tests.Shared;
 using SeasonsCare.Api.Tests.Shared.Http;
@@ -19,7 +20,10 @@ public class ExpensesControllerIntegrationTests
         var response = await client.PostAsJsonAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/expenses", new
         {
             title = "",
-            amount = 100
+            amount = 100,
+            category = "food",
+            expenseDate = "2026-04-10T00:00:00Z",
+            splitStatus = "none"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -37,7 +41,10 @@ public class ExpensesControllerIntegrationTests
         var response = await client.PutAsJsonAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/expenses/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", new
         {
             title = "Taxi",
-            amount = 120
+            amount = 120,
+            category = "traffic",
+            expenseDate = "2026-04-10T00:00:00Z",
+            splitStatus = "pending"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -76,6 +83,9 @@ public class ExpensesControllerIntegrationTests
         {
             title = "Taxi",
             amount = 120,
+            category = "traffic",
+            expenseDate = "2026-04-10T00:00:00Z",
+            splitStatus = "pending",
             updatedAt = "2026-03-20T02:00:00Z"
         });
 
@@ -121,7 +131,13 @@ public class ExpensesControllerIntegrationTests
                 Id = expenseId,
                 CareGroupId = careGroupId,
                 Title = "Taxi",
-                Amount = 100m
+                Amount = 100m,
+                Category = "traffic",
+                Notes = string.Empty,
+                ExpenseDate = new DateTime(2026, 4, 10, 0, 0, 0, DateTimeKind.Utc),
+                SplitStatus = ExpenseSplitStatus.None,
+                CreatedAt = new DateTime(2026, 4, 10, 0, 0, 0, DateTimeKind.Utc),
+                UpdatedAt = new DateTime(2026, 4, 10, 0, 0, 0, DateTimeKind.Utc)
             });
         }
 
@@ -132,7 +148,13 @@ public class ExpensesControllerIntegrationTests
                 Id = Guid.NewGuid(),
                 CareGroupId = careGroupId,
                 Title = request.Title,
-                Amount = request.Amount
+                Amount = request.Amount,
+                Category = request.Category,
+                Notes = request.Notes ?? string.Empty,
+                ExpenseDate = request.ExpenseDate,
+                SplitStatus = request.SplitStatus,
+                CreatedAt = request.ExpenseDate,
+                UpdatedAt = request.ExpenseDate
             });
         }
 
@@ -149,7 +171,12 @@ public class ExpensesControllerIntegrationTests
                 CareGroupId = careGroupId,
                 Title = request.Title,
                 Amount = request.Amount,
-                UpdatedAt = request.UpdatedAt
+                Category = request.Category,
+                Notes = request.Notes ?? string.Empty,
+                ExpenseDate = request.ExpenseDate,
+                SplitStatus = request.SplitStatus,
+                CreatedAt = request.ExpenseDate,
+                UpdatedAt = request.UpdatedAt ?? request.ExpenseDate
             });
         }
 

@@ -69,7 +69,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("建立支出紀錄")]
-        [EndpointDescription("在指定照護群組底下建立新的支出紀錄。前端需在 path 帶入 careGroupId，並在 request body 提供 title 與 amount；category、notes、expenseDate 可依需求填寫。")]
+        [EndpointDescription("在指定照護群組底下建立新的支出紀錄。前端需在 path 帶入 careGroupId，並在 request body 提供 title、amount、category、expenseDate、splitStatus；notes 為選填。category 支援 medical、food、traffic、other，splitStatus 支援 pending、settled、none。")]
         public async Task<IActionResult> CreateExpense(Guid careGroupId, [FromBody] CreateExpenseRequest request)
         {
             // 步驟 1：解析請求上下文 (取得目前登入使用者 ID)
@@ -89,7 +89,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         [EndpointSummary("更新支出紀錄")]
-        [EndpointDescription("更新指定的支出紀錄。前端需在 path 帶入 careGroupId 與 expenseId，並在 request body 提供要更新的欄位與 updatedAt；updatedAt 應來自先前查詢單筆或列表 API 回傳的資料，用於樂觀鎖檢查。")]
+        [EndpointDescription("更新指定的支出紀錄。前端需在 path 帶入 careGroupId 與 expenseId，並在 request body 提供 title、amount、category、expenseDate、splitStatus、updatedAt；notes 為選填。updatedAt 應來自先前查詢單筆或列表 API 回傳的資料，用於樂觀鎖檢查。category 支援 medical、food、traffic、other，splitStatus 支援 pending、settled、none。")]
         public async Task<IActionResult> UpdateExpense(Guid careGroupId, Guid expenseId, [FromBody] UpdateExpenseRequest request)
         {
             var currentUserId = _currentUserService.UserId;

@@ -5,6 +5,7 @@ using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.DTOs.Expenses;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Models.Enums;
 using SeasonsCare.Api.Repositories;
 
 namespace SeasonsCare.Api.Services
@@ -71,8 +72,8 @@ namespace SeasonsCare.Api.Services
                 Amount = request.Amount,
                 Category = request.Category,
                 Notes = request.Notes,
-                ExpenseDate = request.ExpenseDate ?? now,
-                IsSplitRequired = request.IsSplitRequired,
+                ExpenseDate = NormalizeTimestamp(request.ExpenseDate),
+                SplitStatus = request.SplitStatus,
                 CareGroupId = careGroupId,
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -111,11 +112,8 @@ namespace SeasonsCare.Api.Services
             expense.Amount = request.Amount;
             expense.Category = request.Category;
             expense.Notes = request.Notes;
-            if (request.ExpenseDate.HasValue)
-            {
-                expense.ExpenseDate = request.ExpenseDate.Value;
-            }
-            expense.IsSplitRequired = request.IsSplitRequired;
+            expense.ExpenseDate = NormalizeTimestamp(request.ExpenseDate);
+            expense.SplitStatus = request.SplitStatus;
             
             expense.UpdatedAt = GetUtcNowRoundedToMilliseconds();
 
@@ -151,12 +149,12 @@ namespace SeasonsCare.Api.Services
                 Title = expense.Title,
                 Amount = expense.Amount,
                 Category = expense.Category,
-                Notes = expense.Notes,
+                Notes = expense.Notes ?? string.Empty,
                 ExpenseDate = expense.ExpenseDate,
-                IsSplitRequired = expense.IsSplitRequired,
+                SplitStatus = expense.SplitStatus,
                 CareGroupId = expense.CareGroupId,
                 CreatedAt = expense.CreatedAt,
-                UpdatedAt = expense.UpdatedAt,
+                UpdatedAt = expense.UpdatedAt ?? expense.CreatedAt,
                 CreatedBy = expense.CreatedBy
             };
         }

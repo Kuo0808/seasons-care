@@ -160,6 +160,9 @@ namespace SeasonsCare.Api.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Amount).HasColumnType("decimal(18,2)");
+                entity.Property(e => e.Category).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Notes).HasMaxLength(500);
+                entity.Property(e => e.SplitStatus).HasConversion<string>().HasMaxLength(20);
                 
                 entity.HasOne(e => e.CareGroup)
                       .WithMany()

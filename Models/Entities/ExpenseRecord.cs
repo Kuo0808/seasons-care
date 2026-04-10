@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.Models.Entities
 {
@@ -16,15 +17,16 @@ namespace SeasonsCare.Api.Models.Entities
         [Column(TypeName = "decimal(18,2)")]
         public decimal Amount { get; set; }
 
+        [Required]
         [MaxLength(50)]
-        public string? Category { get; set; } // e.g., "Medical", "Daily", "Transport", "Other"
+        public string Category { get; set; } = string.Empty;
 
         public string? Notes { get; set; }
 
         public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
 
         [Required]
-        public bool IsSplitRequired { get; set; } = false;
+        public ExpenseSplitStatus SplitStatus { get; set; } = ExpenseSplitStatus.None;
 
         [Required]
         public Guid CareGroupId { get; set; }

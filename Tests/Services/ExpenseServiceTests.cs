@@ -2,6 +2,7 @@ using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.DTOs.Expenses;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Models.Enums;
 using SeasonsCare.Api.Repositories;
 using SeasonsCare.Api.Services;
 
@@ -40,7 +41,9 @@ public class ExpenseServiceTests
         {
             Title = "Taxi",
             Amount = 250m,
-            Category = "Transport"
+            Category = "traffic",
+            ExpenseDate = new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc),
+            SplitStatus = ExpenseSplitStatus.Pending
         });
 
         Assert.NotEqual(Guid.Empty, result.Id);
@@ -48,6 +51,7 @@ public class ExpenseServiceTests
         Assert.Equal(userId.ToString(), result.CreatedBy);
         Assert.NotNull(result.UpdatedAt);
         Assert.Equal(result.CreatedAt, result.UpdatedAt);
+        Assert.Equal(ExpenseSplitStatus.Pending, result.SplitStatus);
         Assert.Single(repository.Expenses);
     }
 
@@ -60,6 +64,9 @@ public class ExpenseServiceTests
             CareGroupId = Guid.NewGuid(),
             Title = "Taxi",
             Amount = 100m,
+            Category = "traffic",
+            ExpenseDate = new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc),
+            SplitStatus = ExpenseSplitStatus.None,
             UpdatedAt = DateTime.UtcNow
         };
 
@@ -71,7 +78,10 @@ public class ExpenseServiceTests
             service.UpdateExpenseAsync(Guid.NewGuid(), existing.CareGroupId, existing.Id, new UpdateExpenseRequest
             {
                 Title = "Taxi 2",
-                Amount = 120m
+                Amount = 120m,
+                Category = "traffic",
+                ExpenseDate = existing.ExpenseDate,
+                SplitStatus = ExpenseSplitStatus.None
             }));
 
         Assert.Equal(409, exception.StatusCode);
@@ -87,6 +97,9 @@ public class ExpenseServiceTests
             CareGroupId = Guid.NewGuid(),
             Title = "Taxi",
             Amount = 100m,
+            Category = "traffic",
+            ExpenseDate = new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc),
+            SplitStatus = ExpenseSplitStatus.None,
             UpdatedAt = new DateTime(2026, 3, 20, 2, 0, 0, DateTimeKind.Utc)
         };
 
@@ -99,6 +112,9 @@ public class ExpenseServiceTests
             {
                 Title = "Taxi 2",
                 Amount = 120m,
+                Category = "traffic",
+                ExpenseDate = existing.ExpenseDate,
+                SplitStatus = ExpenseSplitStatus.None,
                 UpdatedAt = existing.UpdatedAt.Value.AddSeconds(-1)
             }));
 
@@ -116,9 +132,10 @@ public class ExpenseServiceTests
             CareGroupId = Guid.NewGuid(),
             Title = "Taxi",
             Amount = 100m,
-            Category = "Transport",
+            Category = "traffic",
             Notes = "Old note",
             ExpenseDate = new DateTime(2026, 3, 20, 1, 0, 0, DateTimeKind.Utc),
+            SplitStatus = ExpenseSplitStatus.Pending,
             UpdatedAt = existingUpdatedAt
         };
 
@@ -130,16 +147,18 @@ public class ExpenseServiceTests
         {
             Title = "Groceries",
             Amount = 320m,
-            Category = "Daily",
+            Category = "food",
             Notes = "New note",
             ExpenseDate = existing.ExpenseDate.AddHours(1),
+            SplitStatus = ExpenseSplitStatus.Settled,
             UpdatedAt = existingUpdatedAt
         });
 
         Assert.Equal("Groceries", result.Title);
         Assert.Equal(320m, result.Amount);
-        Assert.Equal("Daily", result.Category);
+        Assert.Equal("food", result.Category);
         Assert.Equal("New note", result.Notes);
+        Assert.Equal(ExpenseSplitStatus.Settled, result.SplitStatus);
         Assert.NotNull(result.UpdatedAt);
         Assert.NotEqual(existingUpdatedAt, result.UpdatedAt.Value);
     }

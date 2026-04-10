@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using SeasonsCare.Api.Models.Entities;
+using SeasonsCare.Api.Models.Enums;
 using SeasonsCare.Api.Tests.Shared;
 using SeasonsCare.Api.Tests.Shared.Http;
 
@@ -102,9 +103,10 @@ public class ExpensesTenantIsolationIntegrationTests
         {
             title = "Groceries",
             amount = 399.5m,
-            category = "Daily",
+            category = "food",
             notes = "fruit",
-            expenseDate
+            expenseDate,
+            splitStatus = "pending"
         });
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -118,6 +120,7 @@ public class ExpensesTenantIsolationIntegrationTests
         Assert.Equal(careGroup.Id, saved!.CareGroupId);
         Assert.Equal("Groceries", saved.Title);
         Assert.Equal(399.5m, saved.Amount);
+        Assert.Equal(ExpenseSplitStatus.Pending, saved.SplitStatus);
         Assert.NotNull(saved.UpdatedAt);
     }
 
@@ -141,9 +144,10 @@ public class ExpensesTenantIsolationIntegrationTests
         {
             title = "Groceries",
             amount = 520m,
-            category = "Daily",
+            category = "food",
             notes = "weekly shopping",
             expenseDate = updatedExpenseDate,
+            splitStatus = "settled",
             updatedAt = persistedExpense!.UpdatedAt!.Value
         });
 
@@ -153,9 +157,10 @@ public class ExpensesTenantIsolationIntegrationTests
         Assert.NotNull(saved);
         Assert.Equal("Groceries", saved!.Title);
         Assert.Equal(520m, saved.Amount);
-        Assert.Equal("Daily", saved.Category);
+        Assert.Equal("food", saved.Category);
         Assert.Equal("weekly shopping", saved.Notes);
         Assert.Equal(updatedExpenseDate, saved.ExpenseDate);
+        Assert.Equal(ExpenseSplitStatus.Settled, saved.SplitStatus);
         Assert.True(saved.UpdatedAt > persistedExpense.UpdatedAt);
     }
 
