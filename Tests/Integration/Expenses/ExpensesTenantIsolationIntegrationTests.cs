@@ -125,11 +125,75 @@ public class ExpensesTenantIsolationIntegrationTests
     }
 
     [Fact]
+    public async Task CreateExpense_DefaultsSplitStatusToNone_WhenOmitted()
+    {
+        using var factory = new RealApiFactory();
+        using var client = factory.Factory.CreateClient();
+        var expenseDate = DateTime.UtcNow.AddMinutes(-1);
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            SeedDataHelper.CreateMember(careGroup.Id));
+
+        var response = await client.PostAsJsonAsync($"/api/care-groups/{careGroup.Id}/expenses", new
+        {
+            title = "Groceries",
+            amount = 399.5m,
+            category = "food",
+            notes = "fruit",
+            expenseDate
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var createdId = payload.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+
+        var saved = await factory.FindAsync<ExpenseRecord>(createdId);
+        Assert.NotNull(saved);
+        Assert.Equal(ExpenseSplitStatus.None, saved!.SplitStatus);
+    }
+
+    [Fact]
+    public async Task CreateExpense_RejectsNumericSplitStatus()
+    {
+        using var factory = new RealApiFactory();
+        using var client = factory.Factory.CreateClient();
+        var expenseDate = DateTime.UtcNow.AddMinutes(-1);
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            SeedDataHelper.CreateMember(careGroup.Id));
+
+        var response = await client.PostAsJsonAsync($"/api/care-groups/{careGroup.Id}/expenses", new
+        {
+            title = "Groceries",
+            amount = 399.5m,
+            category = "food",
+            notes = "fruit",
+            expenseDate,
+            splitStatus = 1
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.Equal("VALIDATION_FAILED", payload.RootElement.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
     public async Task UpdateExpense_RefreshesUpdatedAt_AndPersistsChanges()
     {
         using var factory = new RealApiFactory();
         using var client = factory.Factory.CreateClient();
         var updatedExpenseDate = DateTime.UtcNow.AddMinutes(-1);
+        var normalizedUpdatedExpenseDate = new DateTime(
+            updatedExpenseDate.ToUniversalTime().Ticks - (updatedExpenseDate.ToUniversalTime().Ticks % TimeSpan.TicksPerMillisecond),
+            DateTimeKind.Utc);
 
         var careGroup = SeedDataHelper.CreateCareGroup("Group A");
         var existingExpense = SeedDataHelper.CreateExpense(careGroup.Id, "Taxi", 120m);
@@ -159,7 +223,7 @@ public class ExpensesTenantIsolationIntegrationTests
         Assert.Equal(520m, saved.Amount);
         Assert.Equal("food", saved.Category);
         Assert.Equal("weekly shopping", saved.Notes);
-        Assert.Equal(updatedExpenseDate, saved.ExpenseDate);
+        Assert.Equal(normalizedUpdatedExpenseDate, saved.ExpenseDate);
         Assert.Equal(ExpenseSplitStatus.Settled, saved.SplitStatus);
         Assert.True(saved.UpdatedAt > persistedExpense.UpdatedAt);
     }

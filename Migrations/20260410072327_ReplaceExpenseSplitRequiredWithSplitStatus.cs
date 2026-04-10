@@ -31,6 +31,25 @@ namespace SeasonsCare.Api.Migrations
                 WHERE category IS NULL OR btrim(category) = ''
                 """);
 
+            migrationBuilder.Sql("""
+                UPDATE expenses
+                SET category = CASE
+                    WHEN lower(btrim(category)) = 'medical' THEN 'medical'
+                    WHEN lower(btrim(category)) = 'food' THEN 'food'
+                    WHEN lower(btrim(category)) = 'traffic' THEN 'traffic'
+                    WHEN lower(btrim(category)) = 'other' THEN 'other'
+                    WHEN lower(btrim(category)) = 'daily' THEN 'food'
+                    WHEN lower(btrim(category)) = 'transport' THEN 'traffic'
+                    ELSE 'other'
+                END
+                """);
+
+            migrationBuilder.Sql("""
+                UPDATE expenses
+                SET notes = left(notes, 500)
+                WHERE notes IS NOT NULL AND length(notes) > 500
+                """);
+
             migrationBuilder.AlterColumn<string>(
                 name: "notes",
                 table: "expenses",

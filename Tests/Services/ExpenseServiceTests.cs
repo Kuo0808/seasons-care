@@ -49,7 +49,6 @@ public class ExpenseServiceTests
         Assert.NotEqual(Guid.Empty, result.Id);
         Assert.Equal(careGroupId, result.CareGroupId);
         Assert.Equal(userId.ToString(), result.CreatedBy);
-        Assert.NotNull(result.UpdatedAt);
         Assert.Equal(result.CreatedAt, result.UpdatedAt);
         Assert.Equal(ExpenseSplitStatus.Pending, result.SplitStatus);
         Assert.Single(repository.Expenses);
@@ -159,8 +158,7 @@ public class ExpenseServiceTests
         Assert.Equal("food", result.Category);
         Assert.Equal("New note", result.Notes);
         Assert.Equal(ExpenseSplitStatus.Settled, result.SplitStatus);
-        Assert.NotNull(result.UpdatedAt);
-        Assert.NotEqual(existingUpdatedAt, result.UpdatedAt.Value);
+        Assert.NotEqual(existingUpdatedAt, result.UpdatedAt);
     }
 
     private sealed class FakeExpenseRepository : IExpenseRepository

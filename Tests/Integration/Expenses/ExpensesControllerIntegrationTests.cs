@@ -54,6 +54,47 @@ public class ExpensesControllerIntegrationTests
     }
 
     [Fact]
+    public async Task CreateExpense_AcceptsMissingSplitStatus_AndDefaultsToNone()
+    {
+        using var factory = new StubApiFactory<IExpenseService>(new StubExpenseService());
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/expenses", new
+        {
+            title = "Groceries",
+            amount = 100,
+            category = "food",
+            expenseDate = "2026-04-10T00:00:00Z"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.Equal("none", payload.RootElement.GetProperty("data").GetProperty("splitStatus").GetString());
+    }
+
+    [Fact]
+    public async Task CreateExpense_ReturnsBadRequest_WhenSplitStatusIsNumeric()
+    {
+        using var factory = new StubApiFactory<IExpenseService>(new StubExpenseService());
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/expenses", new
+        {
+            title = "Groceries",
+            amount = 100,
+            category = "food",
+            expenseDate = "2026-04-10T00:00:00Z",
+            splitStatus = 1
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.Equal("VALIDATION_FAILED", payload.RootElement.GetProperty("errorCode").GetString());
+    }
+
+    [Fact]
     public async Task GetExpense_ReturnsForbidden_WhenServiceRejectsAccess()
     {
         using var factory = new StubApiFactory<IExpenseService>(new StubExpenseService

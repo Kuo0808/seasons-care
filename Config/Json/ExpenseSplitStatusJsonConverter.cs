@@ -21,14 +21,7 @@ namespace SeasonsCare.Api.Config.Json
                 };
             }
 
-            if (reader.TokenType == JsonTokenType.Number &&
-                reader.TryGetInt32(out var numericValue) &&
-                Enum.IsDefined(typeof(ExpenseSplitStatus), numericValue))
-            {
-                return (ExpenseSplitStatus)numericValue;
-            }
-
-            throw new JsonException("splitStatus must be a valid string or numeric enum value.");
+            throw new JsonException("splitStatus must be one of: pending, settled, none.");
         }
 
         public override void Write(Utf8JsonWriter writer, ExpenseSplitStatus value, JsonSerializerOptions options)
