@@ -1,19 +1,22 @@
 namespace SeasonsCare.Api.DTOs.CareGroups
 {
+    /// <summary>
+    /// Request body for creating a care group.
+    /// </summary>
     public class CreateCareGroupRequest
     {
         /// <summary>
-        /// 必填。被照護者姓名，最長 100 字。
+        /// Care recipient name. Maximum length is 100.
         /// </summary>
         public string RecipientName { get; set; } = string.Empty;
 
         /// <summary>
-        /// 必填。被照護者性別，最長 20 字。
+        /// Care recipient gender. Maximum length is 20.
         /// </summary>
         public string? RecipientGender { get; set; }
 
         /// <summary>
-        /// 必填。被照護者生日。
+        /// Care recipient birth date.
         /// </summary>
         public DateOnly? RecipientBirthDate { get; set; }
     }

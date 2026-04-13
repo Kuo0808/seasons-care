@@ -12,6 +12,7 @@ namespace SeasonsCare.Api.Services
         Task<PagedResponse<CareGroupResponse>> GetMyGroupsAsync(Guid currentUserId, PaginationRequest pagination);
         Task<CareGroupDetailResponse> GetByIdAsync(Guid currentUserId, Guid careGroupId);
         Task<CareGroupResponse> UpdateAsync(Guid currentUserId, Guid careGroupId, UpdateCareGroupRequest request);
+        Task JoinByInviteCodeAsync(Guid currentUserId, JoinCareGroupRequest request);
         Task JoinAsync(Guid currentUserId, Guid careGroupId, JoinCareGroupRequest request);
         Task RemoveMemberAsync(Guid currentUserId, Guid careGroupId, Guid memberUserId);
     }

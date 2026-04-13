@@ -303,6 +303,7 @@ public class AuthServiceTests
         public Dictionary<(Guid CareGroupId, Guid UserId), bool> MemberLookup { get; } = new();
 
         public Task<CareGroup?> GetByIdAsync(Guid id) => Task.FromResult<CareGroup?>(null);
+        public Task<CareGroup?> GetByInviteCodeAsync(string inviteCode) => Task.FromResult<CareGroup?>(null);
 
         public Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort)
             => Task.FromResult((new List<CareGroup>(), 0));

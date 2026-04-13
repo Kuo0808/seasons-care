@@ -166,6 +166,23 @@ namespace SeasonsCare.Api.Services
             };
         }
 
+        public async Task JoinByInviteCodeAsync(Guid currentUserId, JoinCareGroupRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.InviteCode))
+            {
+                throw new DomainException("Invite code is required.", "VALIDATION_FAILED", 400);
+            }
+
+            var normalizedInviteCode = request.InviteCode.Trim();
+            var group = await _careGroupRepository.GetByInviteCodeAsync(normalizedInviteCode);
+            if (group == null)
+            {
+                throw new DomainException("Invite code is invalid.", "UNAUTHORIZED_JOIN", 401);
+            }
+
+            await JoinInternalAsync(currentUserId, group, normalizedInviteCode);
+        }
+
         public async Task JoinAsync(Guid currentUserId, Guid careGroupId, JoinCareGroupRequest request)
         {
             var group = await _careGroupRepository.GetByIdAsync(careGroupId);
@@ -174,6 +191,12 @@ namespace SeasonsCare.Api.Services
                 throw new DomainException("Care group not found.", "NOT_FOUND", 404);
             }
 
+            await JoinInternalAsync(currentUserId, group, request.InviteCode);
+        }
+
+        private async Task JoinInternalAsync(Guid currentUserId, CareGroup group, string? inviteCode)
+        {
+            var careGroupId = group.Id;
             var existingMember = await _careGroupRepository.GetMemberIncludingDeletedAsync(careGroupId, currentUserId);
             if (existingMember != null && existingMember.DeletedAt == null)
             {
@@ -182,7 +205,7 @@ namespace SeasonsCare.Api.Services
 
             if (!string.IsNullOrEmpty(group.InviteCode))
             {
-                if (string.IsNullOrEmpty(request.InviteCode) || !string.Equals(group.InviteCode, request.InviteCode, StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrEmpty(inviteCode) || !string.Equals(group.InviteCode, inviteCode, StringComparison.OrdinalIgnoreCase))
                 {
                     throw new DomainException("Invite code is invalid.", "UNAUTHORIZED_JOIN", 401);
                 }

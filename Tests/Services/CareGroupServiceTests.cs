@@ -86,6 +86,35 @@ public class CareGroupServiceTests
     }
 
     [Fact]
+    public async Task JoinByInviteCodeAsync_AddsMembership_WhenInviteCodeMatches()
+    {
+        var userId = Guid.NewGuid();
+        var group = new CareGroup { Id = Guid.NewGuid(), Name = "Home Care", RecipientName = "Dad", RecipientGender = "Male", RecipientBirthDate = new DateOnly(1950, 1, 2), InviteCode = "JOIN1234" };
+        var repository = new FakeCareGroupRepository(group);
+        var service = new CareGroupService(repository);
+
+        await service.JoinByInviteCodeAsync(userId, new JoinCareGroupRequest { InviteCode = "JOIN1234" });
+
+        Assert.Single(repository.Members);
+        Assert.Equal(group.Id, repository.Members[0].CareGroupId);
+        Assert.Equal(userId, repository.Members[0].UserId);
+        Assert.Equal(CareGroupRole.Member, repository.Members[0].Role);
+    }
+
+    [Fact]
+    public async Task JoinByInviteCodeAsync_ThrowsUnauthorized_WhenInviteCodeDoesNotExist()
+    {
+        var repository = new FakeCareGroupRepository();
+        var service = new CareGroupService(repository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.JoinByInviteCodeAsync(Guid.NewGuid(), new JoinCareGroupRequest { InviteCode = "UNKNOWN" }));
+
+        Assert.Equal(401, exception.StatusCode);
+        Assert.Equal("UNAUTHORIZED_JOIN", exception.ErrorCode);
+    }
+
+    [Fact]
     public async Task JoinAsync_RestoresSoftDeletedMembership_WhenUserRejoins()
     {
         var userId = Guid.NewGuid();
@@ -185,6 +214,11 @@ public class CareGroupServiceTests
         public Task<CareGroup?> GetByIdAsync(Guid id)
         {
             return Task.FromResult(Groups.FirstOrDefault(x => x.Id == id));
+        }
+
+        public Task<CareGroup?> GetByInviteCodeAsync(string inviteCode)
+        {
+            return Task.FromResult(Groups.FirstOrDefault(x => string.Equals(x.InviteCode, inviteCode, StringComparison.OrdinalIgnoreCase)));
         }
 
         public Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort)

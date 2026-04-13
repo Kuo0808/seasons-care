@@ -1,9 +1,12 @@
 namespace SeasonsCare.Api.DTOs.CareGroups
 {
+    /// <summary>
+    /// Request body for joining a care group.
+    /// </summary>
     public class JoinCareGroupRequest
     {
         /// <summary>
-        /// 必填。邀請碼。
+        /// Invite code used to join a care group.
         /// </summary>
         public string? InviteCode { get; set; }
     }

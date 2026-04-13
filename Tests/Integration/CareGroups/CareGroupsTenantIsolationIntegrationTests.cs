@@ -133,6 +133,34 @@ public class CareGroupsTenantIsolationIntegrationTests
     }
 
     [Fact]
+    public async Task JoinCareGroupByInviteCode_AddsMembership_WhenInviteCodeMatches()
+    {
+        using var factory = new RealApiFactory();
+        using var client = factory.Factory.CreateClient();
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        careGroup.InviteCode = "JOIN1234";
+
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup);
+
+        var response = await client.PostAsJsonAsync("/api/care-groups/join", new
+        {
+            inviteCode = "JOIN1234"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var scope = factory.Factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var membership = await dbContext.CareGroupMembers.FirstOrDefaultAsync(x => x.CareGroupId == careGroup.Id && x.UserId == TestUsers.DefaultUserId);
+
+        Assert.NotNull(membership);
+        Assert.Equal(CareGroupRole.Member, membership!.Role);
+    }
+
+    [Fact]
     public async Task JoinCareGroup_RestoresSoftDeletedMembership_WhenUserRejoins()
     {
         using var factory = new RealApiFactory();

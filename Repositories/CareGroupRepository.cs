@@ -27,6 +27,14 @@ namespace SeasonsCare.Api.Repositories
                 .FirstOrDefaultAsync(cg => cg.Id == id);
         }
 
+        public async Task<CareGroup?> GetByInviteCodeAsync(string inviteCode)
+        {
+            return await _context.CareGroups
+                .Include(cg => cg.Members)
+                    .ThenInclude(m => m.User)
+                .FirstOrDefaultAsync(cg => cg.InviteCode == inviteCode);
+        }
+
         public async Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort)
         {
             IQueryable<CareGroup> query = _context.CareGroups

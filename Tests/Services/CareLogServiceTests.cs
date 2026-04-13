@@ -245,6 +245,11 @@ public class CareLogServiceTests
             });
         }
 
+        public Task<CareGroup?> GetByInviteCodeAsync(string inviteCode)
+        {
+            return Task.FromResult<CareGroup?>(null);
+        }
+
         public Task<(List<CareGroup> Data, int TotalCount)> GetPagedByUserIdAsync(Guid userId, int page, int pageSize, string sort)
         {
             return Task.FromResult((new List<CareGroup>(), 0));

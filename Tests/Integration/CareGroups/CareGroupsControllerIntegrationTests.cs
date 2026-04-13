@@ -66,10 +66,31 @@ public class CareGroupsControllerIntegrationTests
         Assert.Equal("CONFLICT", payload.RootElement.GetProperty("errorCode").GetString());
     }
 
+    [Fact]
+    public async Task JoinCareGroupByInviteCode_ReturnsConflict_WhenServiceDetectsDuplicateMembership()
+    {
+        using var factory = new StubApiFactory<ICareGroupService>(new StubCareGroupService
+        {
+            JoinByInviteCodeException = new DomainException("conflict", "CONFLICT", 409)
+        });
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/care-groups/join", new
+        {
+            inviteCode = "JOIN1234"
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.Equal("CONFLICT", payload.RootElement.GetProperty("errorCode").GetString());
+    }
+
     private sealed class StubCareGroupService : ICareGroupService
     {
         public Exception? GetByIdException { get; init; }
         public Exception? JoinException { get; init; }
+        public Exception? JoinByInviteCodeException { get; init; }
 
         public Task<CareGroupResponse> CreateAsync(Guid currentUserId, CreateCareGroupRequest request)
         {
@@ -120,6 +141,16 @@ public class CareGroupsControllerIntegrationTests
                 InviteCode = "JOIN1234",
                 MemberCount = 1
             });
+        }
+
+        public Task JoinByInviteCodeAsync(Guid currentUserId, JoinCareGroupRequest request)
+        {
+            if (JoinByInviteCodeException is not null)
+            {
+                throw JoinByInviteCodeException;
+            }
+
+            return Task.CompletedTask;
         }
 
         public Task JoinAsync(Guid currentUserId, Guid careGroupId, JoinCareGroupRequest request)
