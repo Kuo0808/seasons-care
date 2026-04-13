@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Options;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.Data;
 using SeasonsCare.Api.DTOs.HealthDashboard;
 using SeasonsCare.Api.Models.Entities;
@@ -37,14 +37,14 @@ public class HealthDashboardIntegrationTests
         cachedInsight.TodaySummary = "cached today summary";
         cachedInsight.KeyInsights = "cached insights";
         cachedInsight.Recommendations = "cached recommendations";
-        cachedInsight.TrendLabels = "{\"bloodPressure\":\"趨勢良好\",\"bloodOxygen\":\"穩定\",\"bloodSugar\":\"建議觀察\",\"temperature\":\"穩定\",\"weight\":\"逐步改善\"}";
+        cachedInsight.TrendLabels = "{\"bloodPressure\":\"穩定\",\"bloodOxygen\":\"正常\",\"bloodSugar\":\"需要觀察\",\"temperature\":\"正常\",\"weight\":\"略為上升\"}";
 
         await factory.SeedAsync(
             SeedDataHelper.CreateUser(),
             careGroup,
             SeedDataHelper.CreateMember(careGroup.Id),
             SeedDataHelper.CreateBloodPressure(careGroup.Id, 128, 84, dateFrom.AddDays(6).AddHours(2)),
-            SeedDataHelper.CreateBloodSugar(careGroup.Id, 112m, "飯前", dateFrom.AddDays(6).AddHours(3)),
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 112m, "飯後", dateFrom.AddDays(6).AddHours(3)),
             SeedDataHelper.CreateWeight(careGroup.Id, 61.5m, dateFrom.AddDays(5)),
             SeedDataHelper.CreateTemperature(careGroup.Id, 36.7m, dateFrom.AddDays(6).AddHours(1)),
             SeedDataHelper.CreateBloodOxygen(careGroup.Id, 98m, dateFrom.AddDays(6).AddHours(4)),
@@ -60,7 +60,7 @@ public class HealthDashboardIntegrationTests
         Assert.True(data.GetProperty("isFromCache").GetBoolean());
         Assert.Equal("cached summary", data.GetProperty("aiReport").GetProperty("overallSummary").GetString());
         Assert.Equal("cached today summary", data.GetProperty("todaySummary").GetProperty("summaryText").GetString());
-        Assert.Equal("趨勢良好", data.GetProperty("trendLabels").GetProperty("bloodPressure").GetString());
+        Assert.Equal("穩定", data.GetProperty("trendLabels").GetProperty("bloodPressure").GetString());
         Assert.Equal(0, fakeAiService.CallCount);
     }
 
@@ -77,11 +77,11 @@ public class HealthDashboardIntegrationTests
                 Recommendations = "generated recommendations",
                 TrendLabels = new TrendLabelsDto
                 {
-                    BloodPressure = "趨勢良好",
-                    BloodOxygen = "穩定",
-                    BloodSugar = "建議觀察",
-                    Temperature = "穩定",
-                    Weight = "逐步改善"
+                    BloodPressure = "穩定",
+                    BloodOxygen = "正常",
+                    BloodSugar = "需要觀察",
+                    Temperature = "正常",
+                    Weight = "略為上升"
                 },
                 SourceDataHash = "generated-hash",
                 ModelName = "gpt-test",
@@ -116,7 +116,7 @@ public class HealthDashboardIntegrationTests
         Assert.False(data.GetProperty("isFromCache").GetBoolean());
         Assert.Equal("generated summary", data.GetProperty("aiReport").GetProperty("overallSummary").GetString());
         Assert.Equal("generated today summary", data.GetProperty("todaySummary").GetProperty("summaryText").GetString());
-        Assert.Equal("趨勢良好", data.GetProperty("trendLabels").GetProperty("bloodPressure").GetString());
+        Assert.Equal("穩定", data.GetProperty("trendLabels").GetProperty("bloodPressure").GetString());
         Assert.Equal(1, fakeAiService.CallCount);
 
         var insights = await factory.GetAiHealthInsightsAsync();
@@ -128,7 +128,7 @@ public class HealthDashboardIntegrationTests
 
     private static (DateTime DateFrom, DateTime DateTo) GetDashboardRange()
     {
-        var todayStart = NormalizeTimestamp(DateTime.UtcNow.Date);
+        var todayStart = NormalizeTimestamp(TimeHelper.GetTaiwanDateStartUtc());
         return (
             NormalizeTimestamp(todayStart.AddDays(-6)),
             NormalizeTimestamp(todayStart.AddDays(1).AddMilliseconds(-1))
@@ -153,11 +153,11 @@ public class HealthDashboardIntegrationTests
             Recommendations = "default recommendations",
             TrendLabels = new TrendLabelsDto
             {
-                BloodPressure = "穩定",
-                BloodOxygen = "穩定",
-                BloodSugar = "穩定",
-                Temperature = "穩定",
-                Weight = "穩定"
+                BloodPressure = "正常",
+                BloodOxygen = "正常",
+                BloodSugar = "正常",
+                Temperature = "正常",
+                Weight = "正常"
             },
             SourceDataHash = "default-hash",
             ModelName = "gpt-test",

@@ -67,7 +67,7 @@ namespace SeasonsCare.Api.Services.AI
                 SourceDataHash = ComputeSourceDataHash(input),
                 ModelName = model,
                 PromptVersion = PromptVersion,
-                GeneratedAt = TimeHelper.Now
+                GeneratedAt = TimeHelper.UtcNow
             };
         }
 
@@ -153,7 +153,7 @@ Write concise, practical guidance for caregivers. Use only the supplied data.
                                 trendLabels = new
                                 {
                                     type = "object",
-                                    description = "Short status label for each health metric trend, such as 趨勢良好, 逐步改善, 建議觀察, or 趨於穩定. Use 資料不足 when there is no data.",
+                                    description = "Short status label for each health metric trend, such as 穩定、偏高、需要觀察 or 資料不足. Use 資料不足 when there is no data.",
                                     additionalProperties = false,
                                     properties = new
                                     {

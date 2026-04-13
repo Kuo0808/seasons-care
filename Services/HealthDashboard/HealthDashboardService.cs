@@ -4,8 +4,8 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using SeasonsCare.Api.Config;
 using Microsoft.Extensions.Logging;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.DTOs.AiHealthInsights;
 using SeasonsCare.Api.DTOs.HealthDashboard;
 using SeasonsCare.Api.Exceptions;
@@ -65,7 +65,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 throw new DomainException("You are not a member of this care group.", "FORBIDDEN", 403);
             }
 
-            var todayStart = NormalizeTimestamp(TimeHelper.Now.Date);
+            var todayStart = NormalizeTimestamp(TimeHelper.GetTaiwanDateStartUtc());
             var dateFrom = NormalizeTimestamp(todayStart.AddDays(-6));
             var dateTo = NormalizeTimestamp(todayStart.AddDays(1).AddMilliseconds(-1));
 
@@ -322,7 +322,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var minDiastolic = list.Min(x => x.Diastolic);
             var maxDiastolic = list.Max(x => x.Diastolic);
 
-            return $"共 {list.Count} 筆；最新 {latest.Systolic}/{latest.Diastolic} mmHg；平均 {avgSystolic:0.#}/{avgDiastolic:0.#} mmHg；收縮壓範圍 {minSystolic}-{maxSystolic}；舒張壓範圍 {minDiastolic}-{maxDiastolic}；趨勢 {DescribeTrend(list.Select(x => (double)x.Systolic))}。";
+            return $"共 {list.Count} 筆，最新 {latest.Systolic}/{latest.Diastolic} mmHg，平均 {avgSystolic:0.#}/{avgDiastolic:0.#} mmHg，收縮壓區間 {minSystolic}-{maxSystolic}，舒張壓區間 {minDiastolic}-{maxDiastolic}，趨勢 {DescribeTrend(list.Select(x => (double)x.Systolic))}。";
         }
 
         private static string BuildBloodSugarSummary(IEnumerable<BloodSugarRecord> records)
@@ -339,7 +339,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 .Select(x => $"{x.Key}:{x.Count()} 筆")
                 .ToList();
 
-            return $"共 {list.Count} 筆；最新 {latest.GlucoseLevel:0.##} mg/dL；平均 {list.Average(x => x.GlucoseLevel):0.##} mg/dL；範圍 {list.Min(x => x.GlucoseLevel):0.##}-{list.Max(x => x.GlucoseLevel):0.##} mg/dL；量測情境 {string.Join("、", groupedContexts)}；趨勢 {DescribeTrend(list.Select(x => (double)x.GlucoseLevel))}。";
+            return $"共 {list.Count} 筆，最新 {latest.GlucoseLevel:0.##} mg/dL，平均 {list.Average(x => x.GlucoseLevel):0.##} mg/dL，區間 {list.Min(x => x.GlucoseLevel):0.##}-{list.Max(x => x.GlucoseLevel):0.##} mg/dL，情境分布 {string.Join("、", groupedContexts)}，趨勢 {DescribeTrend(list.Select(x => (double)x.GlucoseLevel))}。";
         }
 
         private static string BuildSingleMetricSummary(IEnumerable<double> values, string metricName, string unit)
@@ -350,7 +350,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 return $"近 7 天沒有{metricName}資料。";
             }
 
-            return $"共 {list.Count} 筆；最新 {list[^1]:0.##}{unit}；平均 {list.Average():0.##}{unit}；範圍 {list.Min():0.##}-{list.Max():0.##}{unit}；趨勢 {DescribeTrend(list)}。";
+            return $"共 {list.Count} 筆，最新 {list[^1]:0.##}{unit}，平均 {list.Average():0.##}{unit}，區間 {list.Min():0.##}-{list.Max():0.##}{unit}，趨勢 {DescribeTrend(list)}。";
         }
 
         private static string DescribeTrend(IEnumerable<double> values)
@@ -367,7 +367,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 return "大致持平";
             }
 
-            return delta > 0 ? "整體上升" : "整體下降";
+            return delta > 0 ? "略為上升" : "略為下降";
         }
 
         private static AiGeneratedInsightDto MapInsight(AiHealthInsight insight)
