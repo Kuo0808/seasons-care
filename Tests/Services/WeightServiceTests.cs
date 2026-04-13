@@ -90,6 +90,13 @@ public class WeightServiceTests
             return Task.FromResult(new PagedResponse<WeightRecord>(data, data.Count, request.Page, request.PageSize));
         }
 
+        public Task<List<WeightRecord>> GetByCareGroupIdAndDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo)
+        {
+            return Task.FromResult(Items
+                .Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null && x.RecordDate >= dateFrom && x.RecordDate <= dateTo)
+                .ToList());
+        }
+
         public Task<WeightRecord?> GetByIdAsync(Guid careGroupId, Guid id)
         {
             return Task.FromResult(Items.FirstOrDefault(x => x.CareGroupId == careGroupId && x.Id == id && x.DeletedAt == null));

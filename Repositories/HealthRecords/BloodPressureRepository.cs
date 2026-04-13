@@ -44,6 +44,14 @@ namespace SeasonsCare.Api.Repositories.HealthRecords
             return new PagedResponse<BloodPressureRecord>(items, totalCount, request.Page, request.PageSize);
         }
 
+        public async Task<List<BloodPressureRecord>> GetByCareGroupIdAndDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo)
+        {
+            return await _context.Set<BloodPressureRecord>()
+                .Where(x => x.CareGroupId == careGroupId && x.RecordDate >= dateFrom && x.RecordDate <= dateTo)
+                .OrderBy(x => x.RecordDate)
+                .ToListAsync();
+        }
+
         public async Task<BloodPressureRecord?> GetByIdAsync(Guid careGroupId, Guid id)
         {
             return await _context.Set<BloodPressureRecord>()

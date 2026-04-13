@@ -45,6 +45,14 @@ namespace SeasonsCare.Api.Repositories.HealthRecords
             return new PagedResponse<BloodSugarRecord>(items, totalCount, request.Page, request.PageSize);
         }
 
+        public async Task<List<BloodSugarRecord>> GetByCareGroupIdAndDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo)
+        {
+            return await _context.Set<BloodSugarRecord>()
+                .Where(x => x.CareGroupId == careGroupId && x.RecordDate >= dateFrom && x.RecordDate <= dateTo)
+                .OrderBy(x => x.RecordDate)
+                .ToListAsync();
+        }
+
         public async Task<BloodSugarRecord?> GetByIdAsync(Guid careGroupId, Guid id)
         {
             return await _context.Set<BloodSugarRecord>()

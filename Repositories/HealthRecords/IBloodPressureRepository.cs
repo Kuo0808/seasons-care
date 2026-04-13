@@ -9,6 +9,7 @@ namespace SeasonsCare.Api.Repositories.HealthRecords
     public interface IBloodPressureRepository
     {
         Task<PagedResponse<BloodPressureRecord>> GetPagedAsync(Guid careGroupId, PaginationRequest request);
+        Task<List<BloodPressureRecord>> GetByCareGroupIdAndDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo);
         Task<BloodPressureRecord?> GetByIdAsync(Guid careGroupId, Guid id);
         Task<BloodPressureRecord> AddAsync(BloodPressureRecord record);
         Task<BloodPressureRecord> UpdateAsync(BloodPressureRecord record);

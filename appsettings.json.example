@@ -1,4 +1,4 @@
-{
+..0{
   "Logging": {
     "LogLevel": {
       "Default": "Information",
@@ -22,5 +22,9 @@
     "Issuer": "SeasonsCareApi",
     "Audience": "SeasonsCareClient",
     "SecretKey": "<YOUR_JWT_SECRET_KEY_AT_LEAST_32_CHARS>"
+  },
+  "OpenAI": {
+    "ApiKey": "<YOUR_OPENAI_API_KEY>",
+    "Model": "gpt-4o-mini"
   }
 }

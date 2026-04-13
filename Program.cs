@@ -16,6 +16,9 @@ using System.Text;
 using System.IO;
 using Microsoft.OpenApi.Models;
 using SeasonsCare.Api.Config.Json;
+using SeasonsCare.Api.Config.OpenAI;
+using SeasonsCare.Api.Services.AI;
+using SeasonsCare.Api.Services.HealthDashboard;
 
 // [架構導覽] 階段一：應用程式建構與設定初始化 (Application Bootstrapping)
 // 載入 appsettings.json、環境變數，並準備註冊所需元件。
@@ -136,6 +139,9 @@ builder.Services.AddScoped<IEventSeriesService, EventSeriesService>();
 builder.Services.AddScoped<IEventOccurrenceService, EventOccurrenceService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IAiHealthInsightService, AiHealthInsightService>();
+builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));
+builder.Services.AddHttpClient<IAiIntegrationService, OpenAiIntegrationService>();
+builder.Services.AddScoped<IHealthDashboardService, HealthDashboardService>();
 builder.Services.AddHealthRecordsModule();
 
 if (!builder.Environment.IsEnvironment("Testing") &&

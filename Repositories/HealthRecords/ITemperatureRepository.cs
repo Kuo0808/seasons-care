@@ -9,6 +9,7 @@ namespace SeasonsCare.Api.Repositories.HealthRecords
     public interface ITemperatureRepository
     {
         Task<PagedResponse<TemperatureRecord>> GetPagedAsync(Guid careGroupId, PaginationRequest request);
+        Task<List<TemperatureRecord>> GetByCareGroupIdAndDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo);
         Task<TemperatureRecord?> GetByIdAsync(Guid careGroupId, Guid id);
         Task<TemperatureRecord> AddAsync(TemperatureRecord record);
         Task<TemperatureRecord> UpdateAsync(TemperatureRecord record);
