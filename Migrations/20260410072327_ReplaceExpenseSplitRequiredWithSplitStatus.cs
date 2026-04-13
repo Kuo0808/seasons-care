@@ -18,11 +18,24 @@ namespace SeasonsCare.Api.Migrations
                 nullable: true);
 
             migrationBuilder.Sql("""
-                UPDATE expenses
-                SET split_status = CASE
-                    WHEN is_split_required = TRUE THEN 'Pending'
-                    ELSE 'None'
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_name = 'expenses' AND column_name = 'is_split_required'
+                    ) THEN
+                        UPDATE expenses
+                        SET split_status = CASE
+                            WHEN is_split_required = TRUE THEN 'Pending'
+                            ELSE 'None'
+                        END;
+                    ELSE
+                        UPDATE expenses
+                        SET split_status = COALESCE(split_status, 'None');
+                    END IF;
                 END
+                $$;
                 """);
 
             migrationBuilder.Sql("""
@@ -84,9 +97,10 @@ namespace SeasonsCare.Api.Migrations
                 oldMaxLength: 20,
                 oldNullable: true);
 
-            migrationBuilder.DropColumn(
-                name: "is_split_required",
-                table: "expenses");
+            migrationBuilder.Sql("""
+                ALTER TABLE expenses
+                DROP COLUMN IF EXISTS is_split_required;
+                """);
         }
 
         /// <inheritdoc />
