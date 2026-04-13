@@ -60,6 +60,30 @@ public class CareLogsTenantIsolationIntegrationTests
     }
 
     [Fact]
+    public async Task GetLogs_WithoutDateRange_IncludesUpcomingLogsWithinNext60Days()
+    {
+        using var factory = new RealApiFactory();
+        using var client = factory.Factory.CreateClient();
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        var upcomingStartsAt = DateTime.UtcNow.Date.AddDays(45).AddHours(9);
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            SeedDataHelper.CreateMember(careGroup.Id),
+            SeedDataHelper.CreateCareLog(careGroup.Id, "Upcoming Log", upcomingStartsAt));
+
+        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/care-logs");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var items = payload.RootElement.GetProperty("data");
+        Assert.Equal(1, items.GetArrayLength());
+        Assert.Equal("Upcoming Log", items[0].GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task GetLogById_ReturnsNotFound_WhenLogIsInDifferentCareGroup()
     {
         using var factory = new RealApiFactory();

@@ -9,8 +9,6 @@ using SeasonsCare.Api.Models.Entities;
 
 namespace SeasonsCare.Api.Repositories
 {
-    // [架構導覽] 資料存取層 (Data Access Layer) - Repository
-    // 職責：隔離對底層資料庫的直接依賴。封裝 O/RM (Entity Framework Core) 語法，僅提供新增、查詢、修改與儲存等基礎操作。不應包含業務判斷邏輯。
     public class CareLogRepository : ICareLogRepository
     {
         private readonly ApplicationDbContext _context;
@@ -27,7 +25,6 @@ namespace SeasonsCare.Api.Repositories
 
         public async Task<(List<CareLog> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, int page, int pageSize, string sort)
         {
-            // _context.CurrentCareGroupId should be set by middleware, but we can explicitly filter just in case
             var query = _context.CareLogs.Where(l => l.CareGroupId == careGroupId);
 
             var totalCount = await query.CountAsync();
@@ -39,7 +36,7 @@ namespace SeasonsCare.Api.Repositories
                 "startsAt_asc" => query.OrderBy(l => l.StartsAt),
                 "recordDate_desc" => query.OrderByDescending(l => l.StartsAt),
                 "recordDate_asc" => query.OrderBy(l => l.StartsAt),
-                _ => query.OrderByDescending(l => l.CreatedAt) // default to createdAt_desc per rules
+                _ => query.OrderByDescending(l => l.CreatedAt)
             };
 
             var data = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
@@ -49,10 +46,10 @@ namespace SeasonsCare.Api.Repositories
 
         public async Task<(List<CareLog> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, PaginationRequest request)
         {
-            // 以日誌發生時間作為主查詢欄位，供時間軸與區間查詢共用。
             var query = _context.CareLogs
-                .Where(l => l.CareGroupId == careGroupId)
-                .ApplyDateRange(request, l => l.StartsAt);
+                .Where(l => l.CareGroupId == careGroupId);
+
+            query = ApplyCareLogDateRange(query, request);
 
             var totalCount = await query.CountAsync();
 
@@ -75,9 +72,24 @@ namespace SeasonsCare.Api.Repositories
             return (data, totalCount);
         }
 
+        private static IQueryable<CareLog> ApplyCareLogDateRange(IQueryable<CareLog> query, PaginationRequest request)
+        {
+            var rangeRequest = request.ToDateRangeRequest();
+
+            if (rangeRequest.StartDate.HasValue || rangeRequest.EndDate.HasValue)
+            {
+                return query.ApplyDateRange(request, l => l.StartsAt);
+            }
+
+            var utcToday = DateTime.UtcNow.Date;
+            var startDateUtc = DateTime.SpecifyKind(utcToday.AddDays(-60), DateTimeKind.Utc);
+            var endDateExclusiveUtc = DateTime.SpecifyKind(utcToday.AddDays(61), DateTimeKind.Utc);
+
+            return query.Where(l => l.StartsAt >= startDateUtc && l.StartsAt < endDateExclusiveUtc);
+        }
+
         public async Task AddAsync(CareLog careLog)
         {
-            // 僅執行單向的 ORM 資料新增宣告，不主動 Commit 以確保多個動作可涵蓋於單一工作單元 (Unit of Work) 內
             await _context.CareLogs.AddAsync(careLog);
         }
 
@@ -89,7 +101,6 @@ namespace SeasonsCare.Api.Repositories
 
         public async Task SaveChangesAsync()
         {
-            // 真正將變更寫入實體關聯式資料庫 (PostgreSQL) 中
             await _context.SaveChangesAsync();
         }
     }
