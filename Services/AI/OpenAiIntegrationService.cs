@@ -61,6 +61,7 @@ namespace SeasonsCare.Api.Services.AI
             return new AiGeneratedInsightDto
             {
                 OverallSummary = outputJson.RootElement.GetProperty("overallSummary").GetString() ?? string.Empty,
+                TodaySummary = outputJson.RootElement.GetProperty("todaySummary").GetString() ?? string.Empty,
                 KeyInsights = outputJson.RootElement.GetProperty("keyInsights").GetString() ?? string.Empty,
                 Recommendations = outputJson.RootElement.GetProperty("recommendations").GetString() ?? string.Empty,
                 SourceDataHash = ComputeSourceDataHash(input),
@@ -134,6 +135,11 @@ Write concise, practical guidance for caregivers. Use only the supplied data.
                                     type = "string",
                                     description = "A short overall summary of the last 7 days."
                                 },
+                                todaySummary = new
+                                {
+                                    type = "string",
+                                    description = "A specific, conversational, actionable insight for today based on today's summary statistics. e.g. '下午已完成血壓測量，數值偏高，建議...'"
+                                },
                                 keyInsights = new
                                 {
                                     type = "string",
@@ -145,7 +151,7 @@ Write concise, practical guidance for caregivers. Use only the supplied data.
                                     description = "Actionable next-step suggestions for the caregiver."
                                 }
                             },
-                            required = new[] { "overallSummary", "keyInsights", "recommendations" }
+                            required = new[] { "overallSummary", "todaySummary", "keyInsights", "recommendations" }
                         }
                     }
                 }

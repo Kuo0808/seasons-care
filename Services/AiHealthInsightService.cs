@@ -38,6 +38,7 @@ namespace SeasonsCare.Api.Services
                     DateFrom = normalizedDateFrom,
                     DateTo = normalizedDateTo,
                     OverallSummary = request.OverallSummary,
+                    TodaySummary = request.TodaySummary,
                     KeyInsights = request.KeyInsights,
                     Recommendations = request.Recommendations,
                     SourceDataHash = request.SourceDataHash,
@@ -55,6 +56,7 @@ namespace SeasonsCare.Api.Services
             }
 
             existing.OverallSummary = request.OverallSummary;
+            existing.TodaySummary = request.TodaySummary;
             existing.KeyInsights = request.KeyInsights;
             existing.Recommendations = request.Recommendations;
             existing.SourceDataHash = request.SourceDataHash;
@@ -100,6 +102,7 @@ namespace SeasonsCare.Api.Services
                 DateFrom = insight.DateFrom,
                 DateTo = insight.DateTo,
                 OverallSummary = insight.OverallSummary,
+                TodaySummary = insight.TodaySummary,
                 KeyInsights = insight.KeyInsights,
                 Recommendations = insight.Recommendations,
                 SourceDataHash = insight.SourceDataHash,

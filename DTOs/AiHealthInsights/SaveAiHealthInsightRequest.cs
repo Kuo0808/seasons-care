@@ -25,6 +25,11 @@ namespace SeasonsCare.Api.DTOs.AiHealthInsights
         public string OverallSummary { get; set; } = string.Empty;
 
         /// <summary>
+        /// 必填。今日摘要。
+        /// </summary>
+        public string TodaySummary { get; set; } = string.Empty;
+
+        /// <summary>
         /// 必填。關鍵洞察。
         /// </summary>
         public string KeyInsights { get; set; } = string.Empty;

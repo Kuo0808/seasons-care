@@ -1,6 +1,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
 
 namespace SeasonsCare.Api.Data
 {
@@ -8,9 +9,18 @@ namespace SeasonsCare.Api.Data
     {
         public ApplicationDbContext CreateDbContext(string[] args)
         {
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddJsonFile($"appsettings.{environment}.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+
             var connectionString =
-                Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-                ?? Environment.GetEnvironmentVariable("DefaultConnection")
+                configuration.GetConnectionString("DefaultConnection")
+                ?? configuration["ConnectionStrings:DefaultConnection"]
+                ?? configuration["DefaultConnection"]
                 ?? throw new InvalidOperationException("ConnectionStrings__DefaultConnection is not configured for EF design-time operations.");
 
             var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();

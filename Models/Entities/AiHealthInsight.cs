@@ -30,6 +30,9 @@ namespace SeasonsCare.Api.Models.Entities
         public string OverallSummary { get; set; } = string.Empty;
 
         [Required]
+        public string TodaySummary { get; set; } = string.Empty;
+
+        [Required]
         public string KeyInsights { get; set; } = string.Empty;
 
         [Required]

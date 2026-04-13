@@ -78,6 +78,11 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var cachedInsight = await _aiHealthInsightRepository.GetByUniqueKeyAsync(careGroupId, DashboardReportType, dateFrom, dateTo);
             if (cachedInsight != null)
             {
+                if (!string.IsNullOrWhiteSpace(cachedInsight.TodaySummary))
+                {
+                    todaySummary.SummaryText = cachedInsight.TodaySummary;
+                }
+
                 return new HealthDashboardResponse
                 {
                     AiReport = MapInsight(cachedInsight),
@@ -102,6 +107,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                     DateFrom = dateFrom,
                     DateTo = dateTo,
                     OverallSummary = generatedInsight.OverallSummary,
+                    TodaySummary = generatedInsight.TodaySummary,
                     KeyInsights = generatedInsight.KeyInsights,
                     Recommendations = generatedInsight.Recommendations,
                     SourceDataHash = generatedInsight.SourceDataHash,
@@ -112,6 +118,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 generatedInsight = new AiGeneratedInsightDto
                 {
                     OverallSummary = savedInsight.OverallSummary,
+                    TodaySummary = savedInsight.TodaySummary,
                     KeyInsights = savedInsight.KeyInsights,
                     Recommendations = savedInsight.Recommendations,
                     SourceDataHash = savedInsight.SourceDataHash,
@@ -123,6 +130,11 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to generate health dashboard AI insight for careGroupId {CareGroupId}. Returning dashboard without AI report.", careGroupId);
+            }
+
+            if (generatedInsight != null && !string.IsNullOrWhiteSpace(generatedInsight.TodaySummary))
+            {
+                todaySummary.SummaryText = generatedInsight.TodaySummary;
             }
 
             return new HealthDashboardResponse
@@ -352,6 +364,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             return new AiGeneratedInsightDto
             {
                 OverallSummary = insight.OverallSummary,
+                TodaySummary = insight.TodaySummary,
                 KeyInsights = insight.KeyInsights,
                 Recommendations = insight.Recommendations,
                 SourceDataHash = insight.SourceDataHash,

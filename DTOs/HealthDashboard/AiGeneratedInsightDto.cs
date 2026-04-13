@@ -6,6 +6,8 @@ namespace SeasonsCare.Api.DTOs.HealthDashboard
     {
         public string OverallSummary { get; set; } = string.Empty;
 
+        public string TodaySummary { get; set; } = string.Empty;
+
         public string KeyInsights { get; set; } = string.Empty;
 
         public string Recommendations { get; set; } = string.Empty;
