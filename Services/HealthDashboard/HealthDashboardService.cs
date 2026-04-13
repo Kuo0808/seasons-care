@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using SeasonsCare.Api.DTOs.AiHealthInsights;
@@ -18,6 +19,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
     public class HealthDashboardService : IHealthDashboardService
     {
         private const string DashboardReportType = "health_dashboard_7d";
+        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
         private readonly ICareGroupRepository _careGroupRepository;
         private readonly IAiHealthInsightRepository _aiHealthInsightRepository;
@@ -83,13 +85,16 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                     todaySummary.SummaryText = cachedInsight.TodaySummary;
                 }
 
+                var cachedReport = MapInsight(cachedInsight);
+
                 return new HealthDashboardResponse
                 {
-                    AiReport = MapInsight(cachedInsight),
+                    AiReport = cachedReport,
                     TodaySummary = todaySummary,
                     Trends = trends,
                     DateFrom = dateFrom,
                     DateTo = dateTo,
+                    TrendLabels = cachedReport.TrendLabels,
                     IsFromCache = true
                 };
             }
@@ -110,6 +115,9 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                     TodaySummary = generatedInsight.TodaySummary,
                     KeyInsights = generatedInsight.KeyInsights,
                     Recommendations = generatedInsight.Recommendations,
+                    TrendLabels = generatedInsight.TrendLabels != null
+                        ? JsonSerializer.Serialize(generatedInsight.TrendLabels, JsonOptions)
+                        : null,
                     SourceDataHash = generatedInsight.SourceDataHash,
                     ModelName = generatedInsight.ModelName,
                     PromptVersion = generatedInsight.PromptVersion
@@ -121,6 +129,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                     TodaySummary = savedInsight.TodaySummary,
                     KeyInsights = savedInsight.KeyInsights,
                     Recommendations = savedInsight.Recommendations,
+                    TrendLabels = generatedInsight.TrendLabels,
                     SourceDataHash = savedInsight.SourceDataHash,
                     ModelName = savedInsight.ModelName,
                     PromptVersion = savedInsight.PromptVersion,
@@ -144,6 +153,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 Trends = trends,
                 DateFrom = dateFrom,
                 DateTo = dateTo,
+                TrendLabels = generatedInsight?.TrendLabels,
                 IsFromCache = false
             };
         }
@@ -361,12 +371,26 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static AiGeneratedInsightDto MapInsight(AiHealthInsight insight)
         {
+            TrendLabelsDto? trendLabels = null;
+            if (!string.IsNullOrWhiteSpace(insight.TrendLabels))
+            {
+                try
+                {
+                    trendLabels = JsonSerializer.Deserialize<TrendLabelsDto>(insight.TrendLabels, JsonOptions);
+                }
+                catch
+                {
+                    // Ignore malformed cached trend labels and continue returning the rest of the dashboard.
+                }
+            }
+
             return new AiGeneratedInsightDto
             {
                 OverallSummary = insight.OverallSummary,
                 TodaySummary = insight.TodaySummary,
                 KeyInsights = insight.KeyInsights,
                 Recommendations = insight.Recommendations,
+                TrendLabels = trendLabels,
                 SourceDataHash = insight.SourceDataHash,
                 ModelName = insight.ModelName,
                 PromptVersion = insight.PromptVersion,

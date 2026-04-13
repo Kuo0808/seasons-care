@@ -99,6 +99,10 @@ namespace SeasonsCare.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("today_summary");
 
+                    b.Property<string>("TrendLabels")
+                        .HasColumnType("text")
+                        .HasColumnName("trend_labels");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone")

@@ -38,6 +38,11 @@ namespace SeasonsCare.Api.Models.Entities
         [Required]
         public string Recommendations { get; set; } = string.Empty;
 
+        /// <summary>
+        /// AI 產出的各指標趨勢狀態標籤，以 JSON 字串儲存。
+        /// </summary>
+        public string? TrendLabels { get; set; }
+
         [MaxLength(128)]
         public string? SourceDataHash { get; set; }
 

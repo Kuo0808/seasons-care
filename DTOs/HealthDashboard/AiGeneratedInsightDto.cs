@@ -12,6 +12,8 @@ namespace SeasonsCare.Api.DTOs.HealthDashboard
 
         public string Recommendations { get; set; } = string.Empty;
 
+        public TrendLabelsDto? TrendLabels { get; set; }
+
         public string? SourceDataHash { get; set; }
 
         public string? ModelName { get; set; }

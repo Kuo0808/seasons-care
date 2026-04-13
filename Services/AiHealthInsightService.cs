@@ -41,6 +41,7 @@ namespace SeasonsCare.Api.Services
                     TodaySummary = request.TodaySummary,
                     KeyInsights = request.KeyInsights,
                     Recommendations = request.Recommendations,
+                    TrendLabels = request.TrendLabels,
                     SourceDataHash = request.SourceDataHash,
                     ModelName = request.ModelName,
                     PromptVersion = request.PromptVersion,
@@ -59,6 +60,7 @@ namespace SeasonsCare.Api.Services
             existing.TodaySummary = request.TodaySummary;
             existing.KeyInsights = request.KeyInsights;
             existing.Recommendations = request.Recommendations;
+            existing.TrendLabels = request.TrendLabels;
             existing.SourceDataHash = request.SourceDataHash;
             existing.ModelName = request.ModelName;
             existing.PromptVersion = request.PromptVersion;
@@ -105,6 +107,7 @@ namespace SeasonsCare.Api.Services
                 TodaySummary = insight.TodaySummary,
                 KeyInsights = insight.KeyInsights,
                 Recommendations = insight.Recommendations,
+                TrendLabels = insight.TrendLabels,
                 SourceDataHash = insight.SourceDataHash,
                 ModelName = insight.ModelName,
                 PromptVersion = insight.PromptVersion,

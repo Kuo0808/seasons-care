@@ -31,4 +31,16 @@ public class DateRangePaginationRequestValidatorTests
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, x => x.PropertyName == nameof(DateRangePaginationRequest.PageSize));
     }
+
+    [Fact]
+    public void ResolveDateRange_UsesPastAndFuture60Days_WhenDatesAreMissing()
+    {
+        var request = new DateRangePaginationRequest();
+        var anchor = new DateTime(2026, 4, 13, 9, 0, 0, DateTimeKind.Utc);
+
+        var (startDateUtc, endDateExclusiveUtc) = request.ResolveDateRange(anchor);
+
+        Assert.Equal(new DateTime(2026, 2, 12, 0, 0, 0, DateTimeKind.Utc), startDateUtc);
+        Assert.Equal(new DateTime(2026, 6, 13, 0, 0, 0, DateTimeKind.Utc), endDateExclusiveUtc);
+    }
 }

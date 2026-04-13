@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using SeasonsCare.Api.Config;
 
 namespace SeasonsCare.Api.Models.Entities
 {
@@ -17,7 +18,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public Guid? LastViewedCareGroupId { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
         
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

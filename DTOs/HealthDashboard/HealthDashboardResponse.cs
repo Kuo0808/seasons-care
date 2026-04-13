@@ -14,6 +14,8 @@ namespace SeasonsCare.Api.DTOs.HealthDashboard
 
         public DateTime DateTo { get; set; }
 
+        public TrendLabelsDto? TrendLabels { get; set; }
+
         public bool IsFromCache { get; set; }
     }
 }

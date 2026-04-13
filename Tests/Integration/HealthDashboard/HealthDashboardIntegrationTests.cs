@@ -34,8 +34,10 @@ public class HealthDashboardIntegrationTests
         cachedInsight.DateFrom = dateFrom;
         cachedInsight.DateTo = dateTo;
         cachedInsight.OverallSummary = "cached summary";
+        cachedInsight.TodaySummary = "cached today summary";
         cachedInsight.KeyInsights = "cached insights";
         cachedInsight.Recommendations = "cached recommendations";
+        cachedInsight.TrendLabels = "{\"bloodPressure\":\"趨勢良好\",\"bloodOxygen\":\"穩定\",\"bloodSugar\":\"建議觀察\",\"temperature\":\"穩定\",\"weight\":\"逐步改善\"}";
 
         await factory.SeedAsync(
             SeedDataHelper.CreateUser(),
@@ -57,6 +59,8 @@ public class HealthDashboardIntegrationTests
 
         Assert.True(data.GetProperty("isFromCache").GetBoolean());
         Assert.Equal("cached summary", data.GetProperty("aiReport").GetProperty("overallSummary").GetString());
+        Assert.Equal("cached today summary", data.GetProperty("todaySummary").GetProperty("summaryText").GetString());
+        Assert.Equal("趨勢良好", data.GetProperty("trendLabels").GetProperty("bloodPressure").GetString());
         Assert.Equal(0, fakeAiService.CallCount);
     }
 
@@ -68,8 +72,17 @@ public class HealthDashboardIntegrationTests
             Result = new AiGeneratedInsightDto
             {
                 OverallSummary = "generated summary",
+                TodaySummary = "generated today summary",
                 KeyInsights = "generated insights",
                 Recommendations = "generated recommendations",
+                TrendLabels = new TrendLabelsDto
+                {
+                    BloodPressure = "趨勢良好",
+                    BloodOxygen = "穩定",
+                    BloodSugar = "建議觀察",
+                    Temperature = "穩定",
+                    Weight = "逐步改善"
+                },
                 SourceDataHash = "generated-hash",
                 ModelName = "gpt-test",
                 PromptVersion = "test-v1",
@@ -102,12 +115,15 @@ public class HealthDashboardIntegrationTests
 
         Assert.False(data.GetProperty("isFromCache").GetBoolean());
         Assert.Equal("generated summary", data.GetProperty("aiReport").GetProperty("overallSummary").GetString());
+        Assert.Equal("generated today summary", data.GetProperty("todaySummary").GetProperty("summaryText").GetString());
+        Assert.Equal("趨勢良好", data.GetProperty("trendLabels").GetProperty("bloodPressure").GetString());
         Assert.Equal(1, fakeAiService.CallCount);
 
         var insights = await factory.GetAiHealthInsightsAsync();
         Assert.Single(insights);
         Assert.Equal("health_dashboard_7d", insights[0].ReportType);
         Assert.Equal("generated summary", insights[0].OverallSummary);
+        Assert.Contains("bloodPressure", insights[0].TrendLabels);
     }
 
     private static (DateTime DateFrom, DateTime DateTo) GetDashboardRange()
@@ -132,8 +148,17 @@ public class HealthDashboardIntegrationTests
         public AiGeneratedInsightDto Result { get; set; } = new()
         {
             OverallSummary = "default summary",
+            TodaySummary = "default today summary",
             KeyInsights = "default insights",
             Recommendations = "default recommendations",
+            TrendLabels = new TrendLabelsDto
+            {
+                BloodPressure = "穩定",
+                BloodOxygen = "穩定",
+                BloodSugar = "穩定",
+                Temperature = "穩定",
+                Weight = "穩定"
+            },
             SourceDataHash = "default-hash",
             ModelName = "gpt-test",
             PromptVersion = "test-v1",

@@ -144,6 +144,7 @@ namespace SeasonsCare.Api.Data
                 entity.Property(e => e.OverallSummary).HasColumnType("text");
                 entity.Property(e => e.KeyInsights).HasColumnType("text");
                 entity.Property(e => e.Recommendations).HasColumnType("text");
+                entity.Property(e => e.TrendLabels).HasColumnType("text");
                 entity.Property(e => e.SourceDataHash).HasMaxLength(128);
                 entity.Property(e => e.ModelName).HasMaxLength(100);
                 entity.Property(e => e.PromptVersion).HasMaxLength(50);

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -14,7 +15,8 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v1";
+        private const string PromptVersion = "health-dashboard-v2";
+        private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
         private readonly HttpClient _httpClient;
@@ -36,19 +38,8 @@ namespace SeasonsCare.Api.Services.AI
                 throw new InvalidOperationException("OpenAI API key is not configured.");
             }
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/responses");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            request.Content = new StringContent(
-                JsonSerializer.Serialize(BuildPromptPayload(model, input), JsonOptions),
-                Encoding.UTF8,
-                "application/json");
-
-            using var response = await _httpClient.SendAsync(request);
-            var responseContent = await response.Content.ReadAsStringAsync();
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new InvalidOperationException($"OpenAI request failed with status {(int)response.StatusCode}: {responseContent}");
-            }
+            var payloadJson = JsonSerializer.Serialize(BuildPromptPayload(model, input), JsonOptions);
+            var responseContent = await SendWithRetryAsync(apiKey, payloadJson);
 
             using var json = JsonDocument.Parse(responseContent);
             var outputText = ExtractOutputText(json.RootElement);
@@ -58,12 +49,20 @@ namespace SeasonsCare.Api.Services.AI
             }
 
             using var outputJson = JsonDocument.Parse(outputText);
+
+            TrendLabelsDto? trendLabels = null;
+            if (outputJson.RootElement.TryGetProperty("trendLabels", out var trendLabelsElement))
+            {
+                trendLabels = JsonSerializer.Deserialize<TrendLabelsDto>(trendLabelsElement.GetRawText(), JsonOptions);
+            }
+
             return new AiGeneratedInsightDto
             {
                 OverallSummary = outputJson.RootElement.GetProperty("overallSummary").GetString() ?? string.Empty,
                 TodaySummary = outputJson.RootElement.GetProperty("todaySummary").GetString() ?? string.Empty,
                 KeyInsights = outputJson.RootElement.GetProperty("keyInsights").GetString() ?? string.Empty,
                 Recommendations = outputJson.RootElement.GetProperty("recommendations").GetString() ?? string.Empty,
+                TrendLabels = trendLabels,
                 SourceDataHash = ComputeSourceDataHash(input),
                 ModelName = model,
                 PromptVersion = PromptVersion,
@@ -138,7 +137,7 @@ Write concise, practical guidance for caregivers. Use only the supplied data.
                                 todaySummary = new
                                 {
                                     type = "string",
-                                    description = "A specific, conversational, actionable insight for today based on today's summary statistics. e.g. '下午已完成血壓測量，數值偏高，建議...'"
+                                    description = "A specific, conversational, actionable insight for today based on today's summary statistics."
                                 },
                                 keyInsights = new
                                 {
@@ -149,13 +148,69 @@ Write concise, practical guidance for caregivers. Use only the supplied data.
                                 {
                                     type = "string",
                                     description = "Actionable next-step suggestions for the caregiver."
+                                },
+                                trendLabels = new
+                                {
+                                    type = "object",
+                                    description = "Short status label for each health metric trend, such as 趨勢良好, 逐步改善, 建議觀察, or 趨於穩定. Use 資料不足 when there is no data.",
+                                    additionalProperties = false,
+                                    properties = new
+                                    {
+                                        bloodPressure = new { type = "string" },
+                                        bloodOxygen = new { type = "string" },
+                                        bloodSugar = new { type = "string" },
+                                        temperature = new { type = "string" },
+                                        weight = new { type = "string" }
+                                    },
+                                    required = new[] { "bloodPressure", "bloodOxygen", "bloodSugar", "temperature", "weight" }
                                 }
                             },
-                            required = new[] { "overallSummary", "todaySummary", "keyInsights", "recommendations" }
+                            required = new[] { "overallSummary", "todaySummary", "keyInsights", "recommendations", "trendLabels" }
                         }
                     }
                 }
             };
+        }
+
+        private async Task<string> SendWithRetryAsync(string apiKey, string payloadJson)
+        {
+            string? lastFailure = null;
+
+            for (var attempt = 1; attempt <= MaxRetryAttempts; attempt++)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/responses");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                request.Content = new StringContent(payloadJson, Encoding.UTF8, "application/json");
+
+                using var response = await _httpClient.SendAsync(request);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return responseContent;
+                }
+
+                lastFailure = $"OpenAI request failed with status {(int)response.StatusCode}: {responseContent}";
+                if (attempt == MaxRetryAttempts || !IsTransientStatusCode(response.StatusCode))
+                {
+                    throw new InvalidOperationException(lastFailure);
+                }
+
+                var delay = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(Math.Pow(2, attempt - 1));
+                await Task.Delay(delay);
+            }
+
+            throw new InvalidOperationException(lastFailure ?? "OpenAI request failed for an unknown reason.");
+        }
+
+        private static bool IsTransientStatusCode(HttpStatusCode statusCode)
+        {
+            return statusCode == HttpStatusCode.RequestTimeout
+                || statusCode == HttpStatusCode.TooManyRequests
+                || statusCode == HttpStatusCode.InternalServerError
+                || statusCode == HttpStatusCode.BadGateway
+                || statusCode == HttpStatusCode.ServiceUnavailable
+                || statusCode == HttpStatusCode.GatewayTimeout;
         }
 
         private static string ExtractOutputText(JsonElement root)

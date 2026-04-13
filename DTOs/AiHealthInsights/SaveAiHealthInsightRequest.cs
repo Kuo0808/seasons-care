@@ -40,6 +40,11 @@ namespace SeasonsCare.Api.DTOs.AiHealthInsights
         public string Recommendations { get; set; } = string.Empty;
 
         /// <summary>
+        /// 選填。AI 產出的各指標趨勢狀態標籤 JSON。
+        /// </summary>
+        public string? TrendLabels { get; set; }
+
+        /// <summary>
         /// 選填。來源資料雜湊，最長 128 字。
         /// </summary>
         public string? SourceDataHash { get; set; }

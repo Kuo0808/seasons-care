@@ -16,6 +16,14 @@ namespace SeasonsCare.Api.DTOs.Common
 
         public (DateTime StartDateUtc, DateTime EndDateExclusiveUtc) ResolveDateRange(DateTime utcNow)
         {
+            if (!StartDate.HasValue && !EndDate.HasValue)
+            {
+                var defaultAnchorDate = utcNow.Date;
+                return (
+                    DateTime.SpecifyKind(defaultAnchorDate.AddDays(-60), DateTimeKind.Utc),
+                    DateTime.SpecifyKind(defaultAnchorDate.AddDays(61), DateTimeKind.Utc));
+            }
+
             var effectiveEndDate = (EndDate ?? utcNow).Date;
             var effectiveStartDate = (StartDate ?? effectiveEndDate.AddDays(-30)).Date;
 

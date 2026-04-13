@@ -49,8 +49,9 @@ namespace SeasonsCare.Api.Repositories
         public async Task<(List<ExpenseRecord> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, PaginationRequest request)
         {
             var query = _context.Expenses
-                .Where(e => e.CareGroupId == careGroupId)
-                .ApplyDateRange(request, e => e.ExpenseDate);
+                .Where(e => e.CareGroupId == careGroupId);
+
+            query = ApplyExpenseDateRange(query, request);
 
             var totalCount = await query.CountAsync();
 
@@ -71,6 +72,22 @@ namespace SeasonsCare.Api.Repositories
                 .ToListAsync();
 
             return (data, totalCount);
+        }
+
+        private static IQueryable<ExpenseRecord> ApplyExpenseDateRange(IQueryable<ExpenseRecord> query, PaginationRequest request)
+        {
+            var rangeRequest = request.ToDateRangeRequest();
+
+            if (rangeRequest.StartDate.HasValue || rangeRequest.EndDate.HasValue)
+            {
+                return query.ApplyDateRange(request, e => e.ExpenseDate);
+            }
+
+            var utcToday = DateTime.UtcNow.Date;
+            var monthStartUtc = new DateTime(utcToday.Year, utcToday.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var nextMonthStartUtc = monthStartUtc.AddMonths(1);
+
+            return query.Where(e => e.ExpenseDate >= monthStartUtc && e.ExpenseDate < nextMonthStartUtc);
         }
 
         public async Task AddAsync(ExpenseRecord expense)

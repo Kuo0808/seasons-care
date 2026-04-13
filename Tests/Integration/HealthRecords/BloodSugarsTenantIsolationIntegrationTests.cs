@@ -60,6 +60,37 @@ public class BloodSugarsTenantIsolationIntegrationTests
     }
 
     [Fact]
+    public async Task GetRecords_WithoutDateRange_IncludesUpcomingRecordsWithinNext60Days()
+    {
+        using var factory = new RealApiFactory();
+        using var client = factory.Factory.CreateClient();
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            SeedDataHelper.CreateMember(careGroup.Id),
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 100m, "recent", DateTime.UtcNow.AddDays(-5)),
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 135m, "upcoming", DateTime.UtcNow.AddDays(30)),
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 150m, "far-future", DateTime.UtcNow.AddDays(90)));
+
+        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-records/blood-sugars");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var items = payload.RootElement.GetProperty("data");
+        var contexts = items.EnumerateArray()
+            .Select(x => x.GetProperty("measurementContext").GetString())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToList();
+
+        Assert.Contains("recent", contexts);
+        Assert.Contains("upcoming", contexts);
+        Assert.DoesNotContain("far-future", contexts);
+    }
+
+    [Fact]
     public async Task CreateRecord_PersistsBloodSugar_InRequestedCareGroup()
     {
         using var factory = new RealApiFactory();
