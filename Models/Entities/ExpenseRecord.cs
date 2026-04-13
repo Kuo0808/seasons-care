@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.Models.Entities
@@ -23,7 +24,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public string? Notes { get; set; }
 
-        public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
+        public DateTime ExpenseDate { get; set; } = TimeHelper.Now;
 
         [Required]
         public ExpenseSplitStatus SplitStatus { get; set; } = ExpenseSplitStatus.None;
@@ -34,7 +35,7 @@ namespace SeasonsCare.Api.Models.Entities
         [ForeignKey("CareGroupId")]
         public CareGroup CareGroup { get; set; } = null!;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

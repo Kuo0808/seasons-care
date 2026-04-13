@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SeasonsCare.Api.Config;
 
 namespace SeasonsCare.Api.Models.Entities
 {
@@ -52,9 +53,9 @@ namespace SeasonsCare.Api.Models.Entities
         [MaxLength(50)]
         public string? PromptVersion { get; set; }
 
-        public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
+        public DateTime GeneratedAt { get; set; } = TimeHelper.Now;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

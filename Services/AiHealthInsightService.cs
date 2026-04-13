@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.DTOs.AiHealthInsights;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Entities;
@@ -24,7 +25,7 @@ namespace SeasonsCare.Api.Services
 
             var normalizedDateFrom = NormalizeTimestamp(request.DateFrom);
             var normalizedDateTo = NormalizeTimestamp(request.DateTo);
-            var now = NormalizeTimestamp(DateTime.UtcNow);
+            var now = NormalizeTimestamp(TimeHelper.Now);
             var reportType = request.ReportType.Trim();
 
             // 同一照護群組、報告類型與分析區間只保留一份最新快照。

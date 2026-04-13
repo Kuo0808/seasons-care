@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using SeasonsCare.Api.Config;
 
 namespace SeasonsCare.Api.Models.Entities.HealthRecords
 {
@@ -14,9 +15,9 @@ namespace SeasonsCare.Api.Models.Entities.HealthRecords
         public string? Notes { get; set; }
         public DateTime RecordDate { get; set; }
         
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
         [ConcurrencyCheck]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = TimeHelper.Now;
         public string CreatedBy { get; set; } = string.Empty;
         public DateTime? DeletedAt { get; set; }
         

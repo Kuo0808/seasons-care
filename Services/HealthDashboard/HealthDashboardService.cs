@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using SeasonsCare.Api.Config;
 using Microsoft.Extensions.Logging;
 using SeasonsCare.Api.DTOs.AiHealthInsights;
 using SeasonsCare.Api.DTOs.HealthDashboard;
@@ -64,7 +65,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 throw new DomainException("You are not a member of this care group.", "FORBIDDEN", 403);
             }
 
-            var todayStart = NormalizeTimestamp(DateTime.UtcNow.Date);
+            var todayStart = NormalizeTimestamp(TimeHelper.Now.Date);
             var dateFrom = NormalizeTimestamp(todayStart.AddDays(-6));
             var dateTo = NormalizeTimestamp(todayStart.AddDays(1).AddMilliseconds(-1));
 

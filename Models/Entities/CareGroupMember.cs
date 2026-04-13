@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.Models.Entities
@@ -10,8 +11,8 @@ namespace SeasonsCare.Api.Models.Entities
         public Guid CareGroupId { get; set; }
         public Guid UserId { get; set; }
         public CareGroupRole Role { get; set; } = CareGroupRole.Member;
-        public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime JoinedAt { get; set; } = TimeHelper.Now;
+        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }
         public string CreatedBy { get; set; } = string.Empty;

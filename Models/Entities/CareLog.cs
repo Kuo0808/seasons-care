@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SeasonsCare.Api.Config;
 
 namespace SeasonsCare.Api.Models.Entities
 {
@@ -14,7 +15,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public string? Description { get; set; }
 
-        public DateTime StartsAt { get; set; } = DateTime.UtcNow;
+        public DateTime StartsAt { get; set; } = TimeHelper.Now;
 
         [MaxLength(50)]
         public string? RepeatPattern { get; set; }
@@ -32,7 +33,7 @@ namespace SeasonsCare.Api.Models.Entities
         [ForeignKey("CareGroupId")]
         public CareGroup CareGroup { get; set; } = null!;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

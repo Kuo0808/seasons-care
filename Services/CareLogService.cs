@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.DTOs.CareLogs;
 using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Exceptions;
@@ -202,7 +203,7 @@ namespace SeasonsCare.Api.Services
 
         private static DateTime GetUtcNowRoundedToMilliseconds()
         {
-            return NormalizeTimestamp(DateTime.UtcNow);
+            return NormalizeTimestamp(TimeHelper.Now);
         }
 
         private static DateTime NormalizeTimestamp(DateTime value)

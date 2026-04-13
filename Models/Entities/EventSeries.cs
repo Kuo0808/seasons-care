@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.Models.Entities
@@ -20,7 +21,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public string? Description { get; set; }
 
-        public DateTime StartsAt { get; set; } = DateTime.UtcNow;
+        public DateTime StartsAt { get; set; } = TimeHelper.Now;
 
         public int? DurationMinutes { get; set; }
 
@@ -55,7 +56,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public ICollection<EventOccurrence> Occurrences { get; set; } = new List<EventOccurrence>();
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

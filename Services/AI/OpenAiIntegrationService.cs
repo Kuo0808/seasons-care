@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.Config.OpenAI;
 using SeasonsCare.Api.DTOs.HealthDashboard;
 
@@ -66,7 +67,7 @@ namespace SeasonsCare.Api.Services.AI
                 SourceDataHash = ComputeSourceDataHash(input),
                 ModelName = model,
                 PromptVersion = PromptVersion,
-                GeneratedAt = DateTime.UtcNow
+                GeneratedAt = TimeHelper.Now
             };
         }
 

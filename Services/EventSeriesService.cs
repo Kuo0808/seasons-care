@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.DTOs.EventSeries;
 using SeasonsCare.Api.Exceptions;
@@ -45,7 +46,7 @@ namespace SeasonsCare.Api.Services
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
             var participants = await ValidateParticipantsAsync(careGroupId, request.Participants);
-            var now = NormalizeTimestamp(DateTime.UtcNow);
+            var now = NormalizeTimestamp(TimeHelper.Now);
 
             var series = new EventSeries
             {

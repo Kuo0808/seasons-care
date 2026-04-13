@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.Models.Entities
@@ -39,7 +40,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public bool IsImportantOverride { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

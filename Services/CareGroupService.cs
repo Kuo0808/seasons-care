@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.DTOs.CareGroups;
 using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.Exceptions;
@@ -147,7 +148,7 @@ namespace SeasonsCare.Api.Services
             group.RecipientBirthDate = request.RecipientBirthDate;
             group.Description = request.Description;
             group.HealthStatus = request.HealthStatus;
-            group.UpdatedAt = DateTime.UtcNow;
+            group.UpdatedAt = TimeHelper.Now;
 
             await _careGroupRepository.SaveChangesAsync();
 
@@ -214,9 +215,9 @@ namespace SeasonsCare.Api.Services
             if (existingMember != null)
             {
                 existingMember.Role = CareGroupRole.Member;
-                existingMember.JoinedAt = DateTime.UtcNow;
+                existingMember.JoinedAt = TimeHelper.Now;
                 existingMember.DeletedAt = null;
-                existingMember.UpdatedAt = DateTime.UtcNow;
+                existingMember.UpdatedAt = TimeHelper.Now;
                 await _careGroupRepository.SaveChangesAsync();
                 return;
             }
@@ -258,7 +259,7 @@ namespace SeasonsCare.Api.Services
                 throw new DomainException("Member not found.", "NOT_FOUND", 404);
             }
 
-            memberToRemove.DeletedAt = DateTime.UtcNow;
+            memberToRemove.DeletedAt = TimeHelper.Now;
             await _careGroupRepository.SaveChangesAsync();
         }
     }

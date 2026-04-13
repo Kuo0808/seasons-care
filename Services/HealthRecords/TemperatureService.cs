@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.DTOs.HealthRecords.Temperatures;
 using SeasonsCare.Api.Exceptions;
@@ -67,7 +68,7 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 CareGroupId = careGroupId,
                 Value = request.Value,
                 Notes = request.Notes,
-                RecordDate = request.RecordDate ?? DateTime.UtcNow,
+                RecordDate = request.RecordDate ?? TimeHelper.Now,
                 CreatedBy = currentUserId.ToString()
             };
 
@@ -99,7 +100,7 @@ namespace SeasonsCare.Api.Services.HealthRecords
             {
                 record.RecordDate = request.RecordDate.Value;
             }
-            record.UpdatedAt = DateTime.UtcNow;
+            record.UpdatedAt = TimeHelper.Now;
 
             var updated = await _repository.UpdateAsync(record);
             return MapToResponse(updated);
@@ -115,7 +116,7 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 throw new DomainException("找不到該體溫紀錄", "NOT_FOUND", 404);
             }
 
-            record.DeletedAt = DateTime.UtcNow;
+            record.DeletedAt = TimeHelper.Now;
             await _repository.UpdateAsync(record);
         }
 

@@ -40,4 +40,4 @@
 - `care_group_id`
 
 所有查詢必須進行 care group 隔離。
-所有時間欄位統一使用 UTC 存儲，回傳 ISO 8601 格式
+所有時間欄位統一使用台灣時間 (UTC+8) 存儲，回傳 ISO 8601 格式。統一使用 TimeHelper.Now 取得當前時間。

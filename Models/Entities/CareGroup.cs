@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using SeasonsCare.Api.Config;
 
 namespace SeasonsCare.Api.Models.Entities
 {
@@ -14,7 +15,7 @@ namespace SeasonsCare.Api.Models.Entities
         public string? Description { get; set; }
         public string? HealthStatus { get; set; }
         public string InviteCode { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

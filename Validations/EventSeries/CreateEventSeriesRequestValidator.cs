@@ -1,5 +1,6 @@
 using System;
 using FluentValidation;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.DTOs.EventSeries;
 using SeasonsCare.Api.Models.Enums;
 
@@ -40,7 +41,7 @@ namespace SeasonsCare.Api.Validations.EventSeries
                 .WithMessage("當 repeatPattern 為 Weekly 時，daysOfWeek 至少要有一個星期值");
 
             RuleFor(x => x.StartsAt)
-                .LessThanOrEqualTo(_ => DateTime.UtcNow.AddYears(5))
+                .LessThanOrEqualTo(_ => TimeHelper.Now.AddYears(5))
                 .WithMessage("startsAt 不可超出合理範圍");
         }
     }

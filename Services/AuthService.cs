@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.DTOs.Auth;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Entities;
@@ -93,7 +94,7 @@ namespace SeasonsCare.Api.Services
 
             user.Username = request.Username;
             user.AvatarKey = request.AvatarKey;
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = TimeHelper.Now;
 
             await _userRepository.SaveChangesAsync();
 
@@ -141,7 +142,7 @@ namespace SeasonsCare.Api.Services
             }
 
             user.LastViewedCareGroupId = careGroupId;
-            user.UpdatedAt = DateTime.UtcNow;
+            user.UpdatedAt = TimeHelper.Now;
 
             await _userRepository.UpdateAsync(user);
             await _userRepository.SaveChangesAsync();

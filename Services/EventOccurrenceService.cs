@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using SeasonsCare.Api.Config;
 using SeasonsCare.Api.DTOs.EventOccurrences;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Entities;
@@ -95,7 +96,7 @@ namespace SeasonsCare.Api.Services
             }
 
             var existing = await _eventOccurrenceRepository.GetBySeriesIdAndScheduledStartAtAsync(eventSeriesId, normalizedStartAt);
-            var now = NormalizeTimestamp(DateTime.UtcNow);
+            var now = NormalizeTimestamp(TimeHelper.Now);
 
             if (existing == null)
             {
