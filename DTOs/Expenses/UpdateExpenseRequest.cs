@@ -3,43 +3,40 @@ using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.DTOs.Expenses
 {
-    /// <summary>
-    /// 更新支出紀錄的 request body。
-    /// </summary>
     public class UpdateExpenseRequest
     {
         /// <summary>
-        /// 支出標題，必填，最多 100 字。
+        /// 必填。支出標題，最長 100 字。
         /// </summary>
         public string Title { get; set; } = string.Empty;
 
         /// <summary>
-        /// 支出金額，必須大於 0。
+        /// 必填。支出金額，需大於 0。
         /// </summary>
         public decimal Amount { get; set; }
 
         /// <summary>
-        /// 支出分類，必填，目前支援 medical、food、traffic、other。
+        /// 必填。支出分類，僅支援 medical、food、traffic、other。
         /// </summary>
         public string Category { get; set; } = string.Empty;
 
         /// <summary>
-        /// 備註，選填，最多 500 字。
+        /// 選填。備註，最長 500 字。
         /// </summary>
         public string? Notes { get; set; }
 
         /// <summary>
-        /// 支出發生時間，必填，請使用 ISO 8601 日期時間格式。
+        /// 必填。支出日期，請使用 ISO 8601 格式。
         /// </summary>
         public DateTime ExpenseDate { get; set; }
 
         /// <summary>
-        /// 分帳狀態，預設為 none，目前支援 pending、settled、none。
+        /// 選填。分帳狀態，支援 pending、settled、none；省略時預設為 none。
         /// </summary>
         public ExpenseSplitStatus SplitStatus { get; set; } = ExpenseSplitStatus.None;
 
         /// <summary>
-        /// 樂觀鎖時間戳，更新時必填，需帶回最新一次查詢結果中的 updatedAt。
+        /// 必填。前一次查詢到的 updatedAt，用於樂觀鎖檢查。
         /// </summary>
         public DateTime? UpdatedAt { get; set; }
     }

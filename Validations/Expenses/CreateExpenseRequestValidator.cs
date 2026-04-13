@@ -8,25 +8,25 @@ namespace SeasonsCare.Api.Validations.Expenses
         public CreateExpenseRequestValidator()
         {
             RuleFor(x => x.Title)
-                .NotEmpty().WithMessage("標題為必填")
-                .MaximumLength(100).WithMessage("標題長度不可超過 100 字");
+                .NotEmpty().WithMessage("璅??箏?憛?")
+                .MaximumLength(100).WithMessage("璅??瑕漲銝頞? 100 摮?");
 
             RuleFor(x => x.Amount)
-                .GreaterThan(0).WithMessage("amount 必須大於 0");
+                .GreaterThan(0).WithMessage("amount 敹?憭扳 0");
 
             RuleFor(x => x.Category)
-                .NotEmpty().WithMessage("category 為必填")
-                .MaximumLength(50).WithMessage("category 長度不可超過 50 字")
-                .Must(BeValidCategory).WithMessage("category 僅支援 medical、food、traffic、other");
+                .NotEmpty().WithMessage("category ?箏?憛?")
+                .MaximumLength(50).WithMessage("category ?瑕漲銝頞? 50 摮?")
+                .Must(BeValidCategory).WithMessage("category ???medical?ood?raffic?ther");
 
             RuleFor(x => x.Notes)
-                .MaximumLength(500).WithMessage("notes 長度不可超過 500 字");
+                .MaximumLength(500).WithMessage("notes ?瑕漲銝頞? 500 摮?");
 
             RuleFor(x => x.ExpenseDate)
-                .NotEqual(default(DateTime)).WithMessage("expenseDate 為必填，且需為有效 ISO 8601 日期時間");
+                .NotEqual(default(DateTime)).WithMessage("expenseDate ?箏?憛恬?銝??箸???ISO 8601 ?交???");
 
             RuleFor(x => x.SplitStatus)
-                .IsInEnum().WithMessage("splitStatus 僅支援 pending、settled、none");
+                .IsInEnum().WithMessage("splitStatus ???pending?ettled?one");
         }
 
         private static bool BeValidCategory(string category)

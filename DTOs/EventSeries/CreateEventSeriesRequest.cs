@@ -4,74 +4,70 @@ using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.DTOs.EventSeries
 {
-    /// <summary>
-    /// 建立事件系列的 request body。
-    /// </summary>
     public class CreateEventSeriesRequest
     {
         /// <summary>
-        /// 系列標題。前端欄位名稱為 title。
+        /// 必填。事件標題，最長 100 字。
         /// </summary>
         public string Title { get; set; } = string.Empty;
 
         /// <summary>
-        /// 系列描述。前端欄位名稱為 description。
+        /// 選填。事件描述。
         /// </summary>
         public string? Description { get; set; }
 
         /// <summary>
-        /// 系列起始時間。前端欄位名稱為 startsAt。
+        /// 必填。事件開始時間，請使用 ISO 8601 UTC 格式。
         /// </summary>
         public DateTime StartsAt { get; set; }
 
         /// <summary>
-        /// 單次事件時長，單位為分鐘。前端欄位名稱為 durationMinutes。
+        /// 選填。事件持續分鐘數，需大於 0。
         /// </summary>
         public int? DurationMinutes { get; set; }
 
         /// <summary>
-        /// 重複規則。前端欄位名稱為 repeatPattern，目前支援 None、Weekly。
+        /// 選填。重複規則，預設為 none。
         /// </summary>
-        // 前端可傳 none、daily、weeklyDay、monthly；weeklyDay 會映射為 Weekly。
         public EventRepeatPattern RepeatPattern { get; set; } = EventRepeatPattern.None;
 
         /// <summary>
-        /// 重複間隔。前端欄位名稱為 repeatInterval，例如 1 代表每週，2 代表每兩週。
+        /// 選填。重複間隔，預設為 1。
         /// </summary>
         public int RepeatInterval { get; set; } = 1;
 
         /// <summary>
-        /// 星期清單。前端欄位名稱為 daysOfWeek，內容請填 Sunday、Monday、Tuesday、Wednesday、Thursday、Friday、Saturday。
+        /// 選填。週期事件適用的星期清單。
         /// </summary>
         public List<DayOfWeek>? DaysOfWeek { get; set; }
 
         /// <summary>
-        /// 系列結束條件。前端欄位名稱為 endType。
+        /// 選填。結束條件，預設為 never。
         /// </summary>
         public EventSeriesEndType EndType { get; set; } = EventSeriesEndType.Never;
 
         /// <summary>
-        /// 系列結束日期。前端欄位名稱為 endAt。當 endType=OnDate 時使用。
+        /// 選填。當 endType=OnDate 時使用的結束時間。
         /// </summary>
         public DateTime? EndAt { get; set; }
 
         /// <summary>
-        /// 系列總次數。前端欄位名稱為 occurrenceCount。當 endType=AfterOccurrences 時使用。
+        /// 選填。當 endType=AfterOccurrences 時使用的發生次數。
         /// </summary>
         public int? OccurrenceCount { get; set; }
 
         /// <summary>
-        /// 陪同成員清單。前端欄位名稱為 participants，內容必須為該群組成員的 userId 字串。
+        /// 選填。參與者 userId 清單。
         /// </summary>
         public List<string>? Participants { get; set; }
 
         /// <summary>
-        /// 系列狀態。前端欄位名稱為 status，例如 scheduled、active、paused。
+        /// 選填。事件狀態。
         /// </summary>
         public string? Status { get; set; }
 
         /// <summary>
-        /// 是否為重要事件。前端欄位名稱為 isImportant。
+        /// 選填。是否標記為重要；省略時預設為 false。
         /// </summary>
         public bool IsImportant { get; set; }
     }
