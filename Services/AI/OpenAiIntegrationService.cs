@@ -16,7 +16,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v3";
+        private const string PromptVersion = "health-dashboard-v4";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -97,16 +97,17 @@ Blood oxygen:
 
 Write concise, practical guidance for caregivers. Use only the supplied data.
 Rules:
-- overallSummary must be within 40 Chinese characters
-- keyInsights must be within 30 Chinese characters
-- recommendations should focus on diet and lifestyle habits
-- todaySummary should be suitable for a homepage summary card
+- 語氣要求 (Tone): 必須保持溫暖、同理心、且充滿鼓勵的語氣，就像親切的護理師。可以適當加入例如「再加油一點點！」、「辛苦了！」等鼓勵性用語。
+- overallSummary (AI分析報告): 總結過去7天的健康狀況趨勢，需控制在50個中文字以內。例如：「健康狀況在過去7天內呈現正面趨勢。血壓已完全進入理想區間，體重管理效果顯著。」
+- keyInsights (關鍵數據洞察): 指出最重要的數據波動或異常，需控制在50個中文字以內。例如：「血糖水平在飯後有輕微波動（+8%），主要集中在週三及週五。」
+- recommendations (健康行動建議): 針對異常數據或維持健康給出具體且生活化的建議（飲食或作息）。例如：「為維持穩定血糖，建議將澱粉攝取量減少15%，並持續目前的低鈉飲食以保護已趨穩定的血壓指標。」
+- todaySummary (今日分析摘要): 給予首頁卡片的今日簡短回饋。如果今日有數據完成，給予肯定或提醒，加上一句鼓勵的話。例如：「下午已完成血壓測量，數值偏高，建議傍晚減少咖啡因攝取。今日復健進度已達成80%，再加油一點點！」如果今日完全沒有數據，請回傳「當日尚未有紀錄，快來新增吧！」。字數限制約50字內。
 """;
 
             return new
             {
                 model,
-                instructions = "You are a careful health trend summarization assistant for caregivers. Keep the response factual, concise, supportive, and in Traditional Chinese.",
+                instructions = "You are a warm, empathetic, and professional healthcare assistant for caregivers. Provide factual but encouraging responses, sounding like a caring nurse. Use Traditional Chinese.",
                 input = new object[]
                 {
                     new
@@ -138,22 +139,22 @@ Rules:
                                 overallSummary = new
                                 {
                                     type = "string",
-                                    description = "A short overall summary of the last 7 days, within 40 Chinese characters."
+                                    description = "A short overall summary of the last 7 days in a warm professional tone. Max 50 characters."
                                 },
                                 todaySummary = new
                                 {
                                     type = "string",
-                                    description = "A concise and actionable insight for today. If there is no data for today, return 當日尚未有紀錄，快來新增吧！."
+                                    description = "A concise, actionable, and encouraging insight for today. Max 50 characters. E.g., '今日已完成O項任務...再加油一點點！'"
                                 },
                                 keyInsights = new
                                 {
                                     type = "string",
-                                    description = "Important observations the caregiver should notice, within 30 Chinese characters."
+                                    description = "Important observations the caregiver should notice. Max 50 characters."
                                 },
                                 recommendations = new
                                 {
                                     type = "string",
-                                    description = "Actionable next-step suggestions focused on diet and lifestyle habits."
+                                    description = "Actionable suggestions focused on diet and lifestyle habits."
                                 },
                                 trendLabels = new
                                 {
