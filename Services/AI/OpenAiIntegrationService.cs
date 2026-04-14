@@ -16,7 +16,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v2";
+        private const string PromptVersion = "health-dashboard-v3";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -96,12 +96,17 @@ Blood oxygen:
 {input.BloodOxygenSummary}
 
 Write concise, practical guidance for caregivers. Use only the supplied data.
+Rules:
+- overallSummary must be within 40 Chinese characters
+- keyInsights must be within 30 Chinese characters
+- recommendations should focus on diet and lifestyle habits
+- todaySummary should be suitable for a homepage summary card
 """;
 
             return new
             {
                 model,
-                instructions = "You are a careful health trend summarization assistant for caregivers. Keep the response factual, concise, and supportive.",
+                instructions = "You are a careful health trend summarization assistant for caregivers. Keep the response factual, concise, supportive, and in Traditional Chinese.",
                 input = new object[]
                 {
                     new
@@ -133,27 +138,27 @@ Write concise, practical guidance for caregivers. Use only the supplied data.
                                 overallSummary = new
                                 {
                                     type = "string",
-                                    description = "A short overall summary of the last 7 days."
+                                    description = "A short overall summary of the last 7 days, within 40 Chinese characters."
                                 },
                                 todaySummary = new
                                 {
                                     type = "string",
-                                    description = "A specific, conversational, actionable insight for today based on today's summary statistics."
+                                    description = "A concise and actionable insight for today. If there is no data for today, return 當日尚未有紀錄，快來新增吧！."
                                 },
                                 keyInsights = new
                                 {
                                     type = "string",
-                                    description = "Important observations the caregiver should notice."
+                                    description = "Important observations the caregiver should notice, within 30 Chinese characters."
                                 },
                                 recommendations = new
                                 {
                                     type = "string",
-                                    description = "Actionable next-step suggestions for the caregiver."
+                                    description = "Actionable next-step suggestions focused on diet and lifestyle habits."
                                 },
                                 trendLabels = new
                                 {
                                     type = "object",
-                                    description = "Short status label for each health metric trend, such as 穩定、偏高、需要觀察 or 資料不足. Use 資料不足 when there is no data.",
+                                    description = "Short status label for each health metric trend, such as 正常、穩定、需要觀察 or 資料不足. Use 資料不足 when there is no data.",
                                     additionalProperties = false,
                                     properties = new
                                     {

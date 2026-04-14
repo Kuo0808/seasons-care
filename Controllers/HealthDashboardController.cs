@@ -24,19 +24,39 @@ namespace SeasonsCare.Api.Controllers
             _currentUserService = currentUserService;
         }
 
-        /// <summary>
-        /// 取得健康儀表板資料。
-        /// 一次回傳近 7 天趨勢、今日摘要，以及 AI 分析結果。
-        /// </summary>
-        [HttpGet]
-        [ProducesResponseType(typeof(ApiResponse<HealthDashboardResponse>), StatusCodes.Status200OK)]
+        [HttpGet("weekly-insight")]
+        [ProducesResponseType(typeof(ApiResponse<HealthDashboardWeeklyInsightResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<IActionResult> GetDashboard(Guid careGroupId)
+        public async Task<IActionResult> GetWeeklyInsight(Guid careGroupId)
         {
             var currentUserId = _currentUserService.UserId;
-            var result = await _healthDashboardService.GetDashboardAsync(currentUserId, careGroupId);
-            var response = new ApiResponse<HealthDashboardResponse>(result, "取得健康儀表板成功。", HttpContext.TraceIdentifier);
+            var result = await _healthDashboardService.GetWeeklyInsightAsync(currentUserId, careGroupId);
+            var response = new ApiResponse<HealthDashboardWeeklyInsightResponse>(result, "取得近七天 AI 分析成功。", HttpContext.TraceIdentifier);
+            return Ok(response);
+        }
+
+        [HttpGet("today-insight")]
+        [ProducesResponseType(typeof(ApiResponse<HealthDashboardTodayInsightResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetTodayInsight(Guid careGroupId)
+        {
+            var currentUserId = _currentUserService.UserId;
+            var result = await _healthDashboardService.GetTodayInsightAsync(currentUserId, careGroupId);
+            var response = new ApiResponse<HealthDashboardTodayInsightResponse>(result, "取得今日健康摘要成功。", HttpContext.TraceIdentifier);
+            return Ok(response);
+        }
+
+        [HttpGet("trend-overview")]
+        [ProducesResponseType(typeof(ApiResponse<HealthDashboardTrendOverviewResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetTrendOverview(Guid careGroupId)
+        {
+            var currentUserId = _currentUserService.UserId;
+            var result = await _healthDashboardService.GetTrendOverviewAsync(currentUserId, careGroupId);
+            var response = new ApiResponse<HealthDashboardTrendOverviewResponse>(result, "取得近七天健康趨勢成功。", HttpContext.TraceIdentifier);
             return Ok(response);
         }
     }
