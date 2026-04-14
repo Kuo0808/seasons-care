@@ -25,7 +25,7 @@ namespace SeasonsCare.Api.Services
 
             var normalizedDateFrom = NormalizeTimestamp(request.DateFrom);
             var normalizedDateTo = NormalizeTimestamp(request.DateTo);
-            var now = NormalizeTimestamp(TimeHelper.Now);
+            var now = NormalizeTimestamp(TimeHelper.UtcNow);
             var reportType = request.ReportType.Trim();
 
             // 同一照護群組、報告類型與分析區間只保留一份最新快照。

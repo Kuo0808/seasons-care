@@ -46,7 +46,7 @@ namespace SeasonsCare.Api.Services
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
             var participants = await ValidateParticipantsAsync(careGroupId, request.Participants);
-            var now = NormalizeTimestamp(TimeHelper.Now);
+            var now = NormalizeTimestamp(TimeHelper.UtcNow);
 
             var series = new EventSeries
             {

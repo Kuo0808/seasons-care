@@ -94,7 +94,7 @@ namespace SeasonsCare.Api.Services
 
             user.Username = request.Username;
             user.AvatarKey = request.AvatarKey;
-            user.UpdatedAt = TimeHelper.Now;
+            user.UpdatedAt = TimeHelper.UtcNow;
 
             await _userRepository.SaveChangesAsync();
 
@@ -142,7 +142,7 @@ namespace SeasonsCare.Api.Services
             }
 
             user.LastViewedCareGroupId = careGroupId;
-            user.UpdatedAt = TimeHelper.Now;
+            user.UpdatedAt = TimeHelper.UtcNow;
 
             await _userRepository.UpdateAsync(user);
             await _userRepository.SaveChangesAsync();

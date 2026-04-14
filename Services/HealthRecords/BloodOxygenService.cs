@@ -143,7 +143,7 @@ namespace SeasonsCare.Api.Services.HealthRecords
 
         private static DateTime GetUtcNowRoundedToMilliseconds()
         {
-            return NormalizeTimestamp(TimeHelper.Now);
+            return NormalizeTimestamp(TimeHelper.UtcNow);
         }
 
         private static DateTime NormalizeTimestamp(DateTime value)

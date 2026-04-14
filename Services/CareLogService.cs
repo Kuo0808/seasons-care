@@ -203,7 +203,7 @@ namespace SeasonsCare.Api.Services
 
         private static DateTime GetUtcNowRoundedToMilliseconds()
         {
-            return NormalizeTimestamp(TimeHelper.Now);
+            return NormalizeTimestamp(TimeHelper.UtcNow);
         }
 
         private static DateTime NormalizeTimestamp(DateTime value)

@@ -40,7 +40,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public bool IsImportantOverride { get; set; }
 
-        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
+public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

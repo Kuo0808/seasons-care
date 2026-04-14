@@ -13,9 +13,9 @@ namespace SeasonsCare.Api.Models.Entities.HealthRecords
         public int Diastolic { get; set; } // 舒張壓
         public string? Notes { get; set; }
         public DateTime RecordDate { get; set; }
-        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
+public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
         [ConcurrencyCheck]
-        public DateTime UpdatedAt { get; set; } = TimeHelper.Now;
+public DateTime UpdatedAt { get; set; } = TimeHelper.UtcNow;
         public string CreatedBy { get; set; } = string.Empty;
         public DateTime? DeletedAt { get; set; }
         

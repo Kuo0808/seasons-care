@@ -96,7 +96,7 @@ namespace SeasonsCare.Api.Services
             }
 
             var existing = await _eventOccurrenceRepository.GetBySeriesIdAndScheduledStartAtAsync(eventSeriesId, normalizedStartAt);
-            var now = NormalizeTimestamp(TimeHelper.Now);
+            var now = NormalizeTimestamp(TimeHelper.UtcNow);
 
             if (existing == null)
             {

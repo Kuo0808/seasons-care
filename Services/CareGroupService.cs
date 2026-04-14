@@ -148,7 +148,7 @@ namespace SeasonsCare.Api.Services
             group.RecipientBirthDate = request.RecipientBirthDate;
             group.Description = request.Description;
             group.HealthStatus = request.HealthStatus;
-            group.UpdatedAt = TimeHelper.Now;
+            group.UpdatedAt = TimeHelper.UtcNow;
 
             await _careGroupRepository.SaveChangesAsync();
 
@@ -215,9 +215,9 @@ namespace SeasonsCare.Api.Services
             if (existingMember != null)
             {
                 existingMember.Role = CareGroupRole.Member;
-                existingMember.JoinedAt = TimeHelper.Now;
+            existingMember.JoinedAt = TimeHelper.UtcNow;
                 existingMember.DeletedAt = null;
-                existingMember.UpdatedAt = TimeHelper.Now;
+            existingMember.UpdatedAt = TimeHelper.UtcNow;
                 await _careGroupRepository.SaveChangesAsync();
                 return;
             }
@@ -259,7 +259,7 @@ namespace SeasonsCare.Api.Services
                 throw new DomainException("Member not found.", "NOT_FOUND", 404);
             }
 
-            memberToRemove.DeletedAt = TimeHelper.Now;
+            memberToRemove.DeletedAt = TimeHelper.UtcNow;
             await _careGroupRepository.SaveChangesAsync();
         }
     }

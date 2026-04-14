@@ -11,8 +11,8 @@ namespace SeasonsCare.Api.Models.Entities
         public Guid CareGroupId { get; set; }
         public Guid UserId { get; set; }
         public CareGroupRole Role { get; set; } = CareGroupRole.Member;
-        public DateTime JoinedAt { get; set; } = TimeHelper.Now;
-        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
+public DateTime JoinedAt { get; set; } = TimeHelper.UtcNow;
+public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }
         public string CreatedBy { get; set; } = string.Empty;

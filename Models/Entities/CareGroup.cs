@@ -15,7 +15,7 @@ namespace SeasonsCare.Api.Models.Entities
         public string? Description { get; set; }
         public string? HealthStatus { get; set; }
         public string InviteCode { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
+public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

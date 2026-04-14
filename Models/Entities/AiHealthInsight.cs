@@ -53,9 +53,9 @@ namespace SeasonsCare.Api.Models.Entities
         [MaxLength(50)]
         public string? PromptVersion { get; set; }
 
-        public DateTime GeneratedAt { get; set; } = TimeHelper.Now;
+public DateTime GeneratedAt { get; set; } = TimeHelper.UtcNow;
 
-        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
+public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

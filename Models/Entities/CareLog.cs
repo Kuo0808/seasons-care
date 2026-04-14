@@ -15,7 +15,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public string? Description { get; set; }
 
-        public DateTime StartsAt { get; set; } = TimeHelper.Now;
+public DateTime StartsAt { get; set; } = TimeHelper.UtcNow;
 
         [MaxLength(50)]
         public string? RepeatPattern { get; set; }
@@ -33,7 +33,7 @@ namespace SeasonsCare.Api.Models.Entities
         [ForeignKey("CareGroupId")]
         public CareGroup CareGroup { get; set; } = null!;
 
-        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
+public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

@@ -68,7 +68,7 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 CareGroupId = careGroupId,
                 Value = request.Value,
                 Notes = request.Notes,
-                RecordDate = request.RecordDate ?? TimeHelper.Now,
+                RecordDate = request.RecordDate ?? TimeHelper.UtcNow,
                 CreatedBy = currentUserId.ToString()
             };
 
@@ -100,7 +100,7 @@ namespace SeasonsCare.Api.Services.HealthRecords
             {
                 record.RecordDate = request.RecordDate.Value;
             }
-            record.UpdatedAt = TimeHelper.Now;
+            record.UpdatedAt = TimeHelper.UtcNow;
 
             var updated = await _repository.UpdateAsync(record);
             return MapToResponse(updated);
@@ -116,7 +116,7 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 throw new DomainException("找不到該體重紀錄", "NOT_FOUND", 404);
             }
 
-            record.DeletedAt = TimeHelper.Now;
+            record.DeletedAt = TimeHelper.UtcNow;
             await _repository.UpdateAsync(record);
         }
 

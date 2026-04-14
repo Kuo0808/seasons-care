@@ -21,7 +21,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public string? Description { get; set; }
 
-        public DateTime StartsAt { get; set; } = TimeHelper.Now;
+public DateTime StartsAt { get; set; } = TimeHelper.UtcNow;
 
         public int? DurationMinutes { get; set; }
 
@@ -56,7 +56,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public ICollection<EventOccurrence> Occurrences { get; set; } = new List<EventOccurrence>();
 
-        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
+public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

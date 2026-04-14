@@ -24,7 +24,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public string? Notes { get; set; }
 
-        public DateTime ExpenseDate { get; set; } = TimeHelper.Now;
+public DateTime ExpenseDate { get; set; } = TimeHelper.UtcNow;
 
         [Required]
         public ExpenseSplitStatus SplitStatus { get; set; } = ExpenseSplitStatus.None;
@@ -35,7 +35,7 @@ namespace SeasonsCare.Api.Models.Entities
         [ForeignKey("CareGroupId")]
         public CareGroup CareGroup { get; set; } = null!;
 
-        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
+public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
 
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }

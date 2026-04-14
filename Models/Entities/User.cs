@@ -18,7 +18,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public Guid? LastViewedCareGroupId { get; set; }
 
-        public DateTime CreatedAt { get; set; } = TimeHelper.Now;
+public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
         
         [ConcurrencyCheck]
         public DateTime? UpdatedAt { get; set; }
