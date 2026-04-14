@@ -42,6 +42,23 @@ namespace SeasonsCare.Api.Repositories
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<(System.Collections.Generic.IReadOnlyList<AiHealthInsight> Items, int TotalCount)> GetPagedHistoryAsync(Guid careGroupId, string reportType, int page, int pageSize)
+        {
+            var query = _context.Set<AiHealthInsight>()
+                .Where(x => x.CareGroupId == careGroupId && x.ReportType == reportType);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(x => x.GeneratedAt)
+                .ThenByDescending(x => x.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
+        }
+
         public async Task AddAsync(AiHealthInsight insight)
         {
             await _context.Set<AiHealthInsight>().AddAsync(insight);

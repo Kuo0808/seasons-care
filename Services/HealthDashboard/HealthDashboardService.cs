@@ -162,9 +162,34 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             };
         }
 
-        private async Task<DashboardContext> BuildDashboardContextAsync(Guid currentUserId, Guid careGroupId)
+        public async Task<SeasonsCare.Api.DTOs.Common.PagedResponse<HealthDashboardHistoryItemResponse>> GetHistoryAsync(Guid currentUserId, Guid careGroupId, int page, int pageSize)
+        {
+            // Verify access
+            await BuildDashboardContextAsync(currentUserId, careGroupId, skipDataFetch: true);
+
+            var (items, totalCount) = await _aiHealthInsightRepository.GetPagedHistoryAsync(careGroupId, DashboardReportType, page, pageSize);
+
+            var responseItems = items.Select(x => new HealthDashboardHistoryItemResponse
+            {
+                Id = x.Id,
+                DateFrom = x.DateFrom,
+                DateTo = x.DateTo,
+                OverallSummary = x.OverallSummary,
+                GeneratedAt = x.GeneratedAt
+            }).ToList();
+
+            return new SeasonsCare.Api.DTOs.Common.PagedResponse<HealthDashboardHistoryItemResponse>(
+                responseItems, totalCount, page, pageSize);
+        }
+
+        private async Task<DashboardContext> BuildDashboardContextAsync(Guid currentUserId, Guid careGroupId, bool skipDataFetch = false)
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
+
+            if (skipDataFetch)
+            {
+                return new DashboardContext();
+            }
 
             var todayStart = NormalizeTimestamp(TimeHelper.GetTaiwanDateStartUtc());
             var dateFrom = NormalizeTimestamp(todayStart.AddDays(-6));

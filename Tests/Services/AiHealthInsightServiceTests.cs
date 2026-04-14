@@ -99,6 +99,20 @@ public class AiHealthInsightServiceTests
             return Task.FromResult(query.OrderByDescending(x => x.GeneratedAt).FirstOrDefault());
         }
 
+        public Task<(System.Collections.Generic.IReadOnlyList<AiHealthInsight> Items, int TotalCount)> GetPagedHistoryAsync(Guid careGroupId, string reportType, int page, int pageSize)
+        {
+            var query = Items.Where(x => x.CareGroupId == careGroupId && x.ReportType == reportType && x.DeletedAt == null);
+            var totalCount = query.Count();
+            var result = query
+                .OrderByDescending(x => x.GeneratedAt)
+                .ThenByDescending(x => x.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+            
+            return Task.FromResult(((System.Collections.Generic.IReadOnlyList<AiHealthInsight>)result, totalCount));
+        }
+
         public Task AddAsync(AiHealthInsight insight)
         {
             Items.Add(insight);
