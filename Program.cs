@@ -209,6 +209,15 @@ app.UseMiddleware<CareGroupContextMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGet("/healthz", async (ApplicationDbContext dbContext) =>
+{
+    var canConnect = await dbContext.Database.CanConnectAsync();
+    return canConnect
+        ? Results.Ok(new { status = "ok" })
+        : Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "Database unavailable.");
+}).AllowAnonymous();
+
 app.MapControllers();
 
 app.Run();
