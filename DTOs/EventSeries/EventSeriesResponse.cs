@@ -27,7 +27,7 @@ namespace SeasonsCare.Api.DTOs.EventSeries
         /// <summary>
         /// 系列起始時間。前端欄位名稱為 startsAt。
         /// </summary>
-        public DateTime StartsAt { get; set; }
+        public DateTimeOffset StartsAt { get; set; }
 
         /// <summary>
         /// 單次事件時長，單位為分鐘。前端欄位名稱為 durationMinutes。
@@ -58,7 +58,7 @@ namespace SeasonsCare.Api.DTOs.EventSeries
         /// <summary>
         /// 系列結束日期。前端欄位名稱為 endAt。
         /// </summary>
-        public DateTime? EndAt { get; set; }
+        public DateTimeOffset? EndAt { get; set; }
 
         /// <summary>
         /// 系列總次數。前端欄位名稱為 occurrenceCount。
@@ -88,12 +88,12 @@ namespace SeasonsCare.Api.DTOs.EventSeries
         /// <summary>
         /// 建立時間。
         /// </summary>
-        public DateTime CreatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
 
         /// <summary>
         /// 最後更新時間。
         /// </summary>
-        public DateTime? UpdatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
 
         /// <summary>
         /// 建立者 userId。

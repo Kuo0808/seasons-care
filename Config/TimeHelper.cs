@@ -22,6 +22,22 @@ namespace SeasonsCare.Api.Config
             return TimeZoneInfo.ConvertTimeFromUtc(normalizedUtc, TaiwanTimeZone);
         }
 
+        public static DateTime? ToTaiwanTime(DateTime? utcDateTime)
+        {
+            return utcDateTime.HasValue ? ToTaiwanTime(utcDateTime.Value) : null;
+        }
+
+        public static DateTimeOffset ToTaiwanOffset(DateTime utcDateTime)
+        {
+            var taiwanTime = ToTaiwanTime(utcDateTime);
+            return new DateTimeOffset(taiwanTime, TaiwanTimeZone.GetUtcOffset(taiwanTime));
+        }
+
+        public static DateTimeOffset? ToTaiwanOffset(DateTime? utcDateTime)
+        {
+            return utcDateTime.HasValue ? ToTaiwanOffset(utcDateTime.Value) : null;
+        }
+
         public static DateTime GetTaiwanDateStartUtc(DateTime? utcDateTime = null)
         {
             var taiwanTime = ToTaiwanTime(utcDateTime ?? UtcNow);

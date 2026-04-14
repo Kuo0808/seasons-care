@@ -26,7 +26,7 @@ namespace SeasonsCare.Api.DTOs.CareLogs
         /// <summary>
         /// 事件開始時間。前端欄位名稱為 startsAt。
         /// </summary>
-        public DateTime StartsAt { get; set; }
+        public DateTimeOffset StartsAt { get; set; }
 
         /// <summary>
         /// 重複規則。前端欄位名稱為 repeatPattern。
@@ -56,12 +56,12 @@ namespace SeasonsCare.Api.DTOs.CareLogs
         /// <summary>
         /// 建立時間。
         /// </summary>
-        public DateTime CreatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
 
         /// <summary>
         /// 最後更新時間。
         /// </summary>
-        public DateTime? UpdatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
 
         /// <summary>
         /// 建立者 userId。

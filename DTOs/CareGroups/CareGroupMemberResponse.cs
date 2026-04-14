@@ -9,6 +9,6 @@ namespace SeasonsCare.Api.DTOs.CareGroups
         public string Username { get; set; } = string.Empty;
         public string AvatarKey { get; set; } = string.Empty;
         public CareGroupRole Role { get; set; }
-        public DateTime JoinedAt { get; set; }
+        public DateTimeOffset JoinedAt { get; set; }
     }
 }

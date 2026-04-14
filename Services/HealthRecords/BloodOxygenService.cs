@@ -134,9 +134,9 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 CareGroupId = record.CareGroupId,
                 SpO2 = record.SpO2,
                 Notes = record.Notes,
-                RecordDate = record.RecordDate,
-                CreatedAt = record.CreatedAt,
-                UpdatedAt = record.UpdatedAt,
+                RecordDate = TimeHelper.ToTaiwanOffset(record.RecordDate),
+                CreatedAt = TimeHelper.ToTaiwanOffset(record.CreatedAt),
+                UpdatedAt = TimeHelper.ToTaiwanOffset(record.UpdatedAt),
                 CreatedBy = record.CreatedBy
             };
         }

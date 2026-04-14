@@ -33,12 +33,12 @@ namespace SeasonsCare.Api.DTOs.EventOccurrences
         /// <summary>
         /// 事件預定開始時間。
         /// </summary>
-        public DateTime ScheduledStartAt { get; set; }
+        public DateTimeOffset ScheduledStartAt { get; set; }
 
         /// <summary>
         /// 事件預定結束時間。
         /// </summary>
-        public DateTime? ScheduledEndAt { get; set; }
+        public DateTimeOffset? ScheduledEndAt { get; set; }
 
         /// <summary>
         /// 參與者 userId 清單。

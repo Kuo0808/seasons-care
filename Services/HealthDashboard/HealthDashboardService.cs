@@ -71,8 +71,8 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                     context.Insight?.KeyInsights ?? BuildFallbackKeyInsight(context.TodayRecordCount, context.TotalRecordCount),
                     30),
                 ActionSuggestion = context.Insight?.Recommendations ?? BuildFallbackActionSuggestion(context.TotalRecordCount),
-                DateFrom = context.DateFrom,
-                DateTo = context.DateTo,
+                DateFrom = TimeHelper.ToTaiwanOffset(context.DateFrom),
+                DateTo = TimeHelper.ToTaiwanOffset(context.DateTo),
                 IsFromCache = context.IsFromCache
             };
         }
@@ -99,7 +99,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                     : BuildTodayRecordSummary(context.TodayRecordCount, context.LatestTodayMetrics),
                 HasTodayRecords = true,
                 RecordCount = context.TodayRecordCount,
-                LatestRecordAt = context.LatestRecordAt
+                LatestRecordAt = TimeHelper.ToTaiwanOffset(context.LatestRecordAt)
             };
         }
 
@@ -109,8 +109,8 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
             return new HealthDashboardTrendOverviewResponse
             {
-                DateFrom = context.DateFrom,
-                DateTo = context.DateTo,
+                DateFrom = TimeHelper.ToTaiwanOffset(context.DateFrom),
+                DateTo = TimeHelper.ToTaiwanOffset(context.DateTo),
                 Metrics = new List<HealthDashboardTrendCardResponse>
                 {
                     BuildBloodPressureTrendCard(context),
@@ -172,10 +172,10 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var responseItems = items.Select(x => new HealthDashboardHistoryItemResponse
             {
                 Id = x.Id,
-                DateFrom = x.DateFrom,
-                DateTo = x.DateTo,
+                DateFrom = TimeHelper.ToTaiwanOffset(x.DateFrom),
+                DateTo = TimeHelper.ToTaiwanOffset(x.DateTo),
                 OverallSummary = x.OverallSummary,
-                GeneratedAt = x.GeneratedAt
+                GeneratedAt = TimeHelper.ToTaiwanOffset(x.GeneratedAt)
             }).ToList();
 
             return new SeasonsCare.Api.DTOs.Common.PagedResponse<HealthDashboardHistoryItemResponse>(
@@ -284,7 +284,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                     SourceDataHash = savedInsight.SourceDataHash,
                     ModelName = savedInsight.ModelName,
                     PromptVersion = savedInsight.PromptVersion,
-                    GeneratedAt = savedInsight.GeneratedAt
+                    GeneratedAt = savedInsight.GeneratedAt.UtcDateTime
                 }, false);
             }
             catch (Exception ex)

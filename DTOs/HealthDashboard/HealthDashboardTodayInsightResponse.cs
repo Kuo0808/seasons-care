@@ -10,6 +10,6 @@ namespace SeasonsCare.Api.DTOs.HealthDashboard
 
         public int RecordCount { get; set; }
 
-        public DateTime? LatestRecordAt { get; set; }
+        public DateTimeOffset? LatestRecordAt { get; set; }
     }
 }

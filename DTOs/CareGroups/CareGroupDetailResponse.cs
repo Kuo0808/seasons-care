@@ -51,7 +51,7 @@ namespace SeasonsCare.Api.DTOs.CareGroups
         /// <summary>
         /// Care group creation time in UTC.
         /// </summary>
-        public DateTime CreatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
 
         /// <summary>
         /// Active member list of this care group.

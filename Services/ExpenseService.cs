@@ -151,11 +151,11 @@ namespace SeasonsCare.Api.Services
                 Amount = expense.Amount,
                 Category = expense.Category,
                 Notes = expense.Notes ?? string.Empty,
-                ExpenseDate = expense.ExpenseDate,
+                ExpenseDate = TimeHelper.ToTaiwanOffset(expense.ExpenseDate),
                 SplitStatus = expense.SplitStatus,
                 CareGroupId = expense.CareGroupId,
-                CreatedAt = expense.CreatedAt,
-                UpdatedAt = expense.UpdatedAt ?? expense.CreatedAt,
+                CreatedAt = TimeHelper.ToTaiwanOffset(expense.CreatedAt),
+                UpdatedAt = TimeHelper.ToTaiwanOffset(expense.UpdatedAt ?? expense.CreatedAt),
                 CreatedBy = expense.CreatedBy
             };
         }

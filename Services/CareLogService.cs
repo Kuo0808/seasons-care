@@ -189,14 +189,14 @@ namespace SeasonsCare.Api.Services
                 Id = log.Id,
                 Title = log.Title,
                 Description = log.Description,
-                StartsAt = log.StartsAt,
+                StartsAt = TimeHelper.ToTaiwanOffset(log.StartsAt),
                 RepeatPattern = log.RepeatPattern,
                 Participants = log.Participants.ToList(),
                 Status = log.Status,
                 IsImportant = log.IsImportant,
                 CareGroupId = log.CareGroupId,
-                CreatedAt = log.CreatedAt,
-                UpdatedAt = log.UpdatedAt,
+                CreatedAt = TimeHelper.ToTaiwanOffset(log.CreatedAt),
+                UpdatedAt = TimeHelper.ToTaiwanOffset(log.UpdatedAt),
                 CreatedBy = log.CreatedBy
             };
         }

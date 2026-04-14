@@ -131,9 +131,9 @@ namespace SeasonsCare.Api.Services.HealthRecords
                 GlucoseLevel = record.GlucoseLevel,
                 MeasurementContext = record.MeasurementContext,
                 Notes = record.Notes,
-                RecordDate = record.RecordDate,
-                CreatedAt = record.CreatedAt,
-                UpdatedAt = record.UpdatedAt,
+                RecordDate = TimeHelper.ToTaiwanOffset(record.RecordDate),
+                CreatedAt = TimeHelper.ToTaiwanOffset(record.CreatedAt),
+                UpdatedAt = TimeHelper.ToTaiwanOffset(record.UpdatedAt),
                 CreatedBy = record.CreatedBy
             };
         }

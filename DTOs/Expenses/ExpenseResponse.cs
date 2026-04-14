@@ -36,7 +36,7 @@ namespace SeasonsCare.Api.DTOs.Expenses
         /// <summary>
         /// 支出發生時間。
         /// </summary>
-        public DateTime ExpenseDate { get; set; }
+        public DateTimeOffset ExpenseDate { get; set; }
 
         /// <summary>
         /// 分帳狀態。
@@ -51,12 +51,12 @@ namespace SeasonsCare.Api.DTOs.Expenses
         /// <summary>
         /// 建立時間。
         /// </summary>
-        public DateTime CreatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
 
         /// <summary>
         /// 最後更新時間。
         /// </summary>
-        public DateTime UpdatedAt { get; set; }
+        public DateTimeOffset UpdatedAt { get; set; }
 
         /// <summary>
         /// 建立者使用者 ID。

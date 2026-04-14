@@ -102,8 +102,8 @@ namespace SeasonsCare.Api.Services
                 Id = insight.Id,
                 CareGroupId = insight.CareGroupId,
                 ReportType = insight.ReportType,
-                DateFrom = insight.DateFrom,
-                DateTo = insight.DateTo,
+                DateFrom = TimeHelper.ToTaiwanOffset(insight.DateFrom),
+                DateTo = TimeHelper.ToTaiwanOffset(insight.DateTo),
                 OverallSummary = insight.OverallSummary,
                 TodaySummary = insight.TodaySummary,
                 KeyInsights = insight.KeyInsights,
@@ -112,9 +112,9 @@ namespace SeasonsCare.Api.Services
                 SourceDataHash = insight.SourceDataHash,
                 ModelName = insight.ModelName,
                 PromptVersion = insight.PromptVersion,
-                GeneratedAt = insight.GeneratedAt,
-                CreatedAt = insight.CreatedAt,
-                UpdatedAt = insight.UpdatedAt,
+                GeneratedAt = TimeHelper.ToTaiwanOffset(insight.GeneratedAt),
+                CreatedAt = TimeHelper.ToTaiwanOffset(insight.CreatedAt),
+                UpdatedAt = TimeHelper.ToTaiwanOffset(insight.UpdatedAt),
                 CreatedBy = insight.CreatedBy
             };
         }

@@ -13,9 +13,9 @@ namespace SeasonsCare.Api.DTOs.AiHealthInsights
 
         public string ReportType { get; set; } = string.Empty;
 
-        public DateTime DateFrom { get; set; }
+        public DateTimeOffset DateFrom { get; set; }
 
-        public DateTime DateTo { get; set; }
+        public DateTimeOffset DateTo { get; set; }
 
         public string OverallSummary { get; set; } = string.Empty;
 
@@ -33,11 +33,11 @@ namespace SeasonsCare.Api.DTOs.AiHealthInsights
 
         public string? PromptVersion { get; set; }
 
-        public DateTime GeneratedAt { get; set; }
+        public DateTimeOffset GeneratedAt { get; set; }
 
-        public DateTime CreatedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
 
-        public DateTime? UpdatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
 
         public string CreatedBy { get; set; } = string.Empty;
     }

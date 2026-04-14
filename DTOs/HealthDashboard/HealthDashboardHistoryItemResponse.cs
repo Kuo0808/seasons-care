@@ -5,9 +5,9 @@ namespace SeasonsCare.Api.DTOs.HealthDashboard
     public class HealthDashboardHistoryItemResponse
     {
         public Guid Id { get; set; }
-        public DateTime DateFrom { get; set; }
-        public DateTime DateTo { get; set; }
+        public DateTimeOffset DateFrom { get; set; }
+        public DateTimeOffset DateTo { get; set; }
         public string OverallSummary { get; set; } = string.Empty;
-        public DateTime GeneratedAt { get; set; }
+        public DateTimeOffset GeneratedAt { get; set; }
     }
 }

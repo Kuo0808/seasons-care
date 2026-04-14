@@ -64,7 +64,7 @@ namespace SeasonsCare.Api.Services
                 Description = careGroup.Description,
                 HealthStatus = careGroup.HealthStatus,
                 InviteCode = careGroup.InviteCode,
-                CreatedAt = careGroup.CreatedAt,
+                CreatedAt = TimeHelper.ToTaiwanOffset(careGroup.CreatedAt),
                 MemberCount = 1
             };
         }
@@ -83,7 +83,7 @@ namespace SeasonsCare.Api.Services
                 Description = g.Description,
                 HealthStatus = g.HealthStatus,
                 InviteCode = g.InviteCode,
-                CreatedAt = g.CreatedAt,
+                CreatedAt = TimeHelper.ToTaiwanOffset(g.CreatedAt),
                 MemberCount = g.Members.Count(m => m.DeletedAt == null)
             }).ToList();
 
@@ -114,7 +114,7 @@ namespace SeasonsCare.Api.Services
                 Description = group.Description,
                 HealthStatus = group.HealthStatus,
                 InviteCode = group.InviteCode,
-                CreatedAt = group.CreatedAt,
+                CreatedAt = TimeHelper.ToTaiwanOffset(group.CreatedAt),
                 Members = group.Members
                     .Where(m => m.DeletedAt == null && m.User != null)
                     .Select(m => new CareGroupMemberResponse
@@ -123,7 +123,7 @@ namespace SeasonsCare.Api.Services
                         Username = m.User.Username,
                         AvatarKey = m.User.AvatarKey,
                         Role = m.Role,
-                        JoinedAt = m.JoinedAt
+                        JoinedAt = TimeHelper.ToTaiwanOffset(m.JoinedAt)
                     }).ToList()
             };
         }
@@ -162,7 +162,7 @@ namespace SeasonsCare.Api.Services
                 Description = group.Description,
                 HealthStatus = group.HealthStatus,
                 InviteCode = group.InviteCode,
-                CreatedAt = group.CreatedAt,
+                CreatedAt = TimeHelper.ToTaiwanOffset(group.CreatedAt),
                 MemberCount = group.Members.Count(m => m.DeletedAt == null)
             };
         }
