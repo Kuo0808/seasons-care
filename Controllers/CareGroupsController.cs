@@ -11,7 +11,7 @@ using SeasonsCare.Api.Services;
 namespace SeasonsCare.Api.Controllers
 {
     /// <summary>
-    /// Care Group APIs.
+    /// 照護群組管理
     /// </summary>
     [Authorize]
     [ApiController]
