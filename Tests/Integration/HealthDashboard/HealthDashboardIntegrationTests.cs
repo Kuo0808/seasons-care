@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -34,10 +35,10 @@ public class HealthDashboardIntegrationTests
         var cachedInsight = SeedDataHelper.CreateAiHealthInsight(careGroup.Id, "health_dashboard_7d", DateTime.UtcNow);
         cachedInsight.DateFrom = dateFrom;
         cachedInsight.DateTo = dateTo;
-        cachedInsight.OverallSummary = "過去七天趨勢穩定";
-        cachedInsight.TodaySummary = "今天血壓已完成量測，建議晚餐少鹽。";
-        cachedInsight.KeyInsights = "血糖在週三與週五偏高";
-        cachedInsight.Recommendations = "建議控制精緻澱粉並維持飯後步行。";
+        cachedInsight.OverallSummary = "近七天狀況大致穩定";
+        cachedInsight.TodaySummary = "今天量測完成，建議晚上持續補水。";
+        cachedInsight.KeyInsights = "血糖起伏集中在晚餐後";
+        cachedInsight.Recommendations = "飲食先減少精緻澱粉，並固定散步時間。";
 
         await factory.SeedAsync(
             SeedDataHelper.CreateUser(),
@@ -53,9 +54,9 @@ public class HealthDashboardIntegrationTests
         var data = payload.RootElement.GetProperty("data");
 
         Assert.True(data.GetProperty("isFromCache").GetBoolean());
-        Assert.Equal("過去七天趨勢穩定", data.GetProperty("overallSummary").GetString());
-        Assert.Equal("血糖在週三與週五偏高", data.GetProperty("keyInsight").GetString());
-        Assert.Equal("建議控制精緻澱粉並維持飯後步行。", data.GetProperty("actionSuggestion").GetString());
+        Assert.Equal("近七天狀況大致穩定", data.GetProperty("overallSummary").GetString());
+        Assert.Equal("血糖起伏集中在晚餐後", data.GetProperty("keyInsight").GetString());
+        Assert.Equal("飲食先減少精緻澱粉，並固定散步時間。", data.GetProperty("actionSuggestion").GetString());
         Assert.Equal(0, fakeAiService.CallCount);
     }
 
@@ -66,17 +67,17 @@ public class HealthDashboardIntegrationTests
         {
             Result = new AiGeneratedInsightDto
             {
-                OverallSummary = "七天趨勢大致穩定",
-                TodaySummary = "下午已完成血壓量測，建議晚餐清淡。",
-                KeyInsights = "飯後血糖略有波動",
-                Recommendations = "建議維持低糖飲食並增加飯後步行。",
+                OverallSummary = "近七天血壓與血糖趨穩",
+                TodaySummary = "今天血壓偏高，建議晚餐清淡並提早休息。",
+                KeyInsights = "血糖波動集中在晚餐後",
+                Recommendations = "晚餐澱粉減量，飯後固定散步 15 分鐘。",
                 TrendLabels = new TrendLabelsDto
                 {
-                    BloodPressure = "穩定",
-                    BloodOxygen = "正常",
-                    BloodSugar = "需要觀察",
-                    Temperature = "正常",
-                    Weight = "略為上升"
+                    BloodPressure = "趨於穩定",
+                    BloodOxygen = "維持良好",
+                    BloodSugar = "建議觀察",
+                    Temperature = "維持良好",
+                    Weight = "逐步改善"
                 },
                 SourceDataHash = "generated-hash",
                 ModelName = "gpt-test",
@@ -109,15 +110,15 @@ public class HealthDashboardIntegrationTests
         var data = payload.RootElement.GetProperty("data");
 
         Assert.False(data.GetProperty("isFromCache").GetBoolean());
-        Assert.Equal("七天趨勢大致穩定", data.GetProperty("overallSummary").GetString());
-        Assert.Equal("飯後血糖略有波動", data.GetProperty("keyInsight").GetString());
-        Assert.Equal("建議維持低糖飲食並增加飯後步行。", data.GetProperty("actionSuggestion").GetString());
+        Assert.Equal("近七天血壓與血糖趨穩", data.GetProperty("overallSummary").GetString());
+        Assert.Equal("血糖波動集中在晚餐後", data.GetProperty("keyInsight").GetString());
+        Assert.Equal("晚餐澱粉減量，飯後固定散步 15 分鐘。", data.GetProperty("actionSuggestion").GetString());
         Assert.Equal(1, fakeAiService.CallCount);
 
         var insights = await factory.GetAiHealthInsightsAsync();
         Assert.Single(insights);
         Assert.Equal("health_dashboard_7d", insights[0].ReportType);
-        Assert.Equal("七天趨勢大致穩定", insights[0].OverallSummary);
+        Assert.Equal("近七天血壓與血糖趨穩", insights[0].OverallSummary);
     }
 
     [Fact]
@@ -132,10 +133,10 @@ public class HealthDashboardIntegrationTests
         var cachedInsight = SeedDataHelper.CreateAiHealthInsight(careGroup.Id, "health_dashboard_7d", DateTime.UtcNow);
         cachedInsight.DateFrom = dateFrom;
         cachedInsight.DateTo = dateTo;
-        cachedInsight.OverallSummary = "過去七天健康狀態大致穩定但血糖在飯後仍有小幅度波動需要持續追蹤";
-        cachedInsight.TodaySummary = "今日已完成量測。";
-        cachedInsight.KeyInsights = "血糖波動主要集中在週三與週五的晚餐後時段";
-        cachedInsight.Recommendations = "建議控制精緻澱粉攝取，並維持飯後 15 分鐘散步。";
+        cachedInsight.OverallSummary = "這是一段超過四十個字的每週分析摘要，用來驗證 API 會自動裁切長度避免前端卡片爆版。";
+        cachedInsight.TodaySummary = "今天有兩筆量測。";
+        cachedInsight.KeyInsights = "這是一段超過三十個字的關鍵洞察內容，用來驗證欄位回傳時有正確縮短。";
+        cachedInsight.Recommendations = "建議晚餐減少澱粉並在飯後散步十五分鐘。";
 
         await factory.SeedAsync(
             SeedDataHelper.CreateUser(),
@@ -152,7 +153,7 @@ public class HealthDashboardIntegrationTests
 
         Assert.True(data.GetProperty("overallSummary").GetString()!.Length <= 40);
         Assert.True(data.GetProperty("keyInsight").GetString()!.Length <= 30);
-        Assert.Equal("建議控制精緻澱粉攝取，並維持飯後 15 分鐘散步。", data.GetProperty("actionSuggestion").GetString());
+        Assert.Equal("建議晚餐減少澱粉並在飯後散步十五分鐘。", data.GetProperty("actionSuggestion").GetString());
     }
 
     [Fact]
@@ -188,10 +189,10 @@ public class HealthDashboardIntegrationTests
         {
             Result = new AiGeneratedInsightDto
             {
-                OverallSummary = "七天趨勢大致穩定",
-                TodaySummary = "今天血壓偏高，建議晚餐減少鹽分攝取。",
-                KeyInsights = "今日血壓需要觀察",
-                Recommendations = "減少鹽分並提早休息。",
+                OverallSummary = "近七天血壓與血糖趨穩",
+                TodaySummary = "今天血壓偏高，晚餐清淡並少喝咖啡。",
+                KeyInsights = "今天血壓略高",
+                Recommendations = "晚間減少咖啡因，提早休息。",
                 TrendLabels = new TrendLabelsDto(),
                 GeneratedAt = DateTime.UtcNow
             }
@@ -217,8 +218,75 @@ public class HealthDashboardIntegrationTests
         var data = payload.RootElement.GetProperty("data");
 
         Assert.True(data.GetProperty("hasTodayRecords").GetBoolean());
-        Assert.Equal("今天血壓偏高，建議晚餐減少鹽分攝取。", data.GetProperty("summary").GetString());
+        Assert.Equal("今天血壓偏高，晚餐清淡並少喝咖啡。", data.GetProperty("summary").GetString());
         Assert.Equal(1, data.GetProperty("recordCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task GetTrendOverview_ReturnsMetricCardsAndChartPoints()
+    {
+        var fakeAiService = new FakeAiIntegrationService
+        {
+            Result = new AiGeneratedInsightDto
+            {
+                OverallSummary = "近七天狀況穩定",
+                TodaySummary = "今天量測完成。",
+                KeyInsights = "趨勢平穩",
+                Recommendations = "維持目前作息。",
+                TrendLabels = new TrendLabelsDto
+                {
+                    BloodPressure = "維持良好",
+                    BloodOxygen = "逐步改善",
+                    BloodSugar = "建議觀察",
+                    Temperature = "趨於穩定",
+                    Weight = "維持良好"
+                },
+                GeneratedAt = DateTime.UtcNow
+            }
+        };
+
+        using var factory = new HealthDashboardApiFactory(fakeAiService);
+        using var client = factory.Factory.CreateClient();
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        var (dateFrom, _) = GetDashboardRange();
+
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            SeedDataHelper.CreateMember(careGroup.Id),
+            SeedDataHelper.CreateBloodPressure(careGroup.Id, 120, 80, dateFrom.AddHours(2)),
+            SeedDataHelper.CreateBloodPressure(careGroup.Id, 140, 88, dateFrom.AddDays(6).AddHours(1)),
+            SeedDataHelper.CreateBloodOxygen(careGroup.Id, 96m, dateFrom.AddHours(3)),
+            SeedDataHelper.CreateBloodOxygen(careGroup.Id, 98m, dateFrom.AddDays(6).AddHours(3)),
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 150m, "飯後", dateFrom.AddHours(4)),
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 130m, "飯前", dateFrom.AddDays(6).AddHours(4)),
+            SeedDataHelper.CreateTemperature(careGroup.Id, 36.4m, dateFrom.AddDays(1).AddHours(4)),
+            SeedDataHelper.CreateTemperature(careGroup.Id, 36.8m, dateFrom.AddDays(6).AddHours(5)),
+            SeedDataHelper.CreateWeight(careGroup.Id, 70.0m, dateFrom.AddDays(2).AddHours(4)),
+            SeedDataHelper.CreateWeight(careGroup.Id, 70.2m, dateFrom.AddDays(6).AddHours(6)));
+
+        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/trend-overview");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var metrics = payload.RootElement.GetProperty("data").GetProperty("metrics");
+
+        Assert.Equal(5, metrics.GetArrayLength());
+
+        var bloodPressure = metrics.EnumerateArray().First(x => x.GetProperty("metricType").GetString() == "blood_pressure");
+        Assert.Equal("維持良好", bloodPressure.GetProperty("statusLabel").GetString());
+        Assert.Equal("130 / 84", bloodPressure.GetProperty("displayValue").GetString());
+        Assert.Equal(7, bloodPressure.GetProperty("points").GetArrayLength());
+        Assert.Equal(7, bloodPressure.GetProperty("secondaryPoints").GetArrayLength());
+
+        var bloodSugar = metrics.EnumerateArray().First(x => x.GetProperty("metricType").GetString() == "blood_sugar");
+        Assert.Equal("建議觀察", bloodSugar.GetProperty("statusLabel").GetString());
+        Assert.Equal("140", bloodSugar.GetProperty("displayValue").GetString());
+
+        var weight = metrics.EnumerateArray().First(x => x.GetProperty("metricType").GetString() == "weight");
+        Assert.Equal("70.1", weight.GetProperty("displayValue").GetString());
     }
 
     private static (DateTime DateFrom, DateTime DateTo) GetDashboardRange()
@@ -242,17 +310,17 @@ public class HealthDashboardIntegrationTests
 
         public AiGeneratedInsightDto Result { get; set; } = new()
         {
-            OverallSummary = "七天趨勢穩定",
-            TodaySummary = "今日已完成量測，建議持續觀察。",
-            KeyInsights = "血糖略有波動",
-            Recommendations = "建議維持規律飲食與作息。",
+            OverallSummary = "近七天健康趨勢穩定",
+            TodaySummary = "今天已完成量測，建議維持固定作息。",
+            KeyInsights = "血糖波動略高",
+            Recommendations = "建議控制晚餐份量並固定飯後散步。",
             TrendLabels = new TrendLabelsDto
             {
-                BloodPressure = "正常",
-                BloodOxygen = "正常",
-                BloodSugar = "正常",
-                Temperature = "正常",
-                Weight = "正常"
+                BloodPressure = "維持良好",
+                BloodOxygen = "維持良好",
+                BloodSugar = "維持良好",
+                Temperature = "維持良好",
+                Weight = "維持良好"
             },
             SourceDataHash = "default-hash",
             ModelName = "gpt-test",
