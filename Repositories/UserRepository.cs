@@ -31,6 +31,11 @@ namespace SeasonsCare.Api.Repositories
             return await _context.Set<User>().FirstOrDefaultAsync(u => u.Id == id);
         }
 
+        public async Task<List<User>> GetListByIdsAsync(IEnumerable<Guid> ids)
+        {
+            return await _context.Set<User>().Where(u => ids.Contains(u.Id)).ToListAsync();
+        }
+
         public async Task AddAsync(User user)
         {
             // 單純宣告向 EF Core 的追蹤器 (Tracker) 註冊這筆新增，但不馬上異動資料庫實體

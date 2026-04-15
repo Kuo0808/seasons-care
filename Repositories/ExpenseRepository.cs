@@ -25,6 +25,13 @@ namespace SeasonsCare.Api.Repositories
             return await _context.Expenses.FirstOrDefaultAsync(e => e.Id == id);
         }
 
+        public async Task<List<ExpenseRecord>> GetListByIdsAsync(Guid careGroupId, IEnumerable<Guid> expenseIds)
+        {
+            return await _context.Expenses
+                .Where(e => e.CareGroupId == careGroupId && expenseIds.Contains(e.Id))
+                .ToListAsync();
+        }
+
         public async Task<(List<ExpenseRecord> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, int page, int pageSize, string sort)
         {
             // 以業務日期作為主時間軸，避免前端一次抓取全量歷史資料。

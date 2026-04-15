@@ -113,5 +113,35 @@ namespace SeasonsCare.Api.Controllers
             var response = new ApiResponse<object>(null, "刪除支出紀錄成功", HttpContext.TraceIdentifier);
             return Ok(response);
         }
+
+        [HttpPost("split-preview")]
+        [ProducesResponseType(typeof(ApiResponse<ExpenseSplitPreviewResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [EndpointSummary("預覽一鍵分帳結果")]
+        [EndpointDescription("前端傳入想要分帳的項目 (ExpenseIds) 以及參與分攤的成員 (TargetUserIds)，後端即時計算各成員的應收與應付金額並回傳，不會更動資料庫狀態。")]
+        public async Task<IActionResult> PreviewSplit(Guid careGroupId, [FromBody] SplitPreviewRequest request)
+        {
+            var currentUserId = _currentUserService.UserId;
+            var result = await _expenseService.PreviewSplitAsync(currentUserId, careGroupId, request);
+            var response = new ApiResponse<ExpenseSplitPreviewResponse>(result, "取得分帳預覽成功", HttpContext.TraceIdentifier);
+            return Ok(response);
+        }
+
+        [HttpPost("split")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [EndpointSummary("確認一鍵分帳")]
+        [EndpointDescription("將傳入的特定支出項目 (ExpenseIds) 狀態變更為 Settled (已結清)。請在呼叫此 API 前，藉由預覽 API 確認分帳結果。")]
+        public async Task<IActionResult> ConfirmSplit(Guid careGroupId, [FromBody] SplitConfirmRequest request)
+        {
+            var currentUserId = _currentUserService.UserId;
+            await _expenseService.ConfirmSplitAsync(currentUserId, careGroupId, request);
+            var response = new ApiResponse<object>(null, "確認分帳成功", HttpContext.TraceIdentifier);
+            return Ok(response);
+        }
     }
 }

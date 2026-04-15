@@ -11,6 +11,7 @@ namespace SeasonsCare.Api.Repositories
         Task<ExpenseRecord?> GetByIdAsync(Guid id);
         Task<(List<ExpenseRecord> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, int page, int pageSize, string sort);
         Task<(List<ExpenseRecord> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, PaginationRequest request);
+        Task<List<ExpenseRecord>> GetListByIdsAsync(Guid careGroupId, IEnumerable<Guid> expenseIds);
         Task AddAsync(ExpenseRecord expense);
         Task UpdateAsync(ExpenseRecord expense);
         Task SaveChangesAsync();

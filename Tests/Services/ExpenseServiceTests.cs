@@ -15,7 +15,8 @@ public class ExpenseServiceTests
     {
         var repository = new FakeExpenseRepository();
         var groupRepository = new FakeCareGroupRepository(isMember: false);
-        var service = new ExpenseService(repository, groupRepository);
+        var userRepository = new FakeUserRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.CreateExpenseAsync(Guid.NewGuid(), Guid.NewGuid(), new CreateExpenseRequest
@@ -33,7 +34,8 @@ public class ExpenseServiceTests
     {
         var repository = new FakeExpenseRepository();
         var groupRepository = new FakeCareGroupRepository(isMember: true);
-        var service = new ExpenseService(repository, groupRepository);
+        var userRepository = new FakeUserRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository);
         var userId = Guid.NewGuid();
         var careGroupId = Guid.NewGuid();
 
@@ -71,7 +73,8 @@ public class ExpenseServiceTests
 
         var repository = new FakeExpenseRepository(existing);
         var groupRepository = new FakeCareGroupRepository(isMember: true);
-        var service = new ExpenseService(repository, groupRepository);
+        var userRepository = new FakeUserRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.UpdateExpenseAsync(Guid.NewGuid(), existing.CareGroupId, existing.Id, new UpdateExpenseRequest
@@ -104,7 +107,8 @@ public class ExpenseServiceTests
 
         var repository = new FakeExpenseRepository(existing);
         var groupRepository = new FakeCareGroupRepository(isMember: true);
-        var service = new ExpenseService(repository, groupRepository);
+        var userRepository = new FakeUserRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.UpdateExpenseAsync(Guid.NewGuid(), existing.CareGroupId, existing.Id, new UpdateExpenseRequest
@@ -140,7 +144,8 @@ public class ExpenseServiceTests
 
         var repository = new FakeExpenseRepository(existing);
         var groupRepository = new FakeCareGroupRepository(isMember: true);
-        var service = new ExpenseService(repository, groupRepository);
+        var userRepository = new FakeUserRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository);
 
         var result = await service.UpdateExpenseAsync(Guid.NewGuid(), existing.CareGroupId, existing.Id, new UpdateExpenseRequest
         {
@@ -159,6 +164,62 @@ public class ExpenseServiceTests
         Assert.Equal("New note", result.Notes);
         Assert.Equal(ExpenseSplitStatus.Settled, result.SplitStatus);
         Assert.NotEqual(existingUpdatedAt, result.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task PreviewSplitAsync_CalculatesCorrectReceivableAndPayable()
+    {
+        var payerId = Guid.NewGuid();
+        var anotherPayerId = Guid.NewGuid();
+        var nonPayerId = Guid.NewGuid();
+
+        var existingExpenses = new[]
+        {
+            new ExpenseRecord { Id = Guid.NewGuid(), CareGroupId = Guid.NewGuid(), Title = "A", Amount = 1000m, SplitStatus = ExpenseSplitStatus.None, CreatedBy = payerId.ToString() },
+            new ExpenseRecord { Id = Guid.NewGuid(), CareGroupId = Guid.NewGuid(), Title = "B", Amount = 200m, SplitStatus = ExpenseSplitStatus.None, CreatedBy = anotherPayerId.ToString() }
+        };
+
+        var users = new[]
+        {
+            new User { Id = payerId, Username = "Payer1" },
+            new User { Id = anotherPayerId, Username = "Payer2" },
+            new User { Id = nonPayerId, Username = "NonPayer" }
+        };
+
+        var careGroupId = existingExpenses[0].CareGroupId;
+        existingExpenses[1].CareGroupId = careGroupId;
+
+        var repository = new FakeExpenseRepository(existingExpenses);
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var userRepository = new FakeUserRepository(users);
+        var service = new ExpenseService(repository, groupRepository, userRepository);
+
+        var result = await service.PreviewSplitAsync(payerId, careGroupId, new SplitPreviewRequest
+        {
+            ExpenseIds = new List<Guid> { existingExpenses[0].Id, existingExpenses[1].Id },
+            TargetUserIds = new List<Guid> { payerId, anotherPayerId, nonPayerId } // 3 users
+        });
+
+        Assert.Equal(1200m, result.TotalAmount); // 1000 + 200
+        Assert.Equal(2, result.SelectedExpenses.Count);
+        Assert.Equal(3, result.SplitDetails.Count);
+
+        var share = 1200m / 3m; // 400
+
+        var p1 = result.SplitDetails.First(x => x.UserId == payerId);
+        Assert.True(p1.IsPayer);
+        Assert.Equal(1000m - 400m, p1.ReceivableAmount); // 600
+        Assert.Equal(0m, p1.PayableAmount);
+
+        var p2 = result.SplitDetails.First(x => x.UserId == anotherPayerId);
+        Assert.True(p2.IsPayer);
+        Assert.Equal(0m, p2.ReceivableAmount); 
+        Assert.Equal(400m - 200m, p2.PayableAmount); // 200 (since 200 paid - 400 share = -200)
+
+        var p3 = result.SplitDetails.First(x => x.UserId == nonPayerId);
+        Assert.False(p3.IsPayer);
+        Assert.Equal(0m, p3.ReceivableAmount);
+        Assert.Equal(400m, p3.PayableAmount); // 400
     }
 
     private sealed class FakeExpenseRepository : IExpenseRepository
@@ -185,6 +246,12 @@ public class ExpenseServiceTests
         {
             var data = Expenses.Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null).ToList();
             return Task.FromResult((data, data.Count));
+        }
+
+        public Task<List<ExpenseRecord>> GetListByIdsAsync(Guid careGroupId, IEnumerable<Guid> expenseIds)
+        {
+            var data = Expenses.Where(x => x.CareGroupId == careGroupId && expenseIds.Contains(x.Id)).ToList();
+            return Task.FromResult(data);
         }
 
         public Task AddAsync(ExpenseRecord expense)
@@ -262,5 +329,29 @@ public class ExpenseServiceTests
         {
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeUserRepository : IUserRepository
+    {
+        public List<User> Users { get; } = new();
+
+        public FakeUserRepository(params User[] users)
+        {
+            Users.AddRange(users);
+        }
+
+        public Task<bool> EmailExistsAsync(string email) => Task.FromResult(false);
+
+        public Task<User?> GetByEmailAsync(string email) => Task.FromResult<User?>(null);
+
+        public Task<User?> GetByIdAsync(Guid id) => Task.FromResult(Users.FirstOrDefault(x => x.Id == id));
+
+        public Task<List<User>> GetListByIdsAsync(IEnumerable<Guid> ids) => Task.FromResult(Users.Where(x => ids.Contains(x.Id)).ToList());
+
+        public Task AddAsync(User user) => Task.CompletedTask;
+
+        public Task UpdateAsync(User user) => Task.CompletedTask;
+
+        public Task SaveChangesAsync() => Task.CompletedTask;
     }
 }

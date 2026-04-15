@@ -13,5 +13,7 @@ namespace SeasonsCare.Api.Services
         Task<ExpenseResponse> CreateExpenseAsync(Guid currentUserId, Guid careGroupId, CreateExpenseRequest request);
         Task<ExpenseResponse> UpdateExpenseAsync(Guid currentUserId, Guid careGroupId, Guid expenseId, UpdateExpenseRequest request);
         Task DeleteExpenseAsync(Guid currentUserId, Guid careGroupId, Guid expenseId);
+        Task<ExpenseSplitPreviewResponse> PreviewSplitAsync(Guid currentUserId, Guid careGroupId, SplitPreviewRequest request);
+        Task ConfirmSplitAsync(Guid currentUserId, Guid careGroupId, SplitConfirmRequest request);
     }
 }
