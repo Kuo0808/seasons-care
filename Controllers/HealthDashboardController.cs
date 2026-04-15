@@ -11,7 +11,8 @@ using SeasonsCare.Api.Services.HealthDashboard;
 namespace SeasonsCare.Api.Controllers
 {
     /// <summary>
-    /// 健康儀表板 API。
+    /// 健康儀表板相關 API。
+    /// 提供每週 AI 分析報告、今日健康摘要、近七天趨勢總覽，以及報告歷史紀錄。
     /// </summary>
     [Authorize]
     [ApiController]
@@ -27,80 +28,104 @@ namespace SeasonsCare.Api.Controllers
             _currentUserService = currentUserService;
         }
 
+        /// <summary>
+        /// 取得近七天 AI 健康分析報告。
+        /// 回傳首屏報告（heroReport）、關鍵數據洞察（keyInsightSection）、健康行動建議（actionSuggestionSection）。
+        /// 若已有快取報告則直接回傳，否則呼叫 AI 即時產生並存入快取。
+        /// AI 失敗時會回傳 fallback 內容，可透過 meta.isFallback 判斷。
+        /// </summary>
+        /// <param name="careGroupId">照護群組 ID</param>
         [HttpGet("weekly-insight")]
         [ProducesResponseType(typeof(ApiResponse<HealthDashboardWeeklyInsightResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("取得本週健康洞察")]
-        [EndpointDescription("依據 path 參數 careGroupId 取得指定照護群組本週的健康儀表板洞察摘要，包含 AI 生成的重點整理與提醒。")]
+        [EndpointSummary("取得每週 AI 健康分析報告")]
+        [EndpointDescription("回傳近七天的 AI 健康分析，包含首屏報告、關鍵洞察、行動建議與提醒。")]
         public async Task<IActionResult> GetWeeklyInsight(Guid careGroupId)
         {
             var currentUserId = _currentUserService.UserId;
             var result = await _healthDashboardService.GetWeeklyInsightAsync(currentUserId, careGroupId);
-            var response = new ApiResponse<HealthDashboardWeeklyInsightResponse>(result, "取得近七天 AI 分析成功。", HttpContext.TraceIdentifier);
-            return Ok(response);
+            return Ok(new ApiResponse<HealthDashboardWeeklyInsightResponse>(
+                result, "已成功取得每週健康分析報告。", HttpContext.TraceIdentifier));
         }
 
+        /// <summary>
+        /// 取得今日健康摘要。
+        /// 即時統計今日各項健康指標的量測筆數與最新值，不依賴 AI。
+        /// 回傳摘要卡片（cards）供前端今日區塊使用。
+        /// </summary>
+        /// <param name="careGroupId">照護群組 ID</param>
         [HttpGet("today-insight")]
         [ProducesResponseType(typeof(ApiResponse<HealthDashboardTodayInsightResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("取得今日健康洞察")]
-        [EndpointDescription("依據 path 參數 careGroupId 取得指定照護群組今日的健康儀表板洞察，回傳今日重點與 AI 生成說明。")]
+        [EndpointSummary("取得今日健康摘要")]
+        [EndpointDescription("即時統計今日各指標量測狀態，回傳摘要卡片與任務進度，不呼叫 AI。")]
         public async Task<IActionResult> GetTodayInsight(Guid careGroupId)
         {
             var currentUserId = _currentUserService.UserId;
             var result = await _healthDashboardService.GetTodayInsightAsync(currentUserId, careGroupId);
-            var response = new ApiResponse<HealthDashboardTodayInsightResponse>(result, "取得今日健康摘要成功。", HttpContext.TraceIdentifier);
-            return Ok(response);
+            return Ok(new ApiResponse<HealthDashboardTodayInsightResponse>(
+                result, "已成功取得今日健康摘要。", HttpContext.TraceIdentifier));
         }
 
+        /// <summary>
+        /// 取得近七天健康趨勢總覽。
+        /// 即時統計各指標的平均值、最新值、變化量與每日圖表資料點，不依賴 AI。
+        /// 趨勢狀態標籤優先使用已快取的 AI 結果，無快取時由規則判斷。
+        /// </summary>
+        /// <param name="careGroupId">照護群組 ID</param>
         [HttpGet("trend-overview")]
         [ProducesResponseType(typeof(ApiResponse<HealthDashboardTrendOverviewResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("取得健康趨勢總覽")]
-        [EndpointDescription("依據 path 參數 careGroupId 取得照護群組的健康趨勢總覽，整合多項健康指標的近期變化與概覽資訊。")]
+        [EndpointSummary("取得近七天趨勢總覽")]
+        [EndpointDescription("即時統計近七天各指標趨勢卡片與折線圖資料，不呼叫 AI。")]
         public async Task<IActionResult> GetTrendOverview(Guid careGroupId)
         {
             var result = await _healthDashboardService.GetTrendOverviewAsync(_currentUserService.UserId, careGroupId);
-            return Ok(new ApiResponse<HealthDashboardTrendOverviewResponse>(result, "取得趨勢概覽成功", HttpContext.TraceIdentifier));
+            return Ok(new ApiResponse<HealthDashboardTrendOverviewResponse>(
+                result, "已成功取得近七天趨勢總覽。", HttpContext.TraceIdentifier));
         }
 
         /// <summary>
-        /// 查看過往歷史的 AI 分析報告
+        /// 取得過往每週 AI 報告的分頁歷史紀錄。
         /// </summary>
+        /// <param name="careGroupId">照護群組 ID</param>
+        /// <param name="request">分頁查詢參數（page、pageSize）</param>
         [HttpGet("history")]
-        [ProducesResponseType(typeof(ApiResponse<DTOs.Common.PagedResponse<HealthDashboardHistoryItemResponse>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<PagedResponse<HealthDashboardHistoryItemResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("取得健康儀表板歷史紀錄")]
-        [EndpointDescription("依據 path 參數 careGroupId 與 query string 的 page、pageSize 取得健康儀表板歷史資料，回傳分頁後的洞察紀錄清單。")]
+        [EndpointSummary("取得儀表板報告歷史紀錄")]
+        [EndpointDescription("回傳指定照護群組每週 AI 健康報告的分頁歷史資料。")]
         public async Task<IActionResult> GetHistory(Guid careGroupId, [FromQuery] GetHealthDashboardHistoryRequest request)
         {
-            var result = await _healthDashboardService.GetHistoryAsync(_currentUserService.UserId, careGroupId, request.Page, request.PageSize);
-            return Ok(new ApiResponse<DTOs.Common.PagedResponse<HealthDashboardHistoryItemResponse>>(result, "取得報告歷史紀錄成功", HttpContext.TraceIdentifier));
+            var result = await _healthDashboardService.GetHistoryAsync(
+                _currentUserService.UserId, careGroupId, request.Page, request.PageSize);
+            return Ok(new ApiResponse<PagedResponse<HealthDashboardHistoryItemResponse>>(
+                result, "已成功取得健康儀表板報告歷史紀錄。", HttpContext.TraceIdentifier));
         }
 
         /// <summary>
-        /// 匯出完整健康報告為 PDF (WIP)
+        /// 匯出健康儀表板報告 PDF（開發中）。
+        /// 目前會先驗證權限並回傳暫時性的 PDF 內容，完整匯出功能待後續實作。
         /// </summary>
+        /// <param name="careGroupId">照護群組 ID</param>
         [HttpGet("export-pdf")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("匯出健康報表 PDF")]
-        [EndpointDescription("依據 path 參數 careGroupId 匯出照護群組的健康報表 PDF。目前為預留中的 WIP 端點，先回傳暫時性的 PDF 內容。")]
+        [EndpointSummary("匯出健康儀表板 PDF")]
+        [EndpointDescription("目前會先驗證權限並回傳暫時性的 PDF 內容，完整匯出功能待後續實作。")]
         public async Task<IActionResult> ExportPdf(Guid careGroupId)
         {
-            // 由於匯出 PDF 需要較大的第三方依賴庫（如 QuestPDF），此為預留在未來實作的架構洞口。
-            // 目前先回傳一份代表性的文字檔模擬，確認串接流程順暢後再實作實體 PDF 生成。
-            
-            // Validate access
             await _healthDashboardService.GetWeeklyInsightAsync(_currentUserService.UserId, careGroupId);
 
-            var dummyPdfBytes = System.Text.Encoding.UTF8.GetBytes("This is a dummy PDF file representing the future PDF export feature. Please implement using QuestPDF.");
-            return File(dummyPdfBytes, "application/pdf", $"HealthReport_{careGroupId}_{DateTime.UtcNow:yyyyMMdd}.pdf");
+            var dummyPdfBytes = System.Text.Encoding.UTF8.GetBytes(
+                "這是暫時性的 PDF 內容，代表未來的健康報告匯出功能，後續請改用 QuestPDF 實作。");
+            return File(dummyPdfBytes, "application/pdf",
+                $"HealthReport_{careGroupId}_{DateTime.UtcNow:yyyyMMdd}.pdf");
         }
     }
 }

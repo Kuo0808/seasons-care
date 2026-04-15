@@ -23,8 +23,12 @@ namespace SeasonsCare.Api.Tests.Integration.HealthDashboard;
 
 public class HealthDashboardIntegrationTests
 {
+    // ──────────────────────────────────────────────
+    // API 1：weekly-insight
+    // ──────────────────────────────────────────────
+
     [Fact]
-    public async Task GetWeeklyInsight_ReturnsCachedInsight_WithoutCallingAiIntegration()
+    public async Task GetWeeklyInsight_ReturnsCachedInsight_WithoutCallingAi()
     {
         var fakeAiService = new FakeAiIntegrationService();
         using var factory = new HealthDashboardApiFactory(fakeAiService);
@@ -35,10 +39,10 @@ public class HealthDashboardIntegrationTests
         var cachedInsight = SeedDataHelper.CreateAiHealthInsight(careGroup.Id, "health_dashboard_7d", DateTime.UtcNow);
         cachedInsight.DateFrom = dateFrom;
         cachedInsight.DateTo = dateTo;
-        cachedInsight.OverallSummary = "近七天狀況大致穩定";
-        cachedInsight.TodaySummary = "今天量測完成，建議晚上持續補水。";
-        cachedInsight.KeyInsights = "血糖起伏集中在晚餐後";
-        cachedInsight.Recommendations = "飲食先減少精緻澱粉，並固定散步時間。";
+        cachedInsight.OverallSummary = "近 7 天整體狀態穩定";
+        cachedInsight.TodaySummary = "今天已完成血壓量測";
+        cachedInsight.KeyInsights = "今日量測可與本週趨勢一起判讀";
+        cachedInsight.Recommendations = "維持固定時段量測，並記錄飲食變化。";
 
         await factory.SeedAsync(
             SeedDataHelper.CreateUser(),
@@ -47,45 +51,23 @@ public class HealthDashboardIntegrationTests
             cachedInsight);
 
         var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/weekly-insight");
-
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var payload = await JsonResponseHelper.ReadJsonAsync(response);
         var data = payload.RootElement.GetProperty("data");
 
         Assert.True(data.GetProperty("isFromCache").GetBoolean());
-        Assert.Equal("近七天狀況大致穩定", data.GetProperty("overallSummary").GetString());
-        Assert.Equal("血糖起伏集中在晚餐後", data.GetProperty("keyInsight").GetString());
-        Assert.Equal("飲食先減少精緻澱粉，並固定散步時間。", data.GetProperty("actionSuggestion").GetString());
+        // 快取回來時 heroReport 會使用 fallback（因為 DB 沒存結構化欄位）
+        Assert.NotEmpty(data.GetProperty("heroReport").GetProperty("headline").GetString()!);
+        Assert.NotEmpty(data.GetProperty("keyInsightSection").GetProperty("label").GetString()!);
+        Assert.NotEmpty(data.GetProperty("actionSuggestionSection").GetProperty("label").GetString()!);
         Assert.Equal(0, fakeAiService.CallCount);
     }
 
     [Fact]
-    public async Task GetWeeklyInsight_GeneratesAndPersistsInsight_WhenCacheMiss()
+    public async Task GetWeeklyInsight_ReturnsStructuredSections_WhenCacheMiss()
     {
-        var fakeAiService = new FakeAiIntegrationService
-        {
-            Result = new AiGeneratedInsightDto
-            {
-                OverallSummary = "近七天血壓與血糖趨穩",
-                TodaySummary = "今天血壓偏高，建議晚餐清淡並提早休息。",
-                KeyInsights = "血糖波動集中在晚餐後",
-                Recommendations = "晚餐澱粉減量，飯後固定散步 15 分鐘。",
-                TrendLabels = new TrendLabelsDto
-                {
-                    BloodPressure = "趨於穩定",
-                    BloodOxygen = "維持良好",
-                    BloodSugar = "建議觀察",
-                    Temperature = "維持良好",
-                    Weight = "逐步改善"
-                },
-                SourceDataHash = "generated-hash",
-                ModelName = "gpt-test",
-                PromptVersion = "test-v1",
-                GeneratedAt = DateTime.UtcNow
-            }
-        };
-
+        var fakeAiService = new FakeAiIntegrationService();
         using var factory = new HealthDashboardApiFactory(fakeAiService);
         using var client = factory.Factory.CreateClient();
 
@@ -97,69 +79,30 @@ public class HealthDashboardIntegrationTests
             careGroup,
             SeedDataHelper.CreateMember(careGroup.Id),
             SeedDataHelper.CreateBloodPressure(careGroup.Id, 130, 86, dateFrom.AddDays(6).AddHours(2)),
-            SeedDataHelper.CreateBloodSugar(careGroup.Id, 118m, "飯後", dateFrom.AddDays(6).AddHours(3)),
-            SeedDataHelper.CreateWeight(careGroup.Id, 62m, dateFrom.AddDays(4)),
-            SeedDataHelper.CreateTemperature(careGroup.Id, 36.8m, dateFrom.AddDays(6).AddHours(1)),
-            SeedDataHelper.CreateBloodOxygen(careGroup.Id, 97m, dateFrom.AddDays(6).AddHours(4)));
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 118m, "飯後", dateFrom.AddDays(6).AddHours(3)));
 
         var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/weekly-insight");
-
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var payload = await JsonResponseHelper.ReadJsonAsync(response);
         var data = payload.RootElement.GetProperty("data");
 
         Assert.False(data.GetProperty("isFromCache").GetBoolean());
-        Assert.Equal("近七天血壓與血糖趨穩", data.GetProperty("overallSummary").GetString());
-        Assert.Equal("血糖波動集中在晚餐後", data.GetProperty("keyInsight").GetString());
-        Assert.Equal("晚餐澱粉減量，飯後固定散步 15 分鐘。", data.GetProperty("actionSuggestion").GetString());
+        Assert.Equal("本週健康趨勢大致穩定", data.GetProperty("heroReport").GetProperty("headline").GetString());
+        Assert.Equal("關鍵數據洞察", data.GetProperty("keyInsightSection").GetProperty("label").GetString());
+        Assert.Equal("健康行動建議", data.GetProperty("actionSuggestionSection").GetProperty("label").GetString());
+        Assert.Equal("health-report-v1", data.GetProperty("meta").GetProperty("rulesVersion").GetString());
         Assert.Equal(1, fakeAiService.CallCount);
 
         var insights = await factory.GetAiHealthInsightsAsync();
         Assert.Single(insights);
         Assert.Equal("health_dashboard_7d", insights[0].ReportType);
-        Assert.Equal("近七天血壓與血糖趨穩", insights[0].OverallSummary);
     }
 
     [Fact]
-    public async Task GetWeeklyInsight_ReturnsShortenedFields()
+    public async Task GetWeeklyInsight_ReturnsFallback_WhenAiFails()
     {
-        var fakeAiService = new FakeAiIntegrationService();
-        using var factory = new HealthDashboardApiFactory(fakeAiService);
-        using var client = factory.Factory.CreateClient();
-
-        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
-        var (dateFrom, dateTo) = GetDashboardRange();
-        var cachedInsight = SeedDataHelper.CreateAiHealthInsight(careGroup.Id, "health_dashboard_7d", DateTime.UtcNow);
-        cachedInsight.DateFrom = dateFrom;
-        cachedInsight.DateTo = dateTo;
-        cachedInsight.OverallSummary = "這是一段超過四十個字的每週分析摘要，用來驗證 API 會自動裁切長度避免前端卡片爆版。";
-        cachedInsight.TodaySummary = "今天有兩筆量測。";
-        cachedInsight.KeyInsights = "這是一段超過三十個字的關鍵洞察內容，用來驗證欄位回傳時有正確縮短。";
-        cachedInsight.Recommendations = "建議晚餐減少澱粉並在飯後散步十五分鐘。";
-
-        await factory.SeedAsync(
-            SeedDataHelper.CreateUser(),
-            careGroup,
-            SeedDataHelper.CreateMember(careGroup.Id),
-            cachedInsight);
-
-        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/weekly-insight");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
-        var data = payload.RootElement.GetProperty("data");
-
-        Assert.True(data.GetProperty("overallSummary").GetString()!.Length <= 40);
-        Assert.True(data.GetProperty("keyInsight").GetString()!.Length <= 30);
-        Assert.Equal("建議晚餐減少澱粉並在飯後散步十五分鐘。", data.GetProperty("actionSuggestion").GetString());
-    }
-
-    [Fact]
-    public async Task GetTodayInsight_ReturnsEmptyMessage_WhenNoTodayRecords()
-    {
-        var fakeAiService = new FakeAiIntegrationService();
+        var fakeAiService = new FakeAiIntegrationService { ShouldThrow = true };
         using var factory = new HealthDashboardApiFactory(fakeAiService);
         using var client = factory.Factory.CreateClient();
 
@@ -170,81 +113,84 @@ public class HealthDashboardIntegrationTests
             careGroup,
             SeedDataHelper.CreateMember(careGroup.Id));
 
-        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/today-insight");
+        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/weekly-insight");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var data = payload.RootElement.GetProperty("data");
+
+        Assert.True(data.GetProperty("meta").GetProperty("isFallback").GetBoolean());
+        Assert.NotEmpty(data.GetProperty("heroReport").GetProperty("headline").GetString()!);
+    }
+
+    // ──────────────────────────────────────────────
+    // API 2：today-insight（不呼叫 AI）
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetTodayInsight_ReturnsCards_WhenNoTodayRecords()
+    {
+        var fakeAiService = new FakeAiIntegrationService();
+        using var factory = new HealthDashboardApiFactory(fakeAiService);
+        using var client = factory.Factory.CreateClient();
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            SeedDataHelper.CreateMember(careGroup.Id));
+
+        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/today-insight");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var payload = await JsonResponseHelper.ReadJsonAsync(response);
         var data = payload.RootElement.GetProperty("data");
 
         Assert.False(data.GetProperty("hasTodayRecords").GetBoolean());
-        Assert.Equal("當日尚未有紀錄，快來新增吧！", data.GetProperty("summary").GetString());
         Assert.Equal(0, data.GetProperty("recordCount").GetInt32());
+        Assert.Equal("AI 分析摘要", data.GetProperty("cards")[0].GetProperty("title").GetString());
+        Assert.Equal("low", data.GetProperty("meta").GetProperty("confidence").GetString());
+        // 不應呼叫 AI
+        Assert.Equal(0, fakeAiService.CallCount);
     }
 
     [Fact]
-    public async Task GetTodayInsight_UsesAiTodaySummary_WhenTodayHasRecords()
+    public async Task GetTodayInsight_ReturnsLatestMetrics_WhenTodayHasRecords()
     {
-        var fakeAiService = new FakeAiIntegrationService
-        {
-            Result = new AiGeneratedInsightDto
-            {
-                OverallSummary = "近七天血壓與血糖趨穩",
-                TodaySummary = "今天血壓偏高，晚餐清淡並少喝咖啡。",
-                KeyInsights = "今天血壓略高",
-                Recommendations = "晚間減少咖啡因，提早休息。",
-                TrendLabels = new TrendLabelsDto(),
-                GeneratedAt = DateTime.UtcNow
-            }
-        };
-
+        var fakeAiService = new FakeAiIntegrationService();
         using var factory = new HealthDashboardApiFactory(fakeAiService);
         using var client = factory.Factory.CreateClient();
 
         var careGroup = SeedDataHelper.CreateCareGroup("Group A");
-        var (dateFrom, _) = GetDashboardRange();
+        var todayStart = NormalizeTimestamp(TimeHelper.GetTaiwanDateStartUtc());
 
         await factory.SeedAsync(
             SeedDataHelper.CreateUser(),
             careGroup,
             SeedDataHelper.CreateMember(careGroup.Id),
-            SeedDataHelper.CreateBloodPressure(careGroup.Id, 136, 88, dateFrom.AddDays(6).AddHours(2)));
+            SeedDataHelper.CreateBloodPressure(careGroup.Id, 125, 82, todayStart.AddHours(8)));
 
         var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/today-insight");
-
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var payload = await JsonResponseHelper.ReadJsonAsync(response);
         var data = payload.RootElement.GetProperty("data");
 
         Assert.True(data.GetProperty("hasTodayRecords").GetBoolean());
-        Assert.Equal("今天血壓偏高，晚餐清淡並少喝咖啡。", data.GetProperty("summary").GetString());
         Assert.Equal(1, data.GetProperty("recordCount").GetInt32());
+        Assert.Contains("血壓", data.GetProperty("cards")[0].GetProperty("summary").GetString());
+        // 不應呼叫 AI
+        Assert.Equal(0, fakeAiService.CallCount);
     }
 
-    [Fact]
-    public async Task GetTrendOverview_ReturnsMetricCardsAndChartPoints()
-    {
-        var fakeAiService = new FakeAiIntegrationService
-        {
-            Result = new AiGeneratedInsightDto
-            {
-                OverallSummary = "近七天狀況穩定",
-                TodaySummary = "今天量測完成。",
-                KeyInsights = "趨勢平穩",
-                Recommendations = "維持目前作息。",
-                TrendLabels = new TrendLabelsDto
-                {
-                    BloodPressure = "維持良好",
-                    BloodOxygen = "逐步改善",
-                    BloodSugar = "建議觀察",
-                    Temperature = "趨於穩定",
-                    Weight = "維持良好"
-                },
-                GeneratedAt = DateTime.UtcNow
-            }
-        };
+    // ──────────────────────────────────────────────
+    // API 3：trend-overview（不呼叫 AI）
+    // ──────────────────────────────────────────────
 
+    [Fact]
+    public async Task GetTrendOverview_ReturnsMetricCardsWithChartPoints()
+    {
+        var fakeAiService = new FakeAiIntegrationService();
         using var factory = new HealthDashboardApiFactory(fakeAiService);
         using var client = factory.Factory.CreateClient();
 
@@ -257,17 +203,12 @@ public class HealthDashboardIntegrationTests
             SeedDataHelper.CreateMember(careGroup.Id),
             SeedDataHelper.CreateBloodPressure(careGroup.Id, 120, 80, dateFrom.AddHours(2)),
             SeedDataHelper.CreateBloodPressure(careGroup.Id, 140, 88, dateFrom.AddDays(6).AddHours(1)),
-            SeedDataHelper.CreateBloodOxygen(careGroup.Id, 96m, dateFrom.AddHours(3)),
-            SeedDataHelper.CreateBloodOxygen(careGroup.Id, 98m, dateFrom.AddDays(6).AddHours(3)),
             SeedDataHelper.CreateBloodSugar(careGroup.Id, 150m, "飯後", dateFrom.AddHours(4)),
-            SeedDataHelper.CreateBloodSugar(careGroup.Id, 130m, "飯前", dateFrom.AddDays(6).AddHours(4)),
-            SeedDataHelper.CreateTemperature(careGroup.Id, 36.4m, dateFrom.AddDays(1).AddHours(4)),
-            SeedDataHelper.CreateTemperature(careGroup.Id, 36.8m, dateFrom.AddDays(6).AddHours(5)),
+            SeedDataHelper.CreateBloodSugar(careGroup.Id, 130m, "飯後", dateFrom.AddDays(6).AddHours(4)),
             SeedDataHelper.CreateWeight(careGroup.Id, 70.0m, dateFrom.AddDays(2).AddHours(4)),
             SeedDataHelper.CreateWeight(careGroup.Id, 70.2m, dateFrom.AddDays(6).AddHours(6)));
 
         var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/trend-overview");
-
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         using var payload = await JsonResponseHelper.ReadJsonAsync(response);
@@ -275,27 +216,63 @@ public class HealthDashboardIntegrationTests
 
         Assert.Equal(5, metrics.GetArrayLength());
 
-        var bloodPressure = metrics.EnumerateArray().First(x => x.GetProperty("metricType").GetString() == "blood_pressure");
-        Assert.Equal("維持良好", bloodPressure.GetProperty("statusLabel").GetString());
+        var bloodPressure = metrics.EnumerateArray().First(
+            x => x.GetProperty("metricType").GetString() == "blood_pressure");
         Assert.Equal("130 / 84", bloodPressure.GetProperty("displayValue").GetString());
+        Assert.Equal("140/88", bloodPressure.GetProperty("latestValue").GetString());
         Assert.Equal(7, bloodPressure.GetProperty("points").GetArrayLength());
         Assert.Equal(7, bloodPressure.GetProperty("secondaryPoints").GetArrayLength());
 
-        var bloodSugar = metrics.EnumerateArray().First(x => x.GetProperty("metricType").GetString() == "blood_sugar");
-        Assert.Equal("建議觀察", bloodSugar.GetProperty("statusLabel").GetString());
-        Assert.Equal("140", bloodSugar.GetProperty("displayValue").GetString());
-
-        var weight = metrics.EnumerateArray().First(x => x.GetProperty("metricType").GetString() == "weight");
+        var weight = metrics.EnumerateArray().First(
+            x => x.GetProperty("metricType").GetString() == "weight");
         Assert.Equal("70.1", weight.GetProperty("displayValue").GetString());
+        Assert.Contains("體重", weight.GetProperty("summary").GetString());
+
+        // 不應呼叫 AI
+        Assert.Equal(0, fakeAiService.CallCount);
     }
+
+    [Fact]
+    public async Task GetTrendOverview_UsesRuleBasedLabels_WhenNoCachedAi()
+    {
+        var fakeAiService = new FakeAiIntegrationService();
+        using var factory = new HealthDashboardApiFactory(fakeAiService);
+        using var client = factory.Factory.CreateClient();
+
+        var careGroup = SeedDataHelper.CreateCareGroup("Group A");
+        var (dateFrom, _) = GetDashboardRange();
+
+        await factory.SeedAsync(
+            SeedDataHelper.CreateUser(),
+            careGroup,
+            SeedDataHelper.CreateMember(careGroup.Id),
+            SeedDataHelper.CreateBloodPressure(careGroup.Id, 120, 78, dateFrom.AddHours(2)));
+
+        var response = await client.GetAsync($"/api/care-groups/{careGroup.Id}/health-dashboard/trend-overview");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var metrics = payload.RootElement.GetProperty("data").GetProperty("metrics");
+
+        var bp = metrics.EnumerateArray().First(
+            x => x.GetProperty("metricType").GetString() == "blood_pressure");
+        Assert.Equal("穩定", bp.GetProperty("statusLabel").GetString());
+
+        var oxygen = metrics.EnumerateArray().First(
+            x => x.GetProperty("metricType").GetString() == "blood_oxygen");
+        Assert.Equal("資料不足", oxygen.GetProperty("statusLabel").GetString());
+    }
+
+    // ──────────────────────────────────────────────
+    // Helper
+    // ──────────────────────────────────────────────
 
     private static (DateTime DateFrom, DateTime DateTo) GetDashboardRange()
     {
         var todayStart = NormalizeTimestamp(TimeHelper.GetTaiwanDateStartUtc());
         return (
             NormalizeTimestamp(todayStart.AddDays(-6)),
-            NormalizeTimestamp(todayStart.AddDays(1).AddMilliseconds(-1))
-        );
+            NormalizeTimestamp(todayStart.AddDays(1).AddMilliseconds(-1)));
     }
 
     private static DateTime NormalizeTimestamp(DateTime value)
@@ -304,36 +281,82 @@ public class HealthDashboardIntegrationTests
         return new DateTime(utcValue.Ticks - (utcValue.Ticks % TimeSpan.TicksPerMillisecond), DateTimeKind.Utc);
     }
 
+    // ──────────────────────────────────────────────
+    // Fake AI Service
+    // ──────────────────────────────────────────────
+
     private sealed class FakeAiIntegrationService : IAiIntegrationService
     {
         public int CallCount { get; private set; }
-
-        public AiGeneratedInsightDto Result { get; set; } = new()
-        {
-            OverallSummary = "近七天健康趨勢穩定",
-            TodaySummary = "今天已完成量測，建議維持固定作息。",
-            KeyInsights = "血糖波動略高",
-            Recommendations = "建議控制晚餐份量並固定飯後散步。",
-            TrendLabels = new TrendLabelsDto
-            {
-                BloodPressure = "維持良好",
-                BloodOxygen = "維持良好",
-                BloodSugar = "維持良好",
-                Temperature = "維持良好",
-                Weight = "維持良好"
-            },
-            SourceDataHash = "default-hash",
-            ModelName = "gpt-test",
-            PromptVersion = "test-v1",
-            GeneratedAt = DateTime.UtcNow
-        };
+        public bool ShouldThrow { get; set; }
 
         public Task<AiGeneratedInsightDto> GenerateHealthInsightAsync(HealthInsightPromptInput input)
         {
             CallCount++;
-            return Task.FromResult(Result);
+
+            if (ShouldThrow)
+            {
+                throw new InvalidOperationException("Simulated AI failure for testing.");
+            }
+
+            return Task.FromResult(new AiGeneratedInsightDto
+            {
+                OverallSummary = "本週健康趨勢大致穩定",
+                TodaySummary = "今日量測完成，可持續觀察後續變化。",
+                KeyInsights = "今日量測有助於補齊本週趨勢",
+                Recommendations = "維持固定時段量測，並搭配飲食紀錄一起觀察。",
+                HeroReport = new HealthDashboardHeroReportDto
+                {
+                    Headline = "本週健康趨勢大致穩定",
+                    Body = "今天的量測資料已補齊本週觀察脈絡，適合持續追蹤。",
+                    Tone = "supportive",
+                    Confidence = "medium"
+                },
+                KeyInsightSection = new HealthDashboardInsightSectionDto
+                {
+                    Label = "關鍵數據洞察",
+                    Body = "今天新增的量測資料讓近 7 天趨勢更容易判讀。",
+                    MetricType = "blood_pressure",
+                    Severity = "low"
+                },
+                ActionSuggestionSection = new HealthDashboardActionSectionDto
+                {
+                    Label = "健康行動建議",
+                    Body = "維持固定時段量測，並搭配飲食紀錄一起觀察。",
+                    Priority = "medium",
+                    Timeframe = "today"
+                },
+                TodayCards = new List<HealthDashboardTodayCardDto>
+                {
+                    new()
+                    {
+                        Title = "AI 分析摘要",
+                        Summary = "今天的量測已補齊本週觀察脈絡。",
+                        ProgressNote = "今日健康任務達成 40%",
+                        IconType = "insight",
+                        Tone = "supportive"
+                    }
+                },
+                TrendLabels = new TrendLabelsDto
+                {
+                    BloodPressure = "需觀察",
+                    BloodOxygen = "資料不足",
+                    BloodSugar = "穩定",
+                    Temperature = "資料不足",
+                    Weight = "穩定"
+                },
+                Alerts = new List<HealthDashboardAlertDto>(),
+                SourceDataHash = "default-hash",
+                ModelName = "gpt-test",
+                PromptVersion = "test-v1",
+                GeneratedAt = DateTime.UtcNow
+            });
         }
     }
+
+    // ──────────────────────────────────────────────
+    // Test Factory
+    // ──────────────────────────────────────────────
 
     private sealed class HealthDashboardApiFactory : IDisposable
     {
@@ -367,8 +390,7 @@ public class HealthDashboardIntegrationTests
                         services.RemoveAll<DbContext>();
                         services.RemoveAll<IAiIntegrationService>();
 
-                        services.AddDbContext<ApplicationDbContext>(options =>
-                            options.UseSqlite(_connection));
+                        services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(_connection));
                         services.AddScoped<DbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
                         services.AddScoped(_ => aiIntegrationService);
 
@@ -390,7 +412,6 @@ public class HealthDashboardIntegrationTests
                             var policy = new AuthorizationPolicyBuilder(TestAuthHandler.SchemeName)
                                 .RequireAuthenticatedUser()
                                 .Build();
-
                             options.DefaultPolicy = policy;
                             options.FallbackPolicy = policy;
                         });
@@ -414,7 +435,10 @@ public class HealthDashboardIntegrationTests
         {
             using var scope = Factory.Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            return await dbContext.AiHealthInsights.IgnoreQueryFilters().OrderBy(x => x.GeneratedAt).ToListAsync();
+            return await dbContext.AiHealthInsights
+                .IgnoreQueryFilters()
+                .OrderBy(x => x.GeneratedAt)
+                .ToListAsync();
         }
 
         public void Dispose()

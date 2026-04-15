@@ -10,6 +10,10 @@ namespace SeasonsCare.Api.DTOs.HealthDashboard
 
         public DateTime DateTo { get; set; }
 
+        public int TotalRecordCount { get; set; }
+
+        public int TodayRecordCount { get; set; }
+
         public string TodaySummary { get; set; } = string.Empty;
 
         public string BloodPressureSummary { get; set; } = string.Empty;

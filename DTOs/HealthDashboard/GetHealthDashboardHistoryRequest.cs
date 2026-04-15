@@ -3,6 +3,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SeasonsCare.Api.DTOs.HealthDashboard
 {
+    /// <summary>
+    /// 取得健康儀表板歷史報告時使用的分頁查詢參數。
+    /// </summary>
     public class GetHealthDashboardHistoryRequest
     {
         /// <summary>
