@@ -299,6 +299,16 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
                 var insight = await _aiIntegrationService.GenerateHealthInsightAsync(promptInput);
 
+                // 將結構化結果序列化成 JSON 存入 ResultJson
+                var structuredResult = new
+                {
+                    heroReport = insight.HeroReport,
+                    keyInsightSection = insight.KeyInsightSection,
+                    actionSuggestionSection = insight.ActionSuggestionSection,
+                    todayCards = insight.TodayCards,
+                    alerts = insight.Alerts
+                };
+
                 var saved = await _aiHealthInsightService.SaveInsightAsync(currentUserId, careGroupId,
                     new SaveAiHealthInsightRequest
                     {
@@ -312,6 +322,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                         TrendLabels = insight.TrendLabels != null
                             ? JsonSerializer.Serialize(insight.TrendLabels, JsonOptions)
                             : null,
+                        ResultJson = JsonSerializer.Serialize(structuredResult, JsonOptions),
                         SourceDataHash = insight.SourceDataHash,
                         ModelName = insight.ModelName,
                         PromptVersion = insight.PromptVersion
@@ -812,7 +823,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 catch { /* 反序列化失敗時忽略 */ }
             }
 
-            return new AiGeneratedInsightDto
+            var dto = new AiGeneratedInsightDto
             {
                 OverallSummary = insight.OverallSummary,
                 TodaySummary = insight.TodaySummary,
@@ -824,6 +835,34 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 SourceDataHash = insight.SourceDataHash,
                 GeneratedAt = insight.GeneratedAt
             };
+
+            // 從 ResultJson 還原結構化內容
+            if (!string.IsNullOrWhiteSpace(insight.ResultJson))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(insight.ResultJson);
+                    var root = doc.RootElement;
+
+                    if (root.TryGetProperty("heroReport", out var hero) && hero.ValueKind == JsonValueKind.Object)
+                        dto.HeroReport = JsonSerializer.Deserialize<HealthDashboardHeroReportDto>(hero.GetRawText(), JsonOptions);
+
+                    if (root.TryGetProperty("keyInsightSection", out var key) && key.ValueKind == JsonValueKind.Object)
+                        dto.KeyInsightSection = JsonSerializer.Deserialize<HealthDashboardInsightSectionDto>(key.GetRawText(), JsonOptions);
+
+                    if (root.TryGetProperty("actionSuggestionSection", out var action) && action.ValueKind == JsonValueKind.Object)
+                        dto.ActionSuggestionSection = JsonSerializer.Deserialize<HealthDashboardActionSectionDto>(action.GetRawText(), JsonOptions);
+
+                    if (root.TryGetProperty("todayCards", out var cards) && cards.ValueKind == JsonValueKind.Array)
+                        dto.TodayCards = JsonSerializer.Deserialize<List<HealthDashboardTodayCardDto>>(cards.GetRawText(), JsonOptions) ?? new();
+
+                    if (root.TryGetProperty("alerts", out var alerts) && alerts.ValueKind == JsonValueKind.Array)
+                        dto.Alerts = JsonSerializer.Deserialize<List<HealthDashboardAlertDto>>(alerts.GetRawText(), JsonOptions) ?? new();
+                }
+                catch { /* ResultJson 反序列化失敗時使用 fallback */ }
+            }
+
+            return dto;
         }
 
         private static DateTime NormalizeTimestamp(DateTime value)

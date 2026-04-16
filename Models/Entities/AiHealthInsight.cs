@@ -44,6 +44,11 @@ namespace SeasonsCare.Api.Models.Entities
         /// </summary>
         public string? TrendLabels { get; set; }
 
+        /// <summary>
+        /// AI 產出的完整結構化結果 JSON，包含 heroReport、keyInsightSection、actionSuggestionSection、todayCards、alerts。
+        /// </summary>
+        public string? ResultJson { get; set; }
+
         [MaxLength(128)]
         public string? SourceDataHash { get; set; }
 

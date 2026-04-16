@@ -295,6 +295,11 @@ public class AuthServiceTests
         {
             return Task.CompletedTask;
         }
+
+        public Task<List<User>> GetListByIdsAsync(IEnumerable<Guid> ids)
+        {
+            return Task.FromResult(Users.Where(x => ids.Contains(x.Id)).ToList());
+        }
     }
 
     private sealed class FakeCareGroupRepository : ICareGroupRepository

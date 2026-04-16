@@ -43,6 +43,7 @@ namespace SeasonsCare.Api.Services
                     KeyInsights = request.KeyInsights,
                     Recommendations = request.Recommendations,
                     TrendLabels = request.TrendLabels,
+                    ResultJson = request.ResultJson,
                     SourceDataHash = request.SourceDataHash,
                     ModelName = request.ModelName,
                     PromptVersion = request.PromptVersion,
@@ -62,6 +63,7 @@ namespace SeasonsCare.Api.Services
             existing.KeyInsights = request.KeyInsights;
             existing.Recommendations = request.Recommendations;
             existing.TrendLabels = request.TrendLabels;
+            existing.ResultJson = request.ResultJson;
             existing.SourceDataHash = request.SourceDataHash;
             existing.ModelName = request.ModelName;
             existing.PromptVersion = request.PromptVersion;

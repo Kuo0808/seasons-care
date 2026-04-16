@@ -225,5 +225,15 @@ public class ExpensesControllerIntegrationTests
         {
             return Task.CompletedTask;
         }
+
+        public Task<ExpenseSplitPreviewResponse> PreviewSplitAsync(Guid currentUserId, Guid careGroupId, SplitPreviewRequest request)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task ConfirmSplitAsync(Guid currentUserId, Guid careGroupId, SplitConfirmRequest request)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
