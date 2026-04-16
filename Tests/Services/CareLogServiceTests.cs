@@ -285,6 +285,11 @@ public class CareLogServiceTests
             return Task.FromResult<CareGroupMember?>(null);
         }
 
+        public Task<List<CareGroupMember>> GetActiveMembersWithUserAsync(Guid careGroupId)
+        {
+            return Task.FromResult(new List<CareGroupMember>());
+        }
+
         public Task SaveChangesAsync()
         {
             return Task.CompletedTask;

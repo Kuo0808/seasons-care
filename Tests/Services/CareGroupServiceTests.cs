@@ -265,6 +265,11 @@ public class CareGroupServiceTests
             return Task.FromResult(member);
         }
 
+        public Task<List<CareGroupMember>> GetActiveMembersWithUserAsync(Guid careGroupId)
+        {
+            return Task.FromResult(MemberLookup.Where(kv => kv.Key.Item1 == careGroupId).Select(kv => kv.Value).ToList());
+        }
+
         public Task SaveChangesAsync()
         {
             return Task.CompletedTask;

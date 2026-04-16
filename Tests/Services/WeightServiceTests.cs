@@ -132,6 +132,7 @@ public class WeightServiceTests
         public Task<bool> IsMemberAsync(Guid careGroupId, Guid userId) => Task.FromResult(_isMember);
         public Task<CareGroupMember?> GetMemberAsync(Guid careGroupId, Guid userId) => Task.FromResult<CareGroupMember?>(null);
         public Task<CareGroupMember?> GetMemberIncludingDeletedAsync(Guid careGroupId, Guid userId) => Task.FromResult<CareGroupMember?>(null);
+        public Task<List<CareGroupMember>> GetActiveMembersWithUserAsync(Guid careGroupId) => Task.FromResult(new List<CareGroupMember>());
         public Task SaveChangesAsync() => Task.CompletedTask;
     }
 }

@@ -266,6 +266,80 @@ namespace SeasonsCare.Api.Services
             return expenses.Where(e => e.SplitStatus == ExpenseSplitStatus.Pending).ToList();
         }
 
+        public async Task<MemberExpenseTotalsResponse> GetMemberExpenseTotalsAsync(Guid currentUserId, Guid careGroupId, MemberExpenseTotalsRequest request)
+        {
+            await CheckMembershipAsync(careGroupId, currentUserId);
+
+            // 1. 解析統計範圍 → 取得（可能為 null 的）UTC 日期區間
+            var (dateFromUtc, dateToUtc) = ResolveScopeRange(request.Scope, request.TargetDate);
+            var statusFilter = request.PendingOnly ? (ExpenseSplitStatus?)ExpenseSplitStatus.Pending : null;
+
+            // 2. 撈出符合條件的費用 + 群組所有成員（含未付款者也要列出來，所以以成員為主軸）
+            var expenses = await _expenseRepository.GetByCareGroupAsync(careGroupId, dateFromUtc, dateToUtc, statusFilter);
+            var members = await _careGroupRepository.GetActiveMembersWithUserAsync(careGroupId);
+
+            // 3. 以 CreatedBy 分組加總
+            var totalsByPayer = expenses
+                .Where(e => Guid.TryParse(e.CreatedBy, out _))
+                .GroupBy(e => Guid.Parse(e.CreatedBy))
+                .ToDictionary(g => g.Key, g => (Total: g.Sum(x => x.Amount), Count: g.Count()));
+
+            // 4. 組裝每位成員的明細（沒付款的也要回傳，金額 0）
+            var items = members
+                .Where(m => m.User != null)
+                .Select(m =>
+                {
+                    var stat = totalsByPayer.TryGetValue(m.UserId, out var v) ? v : (Total: 0m, Count: 0);
+                    return new MemberExpenseTotalItem
+                    {
+                        UserId = m.UserId,
+                        Name = m.User.Username,
+                        AvatarUrl = string.IsNullOrWhiteSpace(m.User.AvatarKey) ? null : m.User.AvatarKey,
+                        TotalAmount = stat.Total,
+                        ExpenseCount = stat.Count
+                    };
+                })
+                .OrderByDescending(x => x.TotalAmount)
+                .ThenBy(x => x.Name)
+                .ToList();
+
+            return new MemberExpenseTotalsResponse
+            {
+                TotalAmount = items.Sum(x => x.TotalAmount),
+                MemberCount = items.Count,
+                Members = items
+            };
+        }
+
+        /// <summary>
+        /// 解析統計範圍：
+        /// daily / monthly：依 targetDate（台灣時區，預設今天）算出 UTC 區間。
+        /// all：回傳 (null, null) 表示不限制日期。
+        /// </summary>
+        private static (DateTime? DateFromUtc, DateTime? DateToUtc) ResolveScopeRange(string? scope, DateTime? targetDate)
+        {
+            var mode = (scope ?? "monthly").Trim().ToLowerInvariant();
+
+            if (mode == "all")
+            {
+                return (null, null);
+            }
+
+            var anchorTaiwanDate = ResolveTaiwanAnchorDate(targetDate);
+
+            if (mode == "daily")
+            {
+                var dayStartTaiwan = new DateTime(anchorTaiwanDate.Year, anchorTaiwanDate.Month, anchorTaiwanDate.Day, 0, 0, 0, DateTimeKind.Unspecified);
+                var dayEndTaiwan = dayStartTaiwan.AddDays(1);
+                return (TimeHelper.TaiwanToUtc(dayStartTaiwan), TimeHelper.TaiwanToUtc(dayEndTaiwan));
+            }
+
+            // monthly（預設）
+            var monthStartTaiwan = new DateTime(anchorTaiwanDate.Year, anchorTaiwanDate.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+            var monthEndTaiwan = monthStartTaiwan.AddMonths(1);
+            return (TimeHelper.TaiwanToUtc(monthStartTaiwan), TimeHelper.TaiwanToUtc(monthEndTaiwan));
+        }
+
         /// <summary>
         /// 將呼叫端傳入的目標日期轉為台灣時區的日期。未提供時預設為「今天（台灣時區）」。
         /// 接受任何 Kind 的 DateTime：Utc 會自動轉台灣；Local / Unspecified 視為台灣當地日期。

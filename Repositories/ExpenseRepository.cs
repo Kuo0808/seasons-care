@@ -110,6 +110,27 @@ namespace SeasonsCare.Api.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<ExpenseRecord>> GetByCareGroupAsync(Guid careGroupId, DateTime? dateFrom, DateTime? dateTo, Models.Enums.ExpenseSplitStatus? status)
+        {
+            var query = _context.Expenses
+                .Where(e => e.CareGroupId == careGroupId && e.DeletedAt == null);
+
+            if (dateFrom.HasValue)
+            {
+                query = query.Where(e => e.ExpenseDate >= dateFrom.Value);
+            }
+            if (dateTo.HasValue)
+            {
+                query = query.Where(e => e.ExpenseDate < dateTo.Value);
+            }
+            if (status.HasValue)
+            {
+                query = query.Where(e => e.SplitStatus == status.Value);
+            }
+
+            return await query.OrderBy(e => e.ExpenseDate).ToListAsync();
+        }
+
         public async Task AddAsync(ExpenseRecord expense)
         {
             // 單純宣告向 EF Core 的追蹤器 (Tracker) 註冊這筆新增，但不馬上異動資料庫實體

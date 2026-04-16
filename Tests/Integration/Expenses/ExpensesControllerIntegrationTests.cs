@@ -235,5 +235,10 @@ public class ExpensesControllerIntegrationTests
         {
             throw new NotImplementedException();
         }
+
+        public Task<MemberExpenseTotalsResponse> GetMemberExpenseTotalsAsync(Guid currentUserId, Guid careGroupId, MemberExpenseTotalsRequest request)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

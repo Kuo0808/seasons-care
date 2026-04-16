@@ -99,6 +99,14 @@ namespace SeasonsCare.Api.Repositories
                 .FirstOrDefaultAsync(m => m.CareGroupId == careGroupId && m.UserId == userId);
         }
 
+        public async Task<List<CareGroupMember>> GetActiveMembersWithUserAsync(Guid careGroupId)
+        {
+            return await _context.CareGroupMembers
+                .Include(m => m.User)
+                .Where(m => m.CareGroupId == careGroupId)
+                .ToListAsync();
+        }
+
         public async Task SaveChangesAsync()
         {
             // 將上述所有追蹤到的變更 (工作單元)，一次性送交指令給資料庫

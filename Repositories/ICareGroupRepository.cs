@@ -16,6 +16,7 @@ namespace SeasonsCare.Api.Repositories
         Task<bool> IsMemberAsync(Guid careGroupId, Guid userId);
         Task<CareGroupMember?> GetMemberAsync(Guid careGroupId, Guid userId);
         Task<CareGroupMember?> GetMemberIncludingDeletedAsync(Guid careGroupId, Guid userId);
+        Task<List<CareGroupMember>> GetActiveMembersWithUserAsync(Guid careGroupId);
         Task SaveChangesAsync();
     }
 }

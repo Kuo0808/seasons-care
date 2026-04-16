@@ -114,6 +114,20 @@ namespace SeasonsCare.Api.Controllers
             return Ok(response);
         }
 
+        [HttpGet("member-totals")]
+        [ProducesResponseType(typeof(ApiResponse<MemberExpenseTotalsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [EndpointSummary("取得各成員累積花費")]
+        [EndpointDescription("回傳指定照護群組內每位成員「作為付款人」累積支付的金額，用於前端「各成員累積花費」卡片顯示。即使該成員未付款也會列入並回傳金額 0，方便前端一次繪出全部頭像。\n\nQuery 參數：\n- scope：daily / monthly / all（預設 monthly）。\n- targetDate：ISO 日期（台灣時區），僅 daily / monthly 模式生效；不傳則 daily=今天、monthly=本月。\n- pendingOnly：預設 true，只計算 Pending（待分帳）的費用，符合「按一鍵分帳前要看的累積花費」用途；若需顯示全部狀態請傳 false。\n\n排序：金額由高到低，金額相同者依名稱排序。")]
+        public async Task<IActionResult> GetMemberTotals(Guid careGroupId, [FromQuery] MemberExpenseTotalsRequest request)
+        {
+            var currentUserId = _currentUserService.UserId;
+            var result = await _expenseService.GetMemberExpenseTotalsAsync(currentUserId, careGroupId, request);
+            var response = new ApiResponse<MemberExpenseTotalsResponse>(result, "取得各成員累積花費成功", HttpContext.TraceIdentifier);
+            return Ok(response);
+        }
+
         [HttpPost("split-preview")]
         [ProducesResponseType(typeof(ApiResponse<ExpenseSplitPreviewResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]

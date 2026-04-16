@@ -223,6 +223,64 @@ public class ExpenseServiceTests
         Assert.Equal(400m, p3.PayableAmount); // 400
     }
 
+    [Fact]
+    public async Task GetMemberExpenseTotalsAsync_AggregatesByPayer_AndIncludesNonPayingMembers()
+    {
+        var careGroupId = Guid.NewGuid();
+        var payerId = Guid.NewGuid();
+        var nonPayerId = Guid.NewGuid();
+
+        var expenses = new[]
+        {
+            new ExpenseRecord { Id = Guid.NewGuid(), CareGroupId = careGroupId, Title = "A", Amount = 1000m, SplitStatus = ExpenseSplitStatus.Pending, CreatedBy = payerId.ToString(), ExpenseDate = DateTime.UtcNow },
+            new ExpenseRecord { Id = Guid.NewGuid(), CareGroupId = careGroupId, Title = "B", Amount = 200m, SplitStatus = ExpenseSplitStatus.Pending, CreatedBy = payerId.ToString(), ExpenseDate = DateTime.UtcNow },
+            // Settled 不應被計入（pendingOnly = true）
+            new ExpenseRecord { Id = Guid.NewGuid(), CareGroupId = careGroupId, Title = "C", Amount = 999m, SplitStatus = ExpenseSplitStatus.Settled, CreatedBy = payerId.ToString(), ExpenseDate = DateTime.UtcNow }
+        };
+
+        var users = new[]
+        {
+            new User { Id = payerId, Username = "Payer", AvatarKey = "avatar/payer.png" },
+            new User { Id = nonPayerId, Username = "NonPayer" }
+        };
+
+        var careGroupRepository = new FakeCareGroupRepository(isMember: true)
+        {
+            Members = new List<CareGroupMember>
+            {
+                new CareGroupMember { CareGroupId = careGroupId, UserId = payerId, User = users[0] },
+                new CareGroupMember { CareGroupId = careGroupId, UserId = nonPayerId, User = users[1] }
+            }
+        };
+
+        var repository = new FakeExpenseRepository(expenses);
+        var userRepository = new FakeUserRepository(users);
+        var service = new ExpenseService(repository, careGroupRepository, userRepository);
+
+        var result = await service.GetMemberExpenseTotalsAsync(payerId, careGroupId, new MemberExpenseTotalsRequest
+        {
+            Scope = "all",
+            PendingOnly = true
+        });
+
+        Assert.Equal(1200m, result.TotalAmount);
+        Assert.Equal(2, result.MemberCount);
+
+        var payerItem = result.Members.First(x => x.UserId == payerId);
+        Assert.Equal(1200m, payerItem.TotalAmount);
+        Assert.Equal(2, payerItem.ExpenseCount);
+        Assert.Equal("avatar/payer.png", payerItem.AvatarUrl);
+
+        var nonPayerItem = result.Members.First(x => x.UserId == nonPayerId);
+        Assert.Equal(0m, nonPayerItem.TotalAmount);
+        Assert.Equal(0, nonPayerItem.ExpenseCount);
+        Assert.Null(nonPayerItem.AvatarUrl);
+
+        // 排序：金額由高到低
+        Assert.Equal(payerId, result.Members[0].UserId);
+        Assert.Equal(nonPayerId, result.Members[1].UserId);
+    }
+
     private sealed class FakeExpenseRepository : IExpenseRepository
     {
         public List<ExpenseRecord> Expenses { get; } = new();
@@ -265,6 +323,15 @@ public class ExpenseServiceTests
                 .OrderBy(x => x.ExpenseDate)
                 .ToList();
             return Task.FromResult(data);
+        }
+
+        public Task<List<ExpenseRecord>> GetByCareGroupAsync(Guid careGroupId, DateTime? dateFrom, DateTime? dateTo, ExpenseSplitStatus? status)
+        {
+            var query = Expenses.Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null);
+            if (dateFrom.HasValue) query = query.Where(x => x.ExpenseDate >= dateFrom.Value);
+            if (dateTo.HasValue) query = query.Where(x => x.ExpenseDate < dateTo.Value);
+            if (status.HasValue) query = query.Where(x => x.SplitStatus == status.Value);
+            return Task.FromResult(query.OrderBy(x => x.ExpenseDate).ToList());
         }
 
         public Task AddAsync(ExpenseRecord expense)
@@ -337,6 +404,13 @@ public class ExpenseServiceTests
         {
             return Task.FromResult<CareGroupMember?>(null);
         }
+
+        public Task<List<CareGroupMember>> GetActiveMembersWithUserAsync(Guid careGroupId)
+        {
+            return Task.FromResult(Members);
+        }
+
+        public List<CareGroupMember> Members { get; set; } = new();
 
         public Task SaveChangesAsync()
         {
