@@ -23,6 +23,14 @@ namespace SeasonsCare.Api.DTOs.Expenses
         public List<Guid>? ExpenseIds { get; set; }
 
         /// <summary>
+        /// 目標日期（台灣時區）。僅在 daily / monthly 模式下生效，custom 模式會忽略。
+        /// daily：結算該日期一整天的待分帳費用；不傳則預設為今天。
+        /// monthly：結算該日期所屬月份的待分帳費用（傳該月任一日皆可）；不傳則預設為本月。
+        /// 請以 ISO 日期格式傳入，例如 "2026-04-15"。
+        /// </summary>
+        public DateTime? TargetDate { get; set; }
+
+        /// <summary>
         /// 參與分攤的使用者 ID 列表（用於後端再次驗證或記錄）。
         /// </summary>
         [Required]

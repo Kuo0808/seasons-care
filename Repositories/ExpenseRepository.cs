@@ -97,13 +97,14 @@ namespace SeasonsCare.Api.Repositories
             return query.Where(e => e.ExpenseDate >= monthStartUtc && e.ExpenseDate < nextMonthStartUtc);
         }
 
-        public async Task<List<ExpenseRecord>> GetUnsettledByDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo)
+        public async Task<List<ExpenseRecord>> GetPendingByDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo)
         {
+            // 分帳僅處理 Pending（待分帳）狀態，排除 None（無需分帳）與 Settled（已結算）。
             return await _context.Expenses
                 .Where(e => e.CareGroupId == careGroupId
                     && e.ExpenseDate >= dateFrom
                     && e.ExpenseDate < dateTo
-                    && e.SplitStatus != Models.Enums.ExpenseSplitStatus.Settled
+                    && e.SplitStatus == Models.Enums.ExpenseSplitStatus.Pending
                     && e.DeletedAt == null)
                 .OrderBy(e => e.ExpenseDate)
                 .ToListAsync();

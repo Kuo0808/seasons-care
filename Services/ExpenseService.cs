@@ -149,7 +149,7 @@ namespace SeasonsCare.Api.Services
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
-            var validExpenses = await ResolveExpensesAsync(careGroupId, request.SplitMode, request.ExpenseIds);
+            var validExpenses = await ResolveExpensesAsync(careGroupId, request.SplitMode, request.ExpenseIds, request.TargetDate);
             if (validExpenses.Count == 0)
             {
                 throw new DomainException("沒有找到可分帳的有效支出紀錄", "BAD_REQUEST", 400);
@@ -208,7 +208,7 @@ namespace SeasonsCare.Api.Services
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
-            var validExpenses = await ResolveExpensesAsync(careGroupId, request.SplitMode, request.ExpenseIds);
+            var validExpenses = await ResolveExpensesAsync(careGroupId, request.SplitMode, request.ExpenseIds, request.TargetDate);
             if (validExpenses.Count == 0)
             {
                 throw new DomainException("沒有找到需結算的分帳項目", "BAD_REQUEST", 400);
@@ -227,41 +227,64 @@ namespace SeasonsCare.Api.Services
         }
 
         /// <summary>
-        /// 依據分帳模式取得要處理的費用清單。
-        /// daily：撈當日（台灣時區）所有未結算費用。
-        /// monthly：撈當月（台灣時區）所有未結算費用。
-        /// custom：依 ExpenseIds 撈取，過濾已結算。
+        /// 依據分帳模式取得要處理的費用清單，僅回傳「待分帳（Pending）」的項目。
+        /// daily：撈指定日（台灣時區，預設今天）所有 Pending 費用。
+        /// monthly：撈指定月（台灣時區，預設本月）所有 Pending 費用。
+        /// custom：依 ExpenseIds 撈取，僅保留 Pending。
         /// </summary>
-        private async Task<List<ExpenseRecord>> ResolveExpensesAsync(Guid careGroupId, string splitMode, List<Guid>? expenseIds)
+        private async Task<List<ExpenseRecord>> ResolveExpensesAsync(Guid careGroupId, string splitMode, List<Guid>? expenseIds, DateTime? targetDate)
         {
             var mode = (splitMode ?? "custom").Trim().ToLowerInvariant();
 
             if (mode == "daily")
             {
-                var todayStart = TimeHelper.GetTaiwanDateStartUtc();
-                var todayEnd = todayStart.AddDays(1);
-                return await _expenseRepository.GetUnsettledByDateRangeAsync(careGroupId, todayStart, todayEnd);
+                var anchorTaiwanDate = ResolveTaiwanAnchorDate(targetDate);
+                var dayStartTaiwan = new DateTime(anchorTaiwanDate.Year, anchorTaiwanDate.Month, anchorTaiwanDate.Day, 0, 0, 0, DateTimeKind.Unspecified);
+                var dayEndTaiwan = dayStartTaiwan.AddDays(1);
+                var dayStartUtc = TimeHelper.TaiwanToUtc(dayStartTaiwan);
+                var dayEndUtc = TimeHelper.TaiwanToUtc(dayEndTaiwan);
+                return await _expenseRepository.GetPendingByDateRangeAsync(careGroupId, dayStartUtc, dayEndUtc);
             }
 
             if (mode == "monthly")
             {
-                var taiwanNow = TimeHelper.ToTaiwanTime(TimeHelper.UtcNow);
-                var monthStart = new DateTime(taiwanNow.Year, taiwanNow.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
-                var monthEnd = monthStart.AddMonths(1);
-                // 轉回 UTC
-                var monthStartUtc = TimeHelper.TaiwanToUtc(monthStart);
-                var monthEndUtc = TimeHelper.TaiwanToUtc(monthEnd);
-                return await _expenseRepository.GetUnsettledByDateRangeAsync(careGroupId, monthStartUtc, monthEndUtc);
+                var anchorTaiwanDate = ResolveTaiwanAnchorDate(targetDate);
+                var monthStartTaiwan = new DateTime(anchorTaiwanDate.Year, anchorTaiwanDate.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+                var monthEndTaiwan = monthStartTaiwan.AddMonths(1);
+                var monthStartUtc = TimeHelper.TaiwanToUtc(monthStartTaiwan);
+                var monthEndUtc = TimeHelper.TaiwanToUtc(monthEndTaiwan);
+                return await _expenseRepository.GetPendingByDateRangeAsync(careGroupId, monthStartUtc, monthEndUtc);
             }
 
-            // custom 模式
+            // custom 模式：依 ExpenseIds 撈取，僅保留 Pending（排除 None 與 Settled）。
             if (expenseIds == null || expenseIds.Count == 0)
             {
                 throw new DomainException("自選模式下請提供至少一筆支出項目", "BAD_REQUEST", 400);
             }
 
             var expenses = await _expenseRepository.GetListByIdsAsync(careGroupId, expenseIds);
-            return expenses.Where(e => e.SplitStatus != ExpenseSplitStatus.Settled).ToList();
+            return expenses.Where(e => e.SplitStatus == ExpenseSplitStatus.Pending).ToList();
+        }
+
+        /// <summary>
+        /// 將呼叫端傳入的目標日期轉為台灣時區的日期。未提供時預設為「今天（台灣時區）」。
+        /// 接受任何 Kind 的 DateTime：Utc 會自動轉台灣；Local / Unspecified 視為台灣當地日期。
+        /// </summary>
+        private static DateTime ResolveTaiwanAnchorDate(DateTime? targetDate)
+        {
+            if (!targetDate.HasValue)
+            {
+                return TimeHelper.ToTaiwanTime(TimeHelper.UtcNow).Date;
+            }
+
+            var value = targetDate.Value;
+            if (value.Kind == DateTimeKind.Utc)
+            {
+                return TimeHelper.ToTaiwanTime(value).Date;
+            }
+
+            // Unspecified / Local 一律視為使用者指定的台灣當地日期。
+            return value.Date;
         }
 
         private static ExpenseResponse MapToResponse(ExpenseRecord expense)

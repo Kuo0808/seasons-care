@@ -120,7 +120,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("預覽一鍵分帳結果")]
-        [EndpointDescription("支援三種分帳模式：daily（當日未結算費用）、monthly（當月未結算費用）、custom（自選 ExpenseIds）。後端即時計算各成員的應收與應付金額並回傳，不會更動資料庫狀態。daily / monthly 模式會自動排除已結算（Settled）的費用。")]
+        [EndpointDescription("支援三種分帳模式：daily（指定日待分帳費用）、monthly（指定月待分帳費用）、custom（自選 ExpenseIds）。後端即時計算各成員的應收與應付金額並回傳，不會更動資料庫狀態。所有模式都「只會抓取 Pending（待分帳）的費用」，自動排除 None（無需分帳）與 Settled（已結算）。daily / monthly 可帶 targetDate（ISO 日期，台灣時區）指定其他日期或月份；不傳則預設為今天 / 本月。")]
         public async Task<IActionResult> PreviewSplit(Guid careGroupId, [FromBody] SplitPreviewRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -135,7 +135,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("確認一鍵分帳")]
-        [EndpointDescription("支援三種分帳模式：daily（當日）、monthly（當月）、custom（自選 ExpenseIds）。將對應的未結算費用狀態變更為 Settled（已結清）。請在呼叫此 API 前，先藉由預覽 API 確認分帳結果。")]
+        [EndpointDescription("支援三種分帳模式：daily（指定日）、monthly（指定月）、custom（自選 ExpenseIds）。所有模式都「只會結算 Pending（待分帳）的費用」，自動排除 None（無需分帳）與 Settled（已結算），結算後狀態變更為 Settled。daily / monthly 可帶 targetDate（ISO 日期，台灣時區）指定其他日期或月份；不傳則預設為今天 / 本月。請在呼叫此 API 前，先藉由預覽 API 確認分帳結果。")]
         public async Task<IActionResult> ConfirmSplit(Guid careGroupId, [FromBody] SplitConfirmRequest request)
         {
             var currentUserId = _currentUserService.UserId;

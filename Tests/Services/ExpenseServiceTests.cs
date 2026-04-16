@@ -175,8 +175,8 @@ public class ExpenseServiceTests
 
         var existingExpenses = new[]
         {
-            new ExpenseRecord { Id = Guid.NewGuid(), CareGroupId = Guid.NewGuid(), Title = "A", Amount = 1000m, SplitStatus = ExpenseSplitStatus.None, CreatedBy = payerId.ToString() },
-            new ExpenseRecord { Id = Guid.NewGuid(), CareGroupId = Guid.NewGuid(), Title = "B", Amount = 200m, SplitStatus = ExpenseSplitStatus.None, CreatedBy = anotherPayerId.ToString() }
+            new ExpenseRecord { Id = Guid.NewGuid(), CareGroupId = Guid.NewGuid(), Title = "A", Amount = 1000m, SplitStatus = ExpenseSplitStatus.Pending, CreatedBy = payerId.ToString() },
+            new ExpenseRecord { Id = Guid.NewGuid(), CareGroupId = Guid.NewGuid(), Title = "B", Amount = 200m, SplitStatus = ExpenseSplitStatus.Pending, CreatedBy = anotherPayerId.ToString() }
         };
 
         var users = new[]
@@ -255,12 +255,12 @@ public class ExpenseServiceTests
             return Task.FromResult(data);
         }
 
-        public Task<List<ExpenseRecord>> GetUnsettledByDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo)
+        public Task<List<ExpenseRecord>> GetPendingByDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo)
         {
             var data = Expenses
                 .Where(x => x.CareGroupId == careGroupId
                     && x.ExpenseDate >= dateFrom && x.ExpenseDate < dateTo
-                    && x.SplitStatus != ExpenseSplitStatus.Settled
+                    && x.SplitStatus == ExpenseSplitStatus.Pending
                     && x.DeletedAt == null)
                 .OrderBy(x => x.ExpenseDate)
                 .ToList();
