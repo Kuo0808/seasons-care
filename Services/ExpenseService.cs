@@ -19,12 +19,14 @@ namespace SeasonsCare.Api.Services
         private readonly IExpenseRepository _expenseRepository;
         private readonly ICareGroupRepository _careGroupRepository;
         private readonly IUserRepository _userRepository;
+        private readonly IExpenseSplitRepository _expenseSplitRepository;
 
-        public ExpenseService(IExpenseRepository expenseRepository, ICareGroupRepository careGroupRepository, IUserRepository userRepository)
+        public ExpenseService(IExpenseRepository expenseRepository, ICareGroupRepository careGroupRepository, IUserRepository userRepository, IExpenseSplitRepository expenseSplitRepository)
         {
             _expenseRepository = expenseRepository;
             _careGroupRepository = careGroupRepository;
             _userRepository = userRepository;
+            _expenseSplitRepository = expenseSplitRepository;
         }
 
         private async Task CheckMembershipAsync(Guid careGroupId, Guid userId)
@@ -214,16 +216,68 @@ namespace SeasonsCare.Api.Services
                 throw new DomainException("沒有找到需結算的分帳項目", "BAD_REQUEST", 400);
             }
 
-            var now = GetUtcNowRoundedToMilliseconds();
+            var targetUserIds = (request.TargetUserIds ?? new List<Guid>()).Distinct().ToList();
+            if (targetUserIds.Count == 0)
+            {
+                throw new DomainException("請至少選擇一位參與分攤的使用者", "BAD_REQUEST", 400);
+            }
 
+            var now = GetUtcNowRoundedToMilliseconds();
+            var createdBy = currentUserId.ToString();
+
+            // 1. 把每筆 expense 標為 Settled，並為每位 targetUser 寫入分攤明細。
+            // 2. 平均分攤：share = amount / count（四捨五入到分），最後一位吸收尾差，避免 N 列加總後因為 round 偏差。
             foreach (var exp in validExpenses)
             {
                 exp.SplitStatus = ExpenseSplitStatus.Settled;
                 exp.UpdatedAt = now;
                 await _expenseRepository.UpdateAsync(exp);
+
+                Guid? payerId = Guid.TryParse(exp.CreatedBy, out var parsedPayer) ? parsedPayer : null;
+                var splits = BuildSplitsForExpense(exp, targetUserIds, payerId, createdBy, now);
+                await _expenseSplitRepository.AddRangeAsync(splits);
             }
 
             await _expenseRepository.SaveChangesAsync();
+            await _expenseSplitRepository.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// 把單筆 ExpenseRecord 展開為 N 筆 ExpenseSplit。
+        /// 平均分攤：先全部四捨五入到 0.01，最後一筆吸收尾差，確保 sum(splits.ShareAmount) == expense.Amount。
+        /// </summary>
+        private static List<ExpenseSplit> BuildSplitsForExpense(
+            ExpenseRecord expense,
+            List<Guid> targetUserIds,
+            Guid? payerId,
+            string createdBy,
+            DateTime now)
+        {
+            var count = targetUserIds.Count;
+            var baseShare = Math.Round(expense.Amount / count, 2, MidpointRounding.AwayFromZero);
+            var splits = new List<ExpenseSplit>(count);
+
+            for (int i = 0; i < count; i++)
+            {
+                var userId = targetUserIds[i];
+                var share = (i == count - 1)
+                    ? expense.Amount - baseShare * (count - 1) // 最後一位吸收 round 尾差
+                    : baseShare;
+
+                splits.Add(new ExpenseSplit
+                {
+                    ExpenseId = expense.Id,
+                    UserId = userId,
+                    ShareAmount = share,
+                    IsPayer = payerId.HasValue && payerId.Value == userId,
+                    CareGroupId = expense.CareGroupId,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    CreatedBy = createdBy
+                });
+            }
+
+            return splits;
         }
 
         /// <summary>
@@ -272,24 +326,20 @@ namespace SeasonsCare.Api.Services
 
             // 1. 解析統計範圍 → 取得（可能為 null 的）UTC 日期區間
             var (dateFromUtc, dateToUtc) = ResolveScopeRange(request.Scope, request.TargetDate);
-            var statusFilter = request.PendingOnly ? (ExpenseSplitStatus?)ExpenseSplitStatus.Pending : null;
-
-            // 2. 撈出符合條件的費用 + 群組所有成員（含未付款者也要列出來，所以以成員為主軸）
-            var expenses = await _expenseRepository.GetByCareGroupAsync(careGroupId, dateFromUtc, dateToUtc, statusFilter);
             var members = await _careGroupRepository.GetActiveMembersWithUserAsync(careGroupId);
 
-            // 3. 以 CreatedBy 分組加總
-            var totalsByPayer = expenses
-                .Where(e => Guid.TryParse(e.CreatedBy, out _))
-                .GroupBy(e => Guid.Parse(e.CreatedBy))
-                .ToDictionary(g => g.Key, g => (Total: g.Sum(x => x.Amount), Count: g.Count()));
+            // 2. 依 viewMode 取得每位 user 的（金額,筆數）
+            var viewMode = (request.ViewMode ?? "payer").Trim().ToLowerInvariant();
+            var totalsByUser = viewMode == "share"
+                ? await BuildShareTotalsAsync(careGroupId, dateFromUtc, dateToUtc)
+                : await BuildPayerTotalsAsync(careGroupId, dateFromUtc, dateToUtc, request.PendingOnly);
 
-            // 4. 組裝每位成員的明細（沒付款的也要回傳，金額 0）
+            // 3. 組裝每位成員的明細（沒對應紀錄的也要回傳，金額 0）
             var items = members
                 .Where(m => m.User != null)
                 .Select(m =>
                 {
-                    var stat = totalsByPayer.TryGetValue(m.UserId, out var v) ? v : (Total: 0m, Count: 0);
+                    var stat = totalsByUser.TryGetValue(m.UserId, out var v) ? v : (Total: 0m, Count: 0);
                     return new MemberExpenseTotalItem
                     {
                         UserId = m.UserId,
@@ -309,6 +359,35 @@ namespace SeasonsCare.Api.Services
                 MemberCount = items.Count,
                 Members = items
             };
+        }
+
+        /// <summary>
+        /// payer 視角：以 ExpenseRecord.CreatedBy（付款人）為 key 聚合金額。
+        /// </summary>
+        private async Task<Dictionary<Guid, (decimal Total, int Count)>> BuildPayerTotalsAsync(
+            Guid careGroupId, DateTime? dateFromUtc, DateTime? dateToUtc, bool pendingOnly)
+        {
+            var statusFilter = pendingOnly ? (ExpenseSplitStatus?)ExpenseSplitStatus.Pending : null;
+            var expenses = await _expenseRepository.GetByCareGroupAsync(careGroupId, dateFromUtc, dateToUtc, statusFilter);
+
+            return expenses
+                .Where(e => Guid.TryParse(e.CreatedBy, out _))
+                .GroupBy(e => Guid.Parse(e.CreatedBy))
+                .ToDictionary(g => g.Key, g => (Total: g.Sum(x => x.Amount), Count: g.Count()));
+        }
+
+        /// <summary>
+        /// share 視角：以 ExpenseSplit.UserId（被分攤對象）為 key 聚合 ShareAmount。
+        /// 分帳明細只會在「確認分帳」後產生，因此不需考慮 PendingOnly。
+        /// </summary>
+        private async Task<Dictionary<Guid, (decimal Total, int Count)>> BuildShareTotalsAsync(
+            Guid careGroupId, DateTime? dateFromUtc, DateTime? dateToUtc)
+        {
+            var splits = await _expenseSplitRepository.GetByCareGroupAsync(careGroupId, dateFromUtc, dateToUtc);
+
+            return splits
+                .GroupBy(s => s.UserId)
+                .ToDictionary(g => g.Key, g => (Total: g.Sum(x => x.ShareAmount), Count: g.Count()));
         }
 
         /// <summary>

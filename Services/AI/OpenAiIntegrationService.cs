@@ -17,7 +17,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v7";
+        private const string PromptVersion = "health-dashboard-v8";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -164,6 +164,8 @@ namespace SeasonsCare.Api.Services.AI
 - 禁止把 body 寫成「血壓 140/95、血糖 160、體溫 38」這種羅列式報告。
 - 禁止用「本週共 N 筆紀錄」當 body 主體（這只是 meta 資訊，不是分析）。
 - 禁止只寫「請持續加油」「繼續努力」這類無數據支撐的空話。
+- 禁止使用「資料不足」「請持續增加紀錄」「請持續每天量測」「資料量不夠」
+  這類冷冰冰的系統訊息式句子，要改用陪伴口吻溫柔地邀請家屬累積紀錄。
 - 每句 body 都必須帶判讀詞（偏高／接近警戒值／穩定／向好等），不能只有數字與單位。
 - 禁止在不同欄位重複貼相同句子。
 
@@ -219,13 +221,36 @@ namespace SeasonsCare.Api.Services.AI
 - severity: low / medium / high。
 
 ## trendLabels
-- 每項指標一個 2-4 字標籤：穩定、正常、需觀察、需留意、資料不足。
+- 每項指標一個 2-4 字標籤：穩定、正常、需觀察、需留意、累積中。
+- 「累積中」用於該指標資料 < 3 筆的情況，比「資料不足」更溫柔。
 - 判斷依據是上面的健康區間，不是憑感覺。
 
-## 資料不足時的處理
-- 若 totalRecordCount < 3，請如實反映資料不足，不要硬擠分析。
-- 用鼓勵口吻邀請家屬持續記錄，例：「目前資料還不夠完整，
-  若能持續每天量測，下週就能為您整理出更貼近的觀察。」
+## 資料較少時的處理（最常見情境，請特別用心）
+資料不多 ≠ 冷冰冰地說「資料不足」。請先把現有的數值溫暖地點出來，
+再用陪伴的口吻邀請家屬持續記錄。「資料不足」「請持續增加紀錄」
+「請持續每天量測」「持續記錄」這類系統訊息式的句子是嚴格禁止的。
+
+依資料量採用不同寫法：
+
+- **0 筆資料**：用歡迎、邀請的口吻開啟，不要說資料不足。
+  ✓ 範例：「我們一起從今天開始，為您家人累積健康紀錄吧。
+    第一筆量測會是我們認識他健康狀況的起點，期待陪您一起觀察。」
+
+- **1-2 筆資料**：先肯定家屬有量測這件事，針對該數值做溫和判讀
+  （落在哪個區間、是否需要留意），再用陪伴的方式提到「累積更多資料能
+  幫上什麼忙」——但必須用具體、人性化的語句，不能只說「請持續記錄」。
+  ✓ 範例：「您今天為家人記下了血壓 135/85，這個數值已接近偏高邊緣，
+    建議下次量測時順手記下飯前飯後，我會更清楚地幫您觀察變化。」
+  ✓ 範例：「最近這兩筆血糖落在正常範圍內，看起來控制得不錯。
+    再多陪我們累積幾天，就能畫出更立體的健康樣貌。」
+  ✗ 禁止：「資料不足，建議持續增加紀錄。」（系統訊息感）
+  ✗ 禁止：「請持續每天量測。」（命令口吻）
+  ✗ 禁止：「資料量不夠，無法分析。」（讓家屬有挫敗感）
+
+- **3 筆以上**：依正常分析流程進行，無此限制。
+
+trendLabels 在資料 < 3 筆時用「累積中」（而不是冷冰冰的「資料不足」）。
+confidence 欄位：0 筆 = low；1-2 筆 = low；3-5 筆 = medium；6+ 筆 = high。
 
 Facts:
 {JsonSerializer.Serialize(facts, JsonOptions)}
@@ -370,11 +395,11 @@ Facts:
                                     additionalProperties = false,
                                     properties = new
                                     {
-                                        bloodPressure = new { type = "string", description = "例如：穩定、正常、需觀察、資料不足。" },
-                                        bloodOxygen = new { type = "string", description = "例如：穩定、正常、需觀察、資料不足。" },
-                                        bloodSugar = new { type = "string", description = "例如：穩定、正常、需觀察、資料不足。" },
-                                        temperature = new { type = "string", description = "例如：穩定、正常、需觀察、資料不足。" },
-                                        weight = new { type = "string", description = "例如：穩定、正常、需觀察、資料不足。" }
+                                        bloodPressure = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、正常、需觀察、需留意、累積中。資料 < 3 筆時用「累積中」（不要用「資料不足」這種冷詞）。" },
+                                        bloodOxygen = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、正常、需觀察、需留意、累積中。資料 < 3 筆時用「累積中」（不要用「資料不足」這種冷詞）。" },
+                                        bloodSugar = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、正常、需觀察、需留意、累積中。資料 < 3 筆時用「累積中」（不要用「資料不足」這種冷詞）。" },
+                                        temperature = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、正常、需觀察、需留意、累積中。資料 < 3 筆時用「累積中」（不要用「資料不足」這種冷詞）。" },
+                                        weight = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、正常、需觀察、需留意、累積中。資料 < 3 筆時用「累積中」（不要用「資料不足」這種冷詞）。" }
                                     },
                                     required = new[] { "bloodPressure", "bloodOxygen", "bloodSugar", "temperature", "weight" }
                                 }

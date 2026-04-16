@@ -16,7 +16,8 @@ public class ExpenseServiceTests
         var repository = new FakeExpenseRepository();
         var groupRepository = new FakeCareGroupRepository(isMember: false);
         var userRepository = new FakeUserRepository();
-        var service = new ExpenseService(repository, groupRepository, userRepository);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.CreateExpenseAsync(Guid.NewGuid(), Guid.NewGuid(), new CreateExpenseRequest
@@ -35,7 +36,8 @@ public class ExpenseServiceTests
         var repository = new FakeExpenseRepository();
         var groupRepository = new FakeCareGroupRepository(isMember: true);
         var userRepository = new FakeUserRepository();
-        var service = new ExpenseService(repository, groupRepository, userRepository);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
         var userId = Guid.NewGuid();
         var careGroupId = Guid.NewGuid();
 
@@ -74,7 +76,8 @@ public class ExpenseServiceTests
         var repository = new FakeExpenseRepository(existing);
         var groupRepository = new FakeCareGroupRepository(isMember: true);
         var userRepository = new FakeUserRepository();
-        var service = new ExpenseService(repository, groupRepository, userRepository);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.UpdateExpenseAsync(Guid.NewGuid(), existing.CareGroupId, existing.Id, new UpdateExpenseRequest
@@ -108,7 +111,8 @@ public class ExpenseServiceTests
         var repository = new FakeExpenseRepository(existing);
         var groupRepository = new FakeCareGroupRepository(isMember: true);
         var userRepository = new FakeUserRepository();
-        var service = new ExpenseService(repository, groupRepository, userRepository);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
             service.UpdateExpenseAsync(Guid.NewGuid(), existing.CareGroupId, existing.Id, new UpdateExpenseRequest
@@ -145,7 +149,8 @@ public class ExpenseServiceTests
         var repository = new FakeExpenseRepository(existing);
         var groupRepository = new FakeCareGroupRepository(isMember: true);
         var userRepository = new FakeUserRepository();
-        var service = new ExpenseService(repository, groupRepository, userRepository);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
 
         var result = await service.UpdateExpenseAsync(Guid.NewGuid(), existing.CareGroupId, existing.Id, new UpdateExpenseRequest
         {
@@ -192,7 +197,8 @@ public class ExpenseServiceTests
         var repository = new FakeExpenseRepository(existingExpenses);
         var groupRepository = new FakeCareGroupRepository(isMember: true);
         var userRepository = new FakeUserRepository(users);
-        var service = new ExpenseService(repository, groupRepository, userRepository);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
 
         var result = await service.PreviewSplitAsync(payerId, careGroupId, new SplitPreviewRequest
         {
@@ -255,7 +261,8 @@ public class ExpenseServiceTests
 
         var repository = new FakeExpenseRepository(expenses);
         var userRepository = new FakeUserRepository(users);
-        var service = new ExpenseService(repository, careGroupRepository, userRepository);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, careGroupRepository, userRepository, splitRepository);
 
         var result = await service.GetMemberExpenseTotalsAsync(payerId, careGroupId, new MemberExpenseTotalsRequest
         {
@@ -279,6 +286,138 @@ public class ExpenseServiceTests
         // 排序：金額由高到低
         Assert.Equal(payerId, result.Members[0].UserId);
         Assert.Equal(nonPayerId, result.Members[1].UserId);
+    }
+
+    [Fact]
+    public async Task ConfirmSplitAsync_WritesExpenseSplits_AndMarksExpensesSettled()
+    {
+        var careGroupId = Guid.NewGuid();
+        var payerId = Guid.NewGuid();
+        var memberA = Guid.NewGuid();
+        var memberB = Guid.NewGuid();
+
+        var existing = new ExpenseRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            Title = "藥局自費",
+            Amount = 999m, // 故意取奇數驗證 round 尾差吸收
+            SplitStatus = ExpenseSplitStatus.Pending,
+            CreatedBy = payerId.ToString(),
+            ExpenseDate = DateTime.UtcNow
+        };
+
+        var repository = new FakeExpenseRepository(existing);
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var userRepository = new FakeUserRepository();
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
+
+        await service.ConfirmSplitAsync(payerId, careGroupId, new SplitConfirmRequest
+        {
+            SplitMode = "custom",
+            ExpenseIds = new List<Guid> { existing.Id },
+            TargetUserIds = new List<Guid> { payerId, memberA, memberB }
+        });
+
+        Assert.Equal(ExpenseSplitStatus.Settled, existing.SplitStatus);
+
+        Assert.Equal(3, splitRepository.Splits.Count);
+        // 三人平均 999 → 333.00 / 333.00 / 333.00（999 / 3 剛好整除，但驗證加總 = 原金額）
+        Assert.Equal(999m, splitRepository.Splits.Sum(s => s.ShareAmount));
+        Assert.All(splitRepository.Splits, s => Assert.Equal(existing.Id, s.ExpenseId));
+        Assert.All(splitRepository.Splits, s => Assert.Equal(careGroupId, s.CareGroupId));
+
+        // 只有付款人會被標 IsPayer
+        Assert.True(splitRepository.Splits.Single(s => s.UserId == payerId).IsPayer);
+        Assert.False(splitRepository.Splits.Single(s => s.UserId == memberA).IsPayer);
+        Assert.False(splitRepository.Splits.Single(s => s.UserId == memberB).IsPayer);
+    }
+
+    [Fact]
+    public async Task ConfirmSplitAsync_AbsorbsRoundingDiff_OnLastSplit()
+    {
+        var careGroupId = Guid.NewGuid();
+        var payerId = Guid.NewGuid();
+        var memberA = Guid.NewGuid();
+        var memberB = Guid.NewGuid();
+
+        var existing = new ExpenseRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            Title = "三人分 100 元",
+            Amount = 100m, // 100 / 3 = 33.33...，最後一位要吸收尾差
+            SplitStatus = ExpenseSplitStatus.Pending,
+            CreatedBy = payerId.ToString(),
+            ExpenseDate = DateTime.UtcNow
+        };
+
+        var repository = new FakeExpenseRepository(existing);
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var userRepository = new FakeUserRepository();
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
+
+        await service.ConfirmSplitAsync(payerId, careGroupId, new SplitConfirmRequest
+        {
+            SplitMode = "custom",
+            ExpenseIds = new List<Guid> { existing.Id },
+            TargetUserIds = new List<Guid> { payerId, memberA, memberB }
+        });
+
+        // sum 必須剛好等於原金額
+        Assert.Equal(100m, splitRepository.Splits.Sum(s => s.ShareAmount));
+    }
+
+    [Fact]
+    public async Task GetMemberExpenseTotalsAsync_ShareView_AggregatesFromExpenseSplits()
+    {
+        var careGroupId = Guid.NewGuid();
+        var payerId = Guid.NewGuid();
+        var memberA = Guid.NewGuid();
+        var memberB = Guid.NewGuid();
+
+        var users = new[]
+        {
+            new User { Id = payerId, Username = "Payer" },
+            new User { Id = memberA, Username = "MemberA" },
+            new User { Id = memberB, Username = "MemberB" }
+        };
+
+        var careGroupRepository = new FakeCareGroupRepository(isMember: true)
+        {
+            Members = new List<CareGroupMember>
+            {
+                new CareGroupMember { CareGroupId = careGroupId, UserId = payerId, User = users[0] },
+                new CareGroupMember { CareGroupId = careGroupId, UserId = memberA, User = users[1] },
+                new CareGroupMember { CareGroupId = careGroupId, UserId = memberB, User = users[2] }
+            }
+        };
+
+        var splitRepository = new FakeExpenseSplitRepository();
+        // 模擬一筆 1200 已分給 3 人各 400
+        splitRepository.Splits.AddRange(new[]
+        {
+            new ExpenseSplit { CareGroupId = careGroupId, UserId = payerId, ShareAmount = 400m, IsPayer = true },
+            new ExpenseSplit { CareGroupId = careGroupId, UserId = memberA, ShareAmount = 400m, IsPayer = false },
+            new ExpenseSplit { CareGroupId = careGroupId, UserId = memberB, ShareAmount = 400m, IsPayer = false }
+        });
+
+        var repository = new FakeExpenseRepository();
+        var userRepository = new FakeUserRepository(users);
+        var service = new ExpenseService(repository, careGroupRepository, userRepository, splitRepository);
+
+        var result = await service.GetMemberExpenseTotalsAsync(payerId, careGroupId, new MemberExpenseTotalsRequest
+        {
+            Scope = "all",
+            ViewMode = "share"
+        });
+
+        Assert.Equal(1200m, result.TotalAmount);
+        Assert.Equal(3, result.MemberCount);
+        Assert.All(result.Members, m => Assert.Equal(400m, m.TotalAmount));
+        Assert.All(result.Members, m => Assert.Equal(1, m.ExpenseCount));
     }
 
     private sealed class FakeExpenseRepository : IExpenseRepository
@@ -349,6 +488,25 @@ public class ExpenseServiceTests
         {
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeExpenseSplitRepository : IExpenseSplitRepository
+    {
+        public List<ExpenseSplit> Splits { get; } = new();
+
+        public Task AddRangeAsync(IEnumerable<ExpenseSplit> splits)
+        {
+            Splits.AddRange(splits);
+            return Task.CompletedTask;
+        }
+
+        public Task<List<ExpenseSplit>> GetByCareGroupAsync(Guid careGroupId, DateTime? dateFrom, DateTime? dateTo)
+        {
+            // Fake 不模擬 Include(Expense)，因此忽略日期過濾，由呼叫端準備好資料即可。
+            return Task.FromResult(Splits.Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null).ToList());
+        }
+
+        public Task SaveChangesAsync() => Task.CompletedTask;
     }
 
     private sealed class FakeCareGroupRepository : ICareGroupRepository

@@ -43,12 +43,17 @@ namespace SeasonsCare.Api.DTOs.Expenses
         public string? AvatarUrl { get; set; }
 
         /// <summary>
-        /// 該成員作為付款人（CreatedBy）所累積支付的總金額。沒有付款紀錄時為 0。
+        /// 累積金額。
+        /// - viewMode=payer：該成員作為付款人（CreatedBy）累積支付的總金額。
+        /// - viewMode=share：該成員作為分攤對象累積應分擔的總金額。
+        /// 沒有對應紀錄時為 0。
         /// </summary>
         public decimal TotalAmount { get; set; }
 
         /// <summary>
-        /// 該成員作為付款人的支出筆數。
+        /// 累積筆數。
+        /// - viewMode=payer：該成員作為付款人的支出筆數。
+        /// - viewMode=share：該成員出現在分帳明細中的筆數（即被分攤到幾筆 expense）。
         /// </summary>
         public int ExpenseCount { get; set; }
     }

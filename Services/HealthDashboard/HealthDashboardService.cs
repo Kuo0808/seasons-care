@@ -33,7 +33,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         private const string TitleWeight = "體重";
         private const string StatusStable = "穩定";
         private const string StatusWatch = "需觀察";
-        private const string StatusInsufficient = "資料不足";
+        private const string StatusInsufficient = "累積中";
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
         private readonly ICareGroupRepository _careGroupRepository;
@@ -646,14 +646,28 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static HealthDashboardHeroReportDto BuildFallbackHeroReport(WeeklyContext context)
         {
+            string headline;
+            string body;
+            if (context.TotalRecordCount == 0)
+            {
+                headline = "我們一起從今天開始為家人累積健康紀錄吧";
+                body = "現在還沒有量測紀錄，第一筆就會是我們認識家人健康狀況的起點。每天固定時間量測，下週就能為您整理出更貼近的觀察。";
+            }
+            else if (context.TotalRecordCount < 3)
+            {
+                headline = "已經為家人留下健康足跡，請繼續陪我們累積";
+                body = $"近 7 天目前有 {context.TotalRecordCount} 筆紀錄，已經是很好的開始。再多陪我們記下幾筆，就能看到更立體的健康樣貌，也更容易發現需要留意的變化。";
+            }
+            else
+            {
+                headline = $"本週已為家人累積 {context.TotalRecordCount} 筆紀錄，持續陪伴中";
+                body = BuildTodayRecordSummary(context.TodayRecordCount, context.LatestTodayMetrics);
+            }
+
             return new HealthDashboardHeroReportDto
             {
-                Headline = context.TotalRecordCount == 0
-                    ? "近 7 天資料不足，尚無法形成完整判讀"
-                    : $"近 7 天共有 {context.TotalRecordCount} 筆健康紀錄，可持續觀察趨勢。",
-                Body = context.TotalRecordCount == 0
-                    ? "先建立固定量測習慣，系統會在資料足夠後提供更具體的報告。"
-                    : BuildTodayRecordSummary(context.TodayRecordCount, context.LatestTodayMetrics),
+                Headline = headline,
+                Body = body,
                 Tone = context.TotalRecordCount == 0 ? "neutral" : "supportive",
                 Confidence = ResolveConfidence(context)
             };
@@ -662,12 +676,22 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         private static HealthDashboardInsightSectionDto BuildFallbackKeyInsightSection(WeeklyContext context)
         {
             string body;
-            if (context.TodayRecordCount > 0)
-                body = $"今天新增 {context.TodayRecordCount} 筆紀錄，可與近 7 天趨勢一起判讀。";
-            else if (context.TotalRecordCount > 0)
-                body = $"近 7 天共累積 {context.TotalRecordCount} 筆紀錄，建議持續補齊每日量測。";
+            if (context.TotalRecordCount == 0)
+            {
+                body = "目前還沒有量測資料可以分析，第一筆紀錄會是我們陪伴的起點。";
+            }
+            else if (context.TotalRecordCount < 3)
+            {
+                body = $"目前累積到 {context.TotalRecordCount} 筆紀錄，已能看到家人量測的努力。再多陪我們累積幾天，就能畫出趨勢，也更容易抓到需要留意的變化。";
+            }
+            else if (context.TodayRecordCount > 0)
+            {
+                body = $"今天新增了 {context.TodayRecordCount} 筆紀錄，謝謝您持續為家人留心，我們會把它與近 7 天的趨勢一起觀察。";
+            }
             else
-                body = "目前資料仍偏少，建議持續補齊量測。";
+            {
+                body = $"近 7 天已累積 {context.TotalRecordCount} 筆紀錄，今日尚未量測，若方便為家人補上一筆，我們能更貼近他的當下狀況。";
+            }
 
             return new HealthDashboardInsightSectionDto
             {
@@ -681,12 +705,24 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static HealthDashboardActionSectionDto BuildFallbackActionSuggestionSection(WeeklyContext context)
         {
+            string body;
+            if (context.TotalRecordCount == 0)
+            {
+                body = "建議與家人約定一個固定的量測時段（例如早餐前），三天後我們就能一起看出初步的變化趨勢。";
+            }
+            else if (context.TotalRecordCount < 3)
+            {
+                body = "維持目前的量測節奏，若能在量測時順手記下飯前飯後或當下狀況，下次分析會更精準地陪您看見細節。";
+            }
+            else
+            {
+                body = "建議維持固定時段量測，並把飲食或作息變化也一起記下來，會讓我能更貼近地解讀數值的意義。";
+            }
+
             return new HealthDashboardActionSectionDto
             {
                 Label = LabelActionSuggestion,
-                Body = context.TotalRecordCount == 0
-                    ? "先固定每天同一時段量測，累積 3 天以上資料後再比較趨勢。"
-                    : "維持固定時段量測，並同步記錄飲食或作息變化以利判讀。",
+                Body = body,
                 Priority = context.TotalRecordCount == 0 ? "high" : "medium",
                 Timeframe = context.TodayRecordCount > 0 ? "today" : "this_week"
             };
@@ -701,7 +737,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 alerts.Add(new HealthDashboardAlertDto
                 {
                     Type = "data_gap",
-                    Message = "近 7 天資料不足，建議先補齊固定量測。",
+                    Message = "還沒有量測紀錄，邀請您為家人開始第一筆吧。",
                     Severity = "medium"
                 });
             }

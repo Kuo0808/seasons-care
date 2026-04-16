@@ -126,6 +126,7 @@ builder.Services.AddScoped<ICareLogRepository, CareLogRepository>();
 builder.Services.AddScoped<IEventSeriesRepository, EventSeriesRepository>();
 builder.Services.AddScoped<IEventOccurrenceRepository, EventOccurrenceRepository>();
 builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
+builder.Services.AddScoped<IExpenseSplitRepository, ExpenseSplitRepository>();
 builder.Services.AddScoped<IAiHealthInsightRepository, AiHealthInsightRepository>();
 
 // [架構導覽] 階段四：依賴注入 - 商業邏輯層 (Business Logic Layer)

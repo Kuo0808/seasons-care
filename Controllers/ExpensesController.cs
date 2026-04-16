@@ -119,7 +119,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("取得各成員累積花費")]
-        [EndpointDescription("回傳指定照護群組內每位成員「作為付款人」累積支付的金額，用於前端「各成員累積花費」卡片顯示。即使該成員未付款也會列入並回傳金額 0，方便前端一次繪出全部頭像。\n\nQuery 參數：\n- scope：daily / monthly / all（預設 monthly）。\n- targetDate：ISO 日期（台灣時區），僅 daily / monthly 模式生效；不傳則 daily=今天、monthly=本月。\n- pendingOnly：預設 true，只計算 Pending（待分帳）的費用，符合「按一鍵分帳前要看的累積花費」用途；若需顯示全部狀態請傳 false。\n\n排序：金額由高到低，金額相同者依名稱排序。")]
+        [EndpointDescription("回傳指定照護群組內每位成員的累積金額，用於前端「各成員累積花費」卡片。即使該成員金額為 0 也會列入，方便前端一次繪出全部頭像。\n\nQuery 參數：\n- scope：daily / monthly / all（預設 monthly）。\n- targetDate：ISO 日期（台灣時區），僅 daily / monthly 模式生效；不傳則 daily=今天、monthly=本月。\n- viewMode：payer（預設）/ share。\n   - payer：依「付款人」累積，金額來自 ExpenseRecord.CreatedBy。一鍵分帳前的卡片用此模式（搭配 pendingOnly=true）。\n   - share：依「分攤對象」累積，金額來自 ExpenseSplit.ShareAmount。已結算後可呈現「每位成員應分擔的累積金額」（自動忽略 pendingOnly）。\n- pendingOnly：預設 true，僅 viewMode=payer 時生效；若需顯示全部狀態請傳 false。\n\n排序：金額由高到低，金額相同者依名稱排序。")]
         public async Task<IActionResult> GetMemberTotals(Guid careGroupId, [FromQuery] MemberExpenseTotalsRequest request)
         {
             var currentUserId = _currentUserService.UserId;

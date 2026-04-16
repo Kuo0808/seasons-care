@@ -260,7 +260,7 @@ public class HealthDashboardIntegrationTests
 
         var oxygen = metrics.EnumerateArray().First(
             x => x.GetProperty("metricType").GetString() == "blood_oxygen");
-        Assert.Equal("資料不足", oxygen.GetProperty("statusLabel").GetString());
+        Assert.Equal("累積中", oxygen.GetProperty("statusLabel").GetString());
     }
 
     // ──────────────────────────────────────────────

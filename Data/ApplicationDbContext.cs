@@ -20,6 +20,7 @@ namespace SeasonsCare.Api.Data
         public DbSet<EventOccurrence> EventOccurrences { get; set; }
         public DbSet<AiHealthInsight> AiHealthInsights { get; set; }
         public DbSet<ExpenseRecord> Expenses { get; set; }
+        public DbSet<ExpenseSplit> ExpenseSplits { get; set; }
         public DbSet<BloodPressureRecord> BloodPressures { get; set; }
         public DbSet<BloodSugarRecord> BloodSugars { get; set; }
         public DbSet<WeightRecord> Weights { get; set; }
@@ -165,11 +166,27 @@ namespace SeasonsCare.Api.Data
                 entity.Property(e => e.Category).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Notes).HasMaxLength(500);
                 entity.Property(e => e.SplitStatus).HasConversion<string>().HasMaxLength(20);
-                
+
                 entity.HasOne(e => e.CareGroup)
                       .WithMany()
                       .HasForeignKey(e => e.CareGroupId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ExpenseSplit>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.ShareAmount).HasColumnType("decimal(18,2)");
+
+                // 一筆 Expense 對多筆 Split；Expense 物理刪除時連帶清除 splits。
+                entity.HasOne(e => e.Expense)
+                      .WithMany()
+                      .HasForeignKey(e => e.ExpenseId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // 同一筆 expense 不允許對同一位 user 寫入兩列（避免重複結算重算造成翻倍）。
+                entity.HasIndex(e => new { e.ExpenseId, e.UserId }).IsUnique();
+                entity.HasIndex(e => new { e.CareGroupId, e.UserId });
             });
 
             modelBuilder.Entity<BloodPressureRecord>(entity =>
