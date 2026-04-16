@@ -38,6 +38,12 @@ namespace SeasonsCare.Api.Config
             return utcDateTime.HasValue ? ToTaiwanOffset(utcDateTime.Value) : null;
         }
 
+        public static DateTime TaiwanToUtc(DateTime taiwanDateTime)
+        {
+            return TimeZoneInfo.ConvertTimeToUtc(
+                DateTime.SpecifyKind(taiwanDateTime, DateTimeKind.Unspecified), TaiwanTimeZone);
+        }
+
         public static DateTime GetTaiwanDateStartUtc(DateTime? utcDateTime = null)
         {
             var taiwanTime = ToTaiwanTime(utcDateTime ?? UtcNow);

@@ -97,6 +97,18 @@ namespace SeasonsCare.Api.Repositories
             return query.Where(e => e.ExpenseDate >= monthStartUtc && e.ExpenseDate < nextMonthStartUtc);
         }
 
+        public async Task<List<ExpenseRecord>> GetUnsettledByDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo)
+        {
+            return await _context.Expenses
+                .Where(e => e.CareGroupId == careGroupId
+                    && e.ExpenseDate >= dateFrom
+                    && e.ExpenseDate < dateTo
+                    && e.SplitStatus != Models.Enums.ExpenseSplitStatus.Settled
+                    && e.DeletedAt == null)
+                .OrderBy(e => e.ExpenseDate)
+                .ToListAsync();
+        }
+
         public async Task AddAsync(ExpenseRecord expense)
         {
             // 單純宣告向 EF Core 的追蹤器 (Tracker) 註冊這筆新增，但不馬上異動資料庫實體

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SeasonsCare.Api.Config;
@@ -148,35 +149,25 @@ namespace SeasonsCare.Api.Services
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
-            var expenses = await _expenseRepository.GetListByIdsAsync(careGroupId, request.ExpenseIds);
-
-            // 確保有找到任何未分帳的項目
-            var validExpenses = expenses.Where(e => e.SplitStatus != ExpenseSplitStatus.Settled).ToList();
-            if (!validExpenses.Any())
+            var validExpenses = await ResolveExpensesAsync(careGroupId, request.SplitMode, request.ExpenseIds);
+            if (validExpenses.Count == 0)
             {
                 throw new DomainException("沒有找到可分帳的有效支出紀錄", "BAD_REQUEST", 400);
             }
 
-            var totalAmount = validExpenses.Sum(e => e.Amount);
             var usersCount = request.TargetUserIds.Count;
             if (usersCount == 0)
             {
                 throw new DomainException("請至少選擇一位參與分攤的使用者", "BAD_REQUEST", 400);
             }
 
-            // 平均分攤金額 (無條件捨去至小數第二位等計算依需求，此處使用精確除法)
+            var totalAmount = validExpenses.Sum(e => e.Amount);
             var sharePerPerson = Math.Round(totalAmount / usersCount, 2);
 
-            // 取得分攤者的 User 資料
             var loadedUsers = await _userRepository.GetListByIdsAsync(request.TargetUserIds);
 
             // 統計每個人已付了多少
-            var paidAmounts = new Dictionary<Guid, decimal>();
-            foreach (var userId in request.TargetUserIds)
-            {
-                paidAmounts[userId] = 0;
-            }
-
+            var paidAmounts = request.TargetUserIds.ToDictionary(id => id, _ => 0m);
             foreach (var exp in validExpenses)
             {
                 if (Guid.TryParse(exp.CreatedBy, out var payerId) && paidAmounts.ContainsKey(payerId))
@@ -185,26 +176,20 @@ namespace SeasonsCare.Api.Services
                 }
             }
 
-            var splitDetails = new List<SplitUserDetail>();
-
-            foreach (var user in loadedUsers)
+            var splitDetails = loadedUsers.Select(user =>
             {
                 var paidByThisUser = paidAmounts.GetValueOrDefault(user.Id, 0m);
-                var balance = paidByThisUser - sharePerPerson; // 正數代表他付的多，應該回收；負數代表他付的少，應該補錢
-
-                splitDetails.Add(new SplitUserDetail
+                var balance = paidByThisUser - sharePerPerson;
+                return new SplitUserDetail
                 {
                     UserId = user.Id,
-                    Name = user.Username, // 依據您的系統，有可能叫 Username 或 DisplayName
-                    AvatarUrl = user.AvatarKey, // 您可能需要轉換 Key 為 URL，先以設計稿 MVP 回傳此原始值
+                    Name = user.Username,
+                    AvatarUrl = user.AvatarKey,
                     IsPayer = paidByThisUser > 0,
                     ReceivableAmount = balance > 0 ? balance : 0,
                     PayableAmount = balance < 0 ? Math.Abs(balance) : 0
-                });
-            }
-
-            var currentTargetUserIds = loadedUsers.Select(u => u.Id).ToList();
-            // 對於沒被拉進分帳對象但卻付了錢的例外情況 (這裡簡單處理：依設計稿前端會選好對象)
+                };
+            }).ToList();
 
             return new ExpenseSplitPreviewResponse
             {
@@ -223,10 +208,8 @@ namespace SeasonsCare.Api.Services
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
-            var expenses = await _expenseRepository.GetListByIdsAsync(careGroupId, request.ExpenseIds);
-
-            var validExpenses = expenses.Where(e => e.SplitStatus != ExpenseSplitStatus.Settled).ToList();
-            if (!validExpenses.Any())
+            var validExpenses = await ResolveExpensesAsync(careGroupId, request.SplitMode, request.ExpenseIds);
+            if (validExpenses.Count == 0)
             {
                 throw new DomainException("沒有找到需結算的分帳項目", "BAD_REQUEST", 400);
             }
@@ -241,6 +224,44 @@ namespace SeasonsCare.Api.Services
             }
 
             await _expenseRepository.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// 依據分帳模式取得要處理的費用清單。
+        /// daily：撈當日（台灣時區）所有未結算費用。
+        /// monthly：撈當月（台灣時區）所有未結算費用。
+        /// custom：依 ExpenseIds 撈取，過濾已結算。
+        /// </summary>
+        private async Task<List<ExpenseRecord>> ResolveExpensesAsync(Guid careGroupId, string splitMode, List<Guid>? expenseIds)
+        {
+            var mode = (splitMode ?? "custom").Trim().ToLowerInvariant();
+
+            if (mode == "daily")
+            {
+                var todayStart = TimeHelper.GetTaiwanDateStartUtc();
+                var todayEnd = todayStart.AddDays(1);
+                return await _expenseRepository.GetUnsettledByDateRangeAsync(careGroupId, todayStart, todayEnd);
+            }
+
+            if (mode == "monthly")
+            {
+                var taiwanNow = TimeHelper.ToTaiwanTime(TimeHelper.UtcNow);
+                var monthStart = new DateTime(taiwanNow.Year, taiwanNow.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+                var monthEnd = monthStart.AddMonths(1);
+                // 轉回 UTC
+                var monthStartUtc = TimeHelper.TaiwanToUtc(monthStart);
+                var monthEndUtc = TimeHelper.TaiwanToUtc(monthEnd);
+                return await _expenseRepository.GetUnsettledByDateRangeAsync(careGroupId, monthStartUtc, monthEndUtc);
+            }
+
+            // custom 模式
+            if (expenseIds == null || expenseIds.Count == 0)
+            {
+                throw new DomainException("自選模式下請提供至少一筆支出項目", "BAD_REQUEST", 400);
+            }
+
+            var expenses = await _expenseRepository.GetListByIdsAsync(careGroupId, expenseIds);
+            return expenses.Where(e => e.SplitStatus != ExpenseSplitStatus.Settled).ToList();
         }
 
         private static ExpenseResponse MapToResponse(ExpenseRecord expense)

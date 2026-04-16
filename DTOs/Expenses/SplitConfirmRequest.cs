@@ -5,19 +5,25 @@ using System.ComponentModel.DataAnnotations;
 namespace SeasonsCare.Api.DTOs.Expenses
 {
     /// <summary>
-    /// 確認一鍵分帳的請求模型
+    /// 確認一鍵分帳的請求模型。
+    /// 支援三種模式：daily（當日）、monthly（當月）、custom（自選項目）。
     /// </summary>
     public class SplitConfirmRequest
     {
         /// <summary>
-        /// 要結算分帳的支出項目 ID 列表
+        /// 分帳模式：daily（當日分帳）、monthly（當月分帳）、custom（自選項目）。
         /// </summary>
-        [Required]
-        [MinLength(1, ErrorMessage = "至少需要選擇一筆支出項目")]
-        public List<Guid> ExpenseIds { get; set; } = new List<Guid>();
+        [Required(ErrorMessage = "請指定分帳模式")]
+        public string SplitMode { get; set; } = "custom";
 
         /// <summary>
-        /// 參與分攤的使用者 ID 列表 (用於供後端再次驗證或記錄)
+        /// 自選模式時，指定要結算的支出 ID 清單。
+        /// daily / monthly 模式下可不傳。
+        /// </summary>
+        public List<Guid>? ExpenseIds { get; set; }
+
+        /// <summary>
+        /// 參與分攤的使用者 ID 列表（用於後端再次驗證或記錄）。
         /// </summary>
         [Required]
         [MinLength(1, ErrorMessage = "至少需要選擇一位分攤對象")]

@@ -196,6 +196,7 @@ public class ExpenseServiceTests
 
         var result = await service.PreviewSplitAsync(payerId, careGroupId, new SplitPreviewRequest
         {
+            SplitMode = "custom",
             ExpenseIds = new List<Guid> { existingExpenses[0].Id, existingExpenses[1].Id },
             TargetUserIds = new List<Guid> { payerId, anotherPayerId, nonPayerId } // 3 users
         });
@@ -251,6 +252,18 @@ public class ExpenseServiceTests
         public Task<List<ExpenseRecord>> GetListByIdsAsync(Guid careGroupId, IEnumerable<Guid> expenseIds)
         {
             var data = Expenses.Where(x => x.CareGroupId == careGroupId && expenseIds.Contains(x.Id)).ToList();
+            return Task.FromResult(data);
+        }
+
+        public Task<List<ExpenseRecord>> GetUnsettledByDateRangeAsync(Guid careGroupId, DateTime dateFrom, DateTime dateTo)
+        {
+            var data = Expenses
+                .Where(x => x.CareGroupId == careGroupId
+                    && x.ExpenseDate >= dateFrom && x.ExpenseDate < dateTo
+                    && x.SplitStatus != ExpenseSplitStatus.Settled
+                    && x.DeletedAt == null)
+                .OrderBy(x => x.ExpenseDate)
+                .ToList();
             return Task.FromResult(data);
         }
 
