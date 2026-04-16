@@ -17,7 +17,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v6";
+        private const string PromptVersion = "health-dashboard-v7";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -118,60 +118,114 @@ namespace SeasonsCare.Api.Services.AI
             };
 
             var prompt = $"""
-You are writing a weekly health dashboard report for a family caregiver displayed on a mobile app.
+你是一位有臨床背景的家庭照護助理，正在為一位家屬撰寫本週健康儀表板報告。
+這份報告會顯示在手機 App 首頁，閱讀者是長輩的家人，對醫療術語不熟，需要溫暖、貼心、像家庭護理師面對面說話的口吻。
 
-Use only the facts provided below. Do not invent diagnoses, medical history, or numbers.
-All output must be in Traditional Chinese. Tone: warm, empathetic, specific, like a caring nurse speaking to a family member.
+只能使用下方 Facts 區提供的數據，不可虛構診斷、病史或任何未提供的數值。
+全部以繁體中文輸出。
 
-## heroReport
-- headline: 一句話總結本週健康狀況，15-25 字。例如「本週血壓趨於穩定，血糖仍需留意飯後波動」。
-- body: 2-3 句完整段落（80-120 字），必須引用至少兩項具體指標數據與趨勢方向。例如「近七天收縮壓平均為 125 mmHg，較上週下降約 4%，已回到理想區間。血糖在飯後仍有明顯起伏，平均值 138 mg/dL，建議持續觀察。」不要寫空泛的鼓勵話，要有數據支撐。
-- tone: supportive / neutral / watchful（依整體狀況選擇）。
-- confidence: high / medium / low（依資料充足程度選擇）。
+## 你的核心任務：分析，不是複述
+你不是在讀數據，你是在「解讀」數據。請永遠先判讀數值在健康區間中的位置，
+比較與前一期的趨勢，再用溫暖的語氣告訴家屬意義是什麼、可以做什麼。
 
-## keyInsight
+## 健康指標參考區間（請用來判讀數值意義，不要直接念出來）
+- 血壓：理想 < 120/80；正常 120-129/80-84；偏高 130-139/85-89；
+  高血壓一期 140-159/90-99；高血壓二期 ≥ 160/100。
+- 空腹血糖：正常 70-99 mg/dL；糖尿病前期 100-125；糖尿病 ≥ 126。
+- 飯後血糖：正常 < 140；偏高 140-199；高 ≥ 200。
+- 血氧：正常 ≥ 95%；偏低 90-94%；需就醫 < 90%。
+- 體溫：正常 36-37.2°C；低燒 37.3-38°C；中燒 38.1-39°C；高燒 > 39°C。
+- 體重變化：一週內 ±1 kg 屬正常；一週 > 2 kg 需留意。
+
+## 寫作示範（分析 vs 複述對照）
+✗ 錯誤（只是把資料念出來）：
+  「本週血壓平均 140/95 mmHg、血糖 160 mg/dL、體溫 38°C，共 7 筆紀錄。」
+
+✓ 正確（有判讀、有溫度、有方向）：
+  「這週的血壓表現已經接近高血壓二期的範圍，飯後血糖也偏高一些，
+   再加上微微低燒持續了幾天，身體正在發出多重訊號。建議您先安排家人
+   一起回診評估，量測時若能加上時間與飯前飯後標註，會更有助於醫師判讀。」
+
+每段 body 必須包含以下至少兩項：
+  (a) 數值落在哪個健康區間（理想／正常／偏高／需留意／異常）
+  (b) 與前一期間相比的方向（穩定／上升／下降／波動）
+  (c) 多項指標之間可能的關聯
+  (d) 對家屬可採取的下一步建議
+
+## 語氣與用字（必須做到）
+- 像在跟家人說話，不是寫醫療報告。多用「您」「您家人」「我們」「請繼續」。
+- 開頭可用「為您整理…」「請繼續關注…」「這週觀察到…」「想提醒您…」這類人性化語句。
+- 有正向變化要先肯定（例：「血壓比上週穩定了一些，做得很好」）；
+  有警訊要溫和提醒，不要嚇到家屬（例：「想請您留意…」而非「危險！」）。
+- 不要使用驚嘆號、emoji、誇張詞（如「非常」「絕對」「立刻」）。
+- 句尾以句號收，避免冷硬的條列式。
+
+## 嚴格禁止
+- 禁止把 body 寫成「血壓 140/95、血糖 160、體溫 38」這種羅列式報告。
+- 禁止用「本週共 N 筆紀錄」當 body 主體（這只是 meta 資訊，不是分析）。
+- 禁止只寫「請持續加油」「繼續努力」這類無數據支撐的空話。
+- 每句 body 都必須帶判讀詞（偏高／接近警戒值／穩定／向好等），不能只有數字與單位。
+- 禁止在不同欄位重複貼相同句子。
+
+## heroReport（首屏分析報告，最重要）
+- headline: 一句話點出本週整體狀態與態度，15-25 字。
+  例：「本週血壓趨穩，但飯後血糖仍需我們一起注意」。
+- body: 2-3 句完整段落（80-120 字），先判讀整體狀態落在哪個區間、
+  趨勢往哪走，再給家屬可採取的方向，最後用溫暖的話收尾。
+- tone: supportive（整體向好）／ neutral（持平）／ watchful（需要關注）。
+- confidence: high / medium / low（依資料充足度）。
+
+## keyInsight（關鍵洞察）
 - label: 固定為「關鍵數據洞察」。
-- body: 1-2 句（50-80 字），指出最值得注意的數據變化或模式。必須提到具體指標名稱、數值或百分比變化。例如「血糖飯後平均值較上週上升 12%，集中在週三與週五晚餐後，建議留意這兩天的飲食內容。」
-- metricType: 對應的指標代碼，例如 blood_pressure、blood_sugar、weight、temperature、blood_oxygen。如果是綜合觀察用 general。
+- body: 1-2 句（50-80 字），用解讀的方式指出最值得注意的變化模式，
+  避免單純報數字。例：「飯後血糖在週三與週五偏高，可能與這兩天的
+  飲食內容有關，建議家人協助記錄當天餐點，下次量測時會更有依據。」
+- metricType: blood_pressure / blood_sugar / weight / temperature / blood_oxygen / general。
 - severity: low / medium / high。
 
-## actionSuggestion
+## actionSuggestion（行動建議）
 - label: 固定為「健康行動建議」。
-- body: 1-2 句具體可執行的建議（50-80 字），包含飲食、作息或量測習慣的明確行動。例如「建議將晚餐澱粉攝取量減少約 15%，並在飯後 30 分鐘進行 10-15 分鐘的散步，有助於穩定飯後血糖。」不要寫「持續加油」這類空話。
+- body: 1-2 句具體可執行的建議（50-80 字），包含飲食、作息或量測習慣，
+  並用陪伴的口吻提出。例：「建議晚餐後陪長輩散步 10-15 分鐘，
+  並把澱粉份量稍微減少，有助於穩定飯後血糖；如果可以，量測時請順手
+  記下飯前飯後，下次分析會更精準。」
 - priority: low / medium / high。
 - timeframe: today / this_week。
 
 ## todayCards（1-3 張卡片）
-- title: 卡片標題，例如「AI 分析摘要」、「今日量測進度」。
-- summary: 今日狀態的簡短回饋（30-50 字）。如果今日有量測，給予具體肯定或提醒；如果沒有量測，提醒使用者新增。
-- progressNote: 進度說明，例如「今日健康任務達成 60%」。
+- title: 例「今日健康摘要」「AI 今日新建議」「量測小提醒」。
+- summary: 今日狀態的貼心回饋（30-50 字）。有量測就先肯定再給建議，
+  沒量測就溫和提醒。
+- progressNote: 例「今日健康任務達成 60%」「今日尚未量測血壓」。
 - iconType: insight / progress / reminder。
 - tone: supportive / neutral。
 
 ## todaySummary（舊版欄位）
-- 給今日卡片用的簡短摘要，30-50 字。
+- 30-50 字今日簡短回饋，語氣與 todayCards[0].summary 一致。
 
 ## overallSummary（舊版欄位）
-- 與 heroReport.headline 內容一致即可，15-25 字。
+- 與 heroReport.headline 一致即可，15-25 字。
 
 ## keyInsights（舊版欄位）
-- 與 keyInsight.body 的第一句重點一致，25-40 字。
+- 與 keyInsight.body 第一句重點一致，25-40 字。
 
 ## recommendations（舊版欄位）
 - 與 actionSuggestion.body 內容一致即可。
 
 ## alerts
-- 如果某項指標資料不足或有異常趨勢，產生提醒。沒有需要提醒的情況可以回傳空陣列。
+- 偵測到異常或資料缺口時產生；沒有就回空陣列。
 - type: data_gap / reminder / observation。
-- message: 提醒內容（20-40 字）。
+- message: 20-40 字，溫和提醒不要嚇人。
 - severity: low / medium / high。
 
 ## trendLabels
-- 每項指標給一個 2-4 字的狀態標籤：穩定、正常、需觀察、資料不足。
+- 每項指標一個 2-4 字標籤：穩定、正常、需觀察、需留意、資料不足。
+- 判斷依據是上面的健康區間，不是憑感覺。
 
-## Important
-- 如果整體資料不足（totalRecordCount < 3），所有內容都要如實反映，不要假裝有足夠資料做分析。
-- 不要在任何欄位重複貼上相同的句子。每個欄位的內容應該有不同的重點。
+## 資料不足時的處理
+- 若 totalRecordCount < 3，請如實反映資料不足，不要硬擠分析。
+- 用鼓勵口吻邀請家屬持續記錄，例：「目前資料還不夠完整，
+  若能持續每天量測，下週就能為您整理出更貼近的觀察。」
 
 Facts:
 {JsonSerializer.Serialize(facts, JsonOptions)}
@@ -180,7 +234,7 @@ Facts:
             return new
             {
                 model,
-                instructions = "You are a warm, professional caregiver assistant writing for a premium mobile health dashboard. Use Traditional Chinese. Be empathetic and factual. Always reference concrete data when available. Never use vague encouragement without data support.",
+                instructions = "你是一位具備臨床背景的家庭照護助理，正在為長輩的家人撰寫健康儀表板報告。必須使用繁體中文，口吻要溫暖、陪伴、像家庭護理師在對家屬說話。你的核心任務是『解讀數據』而不是『複述數據』：永遠先把數值對照健康區間判讀出意義、比較趨勢方向，再以貼心的語氣告訴家屬可以怎麼做。禁止單純羅列數字、禁止空泛鼓勵、禁止使用驚嘆號或誇張詞。正向變化先肯定，警訊溫和提醒。",
                 input = new object[]
                 {
                     new
@@ -236,8 +290,8 @@ Facts:
                                     additionalProperties = false,
                                     properties = new
                                     {
-                                        headline = new { type = "string", description = "一句話總結本週健康狀況，15-25 字。" },
-                                        body = new { type = "string", description = "2-3 句完整段落（80-120 字），必須引用至少兩項具體指標數據與趨勢方向，不要空泛鼓勵。" },
+                                        headline = new { type = "string", description = "一句話點出本週整體狀態與陪伴感，15-25 字，口吻溫暖。例：「本週血壓趨穩，但飯後血糖仍需我們一起注意」。" },
+                                        body = new { type = "string", description = "2-3 句完整段落（80-120 字）。先判讀數值落在健康區間的位置、趨勢方向，再給出家屬可採取的方向，用溫暖陪伴的口吻收尾。禁止只列數值、禁止空泛鼓勵、禁止驚嘆號。" },
                                         tone = new { type = "string", description = "supportive / neutral / watchful" },
                                         confidence = new { type = "string", description = "high / medium / low，依資料充足程度決定。" }
                                     },
@@ -251,7 +305,7 @@ Facts:
                                     properties = new
                                     {
                                         label = new { type = "string", description = "固定為「關鍵數據洞察」。" },
-                                        body = new { type = "string", description = "1-2 句（50-80 字），必須提到具體指標名稱、數值或百分比變化。" },
+                                        body = new { type = "string", description = "1-2 句（50-80 字）。以解讀方式點出最值得注意的模式或關聯，說明數值落在哪個健康區間、可能原因，不得只報數字。" },
                                         metricType = new { type = "string", description = "對應指標代碼：blood_pressure / blood_sugar / weight / temperature / blood_oxygen / general。" },
                                         severity = new { type = "string", description = "low / medium / high。" }
                                     },
@@ -265,7 +319,7 @@ Facts:
                                     properties = new
                                     {
                                         label = new { type = "string", description = "固定為「健康行動建議」。" },
-                                        body = new { type = "string", description = "1-2 句具體建議（50-80 字），包含飲食、作息或量測習慣的明確行動，不要寫空話。" },
+                                        body = new { type = "string", description = "1-2 句具體建議（50-80 字），以陪伴口吻提出（例：建議陪長輩…、可以嘗試…）。包含飲食、作息或量測習慣的明確行動，要與本週關鍵洞察有連動，不寫空話。" },
                                         priority = new { type = "string", description = "low / medium / high。" },
                                         timeframe = new { type = "string", description = "today / this_week。" }
                                     },
@@ -283,8 +337,8 @@ Facts:
                                         additionalProperties = false,
                                         properties = new
                                         {
-                                            title = new { type = "string", description = "卡片標題，例如「AI 分析摘要」或「今日量測進度」。" },
-                                            summary = new { type = "string", description = "今日狀態回饋，30-50 字。" },
+                                            title = new { type = "string", description = "卡片標題，例如「今日健康摘要」「AI 今日新建議」「量測小提醒」。" },
+                                            summary = new { type = "string", description = "今日狀態的貼心回饋，30-50 字。有量測先肯定再提醒，沒量測就溫和邀請補量，避免冷硬報告口吻。" },
                                             progressNote = new { type = "string", description = "進度說明，例如「今日健康任務達成 60%」。" },
                                             iconType = new { type = "string", description = "insight / progress / reminder。" },
                                             tone = new { type = "string", description = "supportive / neutral。" }

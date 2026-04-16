@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(dotnet build:*)",
-      "Bash(dotnet test:*)"
+      "Bash(dotnet test:*)",
+      "Bash(grep:*)",
+      "Bash(find /c/Users/家偉/DESKTOP/SEASONS-CARE -name \"*.cs\" -type f ! -path \"*/obj/*\" ! -path \"*/bin/*\" -exec grep -l \"^\\\\s*//.*[a-zA-Z]\" {} \\\\;)"
     ]
   }
 }
