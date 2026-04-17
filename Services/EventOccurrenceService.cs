@@ -40,7 +40,7 @@ namespace SeasonsCare.Api.Services
             var normalizedTo = NormalizeTimestamp(to);
             var seriesList = await _eventSeriesRepository.GetAllByCareGroupIdAsync(careGroupId);
             var overrides = await _eventOccurrenceRepository.GetByRangeAsync(careGroupId, normalizedFrom, normalizedTo);
-            var overrideLookup = overrides.ToDictionary(x => (x.EventSeriesId, NormalizeTimestamp(x.ScheduledStartAt)));
+            var overrideLookup = overrides.ToDictionary(x => (x.EventSeriesId, NormalizeTimestamp(x.OccurrenceKeyStartAt)));
 
             var items = new List<EventOccurrenceResponse>();
             foreach (var series in seriesList)
@@ -54,74 +54,131 @@ namespace SeasonsCare.Api.Services
                 .ToList();
         }
 
-        public async Task CancelOccurrenceAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
+        public Task CancelOccurrenceAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
         {
-            await UpsertOccurrenceStatusAsync(currentUserId, careGroupId, eventSeriesId, scheduledStartAt, EventOccurrenceStatus.Cancelled);
+            return UpsertOccurrenceOverrideAsync(
+                currentUserId,
+                careGroupId,
+                eventSeriesId,
+                scheduledStartAt,
+                overrideStatus: EventOccurrenceStatus.Cancelled);
         }
 
-        public async Task CompleteOccurrenceAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
+        public Task CompleteOccurrenceAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
         {
-            await UpsertOccurrenceStatusAsync(currentUserId, careGroupId, eventSeriesId, scheduledStartAt, EventOccurrenceStatus.Completed);
+            return UpsertOccurrenceOverrideAsync(
+                currentUserId,
+                careGroupId,
+                eventSeriesId,
+                scheduledStartAt,
+                overrideStatus: EventOccurrenceStatus.Completed);
         }
 
-        /// <summary>
-        /// 建立或更新單次事件的 override 狀態，例如 cancelled 或 completed。
-        /// </summary>
-        private async Task UpsertOccurrenceStatusAsync(
+        public async Task<EventOccurrenceResponse> UpdateOccurrenceAsync(Guid currentUserId, Guid careGroupId, UpdateEventOccurrenceRequest request)
+        {
+            var updated = await UpsertOccurrenceOverrideAsync(
+                currentUserId,
+                careGroupId,
+                request.EventSeriesId,
+                request.ScheduledStartAt,
+                request.Title,
+                request.Description,
+                request.StartsAt,
+                request.EndsAt,
+                request.Participants,
+                request.Status,
+                request.IsImportant);
+
+            return BuildOccurrenceResponse(updated.Series, updated.OccurrenceKeyStartAt, new Dictionary<(Guid SeriesId, DateTime ScheduledStartAt), EventOccurrence>
+            {
+                [(updated.Series.Id, updated.OccurrenceKeyStartAt)] = updated.Occurrence
+            });
+        }
+
+        public async Task ClearOccurrenceOverrideAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
+        {
+            await CheckMembershipAsync(careGroupId, currentUserId);
+
+            var series = await GetSeriesAsync(careGroupId, eventSeriesId);
+            var resolution = await ResolveOccurrenceAsync(series, scheduledStartAt);
+            var existing = await _eventOccurrenceRepository.GetBySeriesIdAndOccurrenceKeyStartAtAsync(eventSeriesId, resolution.OccurrenceKeyStartAt);
+
+            if (existing == null)
+            {
+                throw new DomainException("Event occurrence override not found.", "NOT_FOUND", 404);
+            }
+
+            existing.DeletedAt = NormalizeTimestamp(TimeHelper.UtcNow);
+            existing.UpdatedAt = existing.DeletedAt;
+            await _eventOccurrenceRepository.UpdateAsync(existing);
+            await _eventOccurrenceRepository.SaveChangesAsync();
+        }
+
+        private async Task<(EventSeries Series, EventOccurrence Occurrence, DateTime OccurrenceKeyStartAt)> UpsertOccurrenceOverrideAsync(
             Guid currentUserId,
             Guid careGroupId,
             Guid eventSeriesId,
             DateTime scheduledStartAt,
-            EventOccurrenceStatus status)
+            string? overrideTitle = null,
+            string? overrideDescription = null,
+            DateTime? overrideStartsAt = null,
+            DateTime? overrideEndsAt = null,
+            IReadOnlyCollection<string>? overrideParticipants = null,
+            EventOccurrenceStatus? overrideStatus = null,
+            bool? overrideIsImportant = null)
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
-            var series = await _eventSeriesRepository.GetByIdAsync(eventSeriesId);
-            if (series == null || series.CareGroupId != careGroupId)
-            {
-                throw new DomainException("Event series not found.", "NOT_FOUND", 404);
-            }
-
-            var normalizedStartAt = NormalizeTimestamp(scheduledStartAt);
-            var occurrenceExists = ExpandSeriesOccurrences(
-                    series,
-                    normalizedStartAt,
-                    normalizedStartAt,
-                    new Dictionary<(Guid SeriesId, DateTime ScheduledStartAt), EventOccurrence>())
-                .Any();
-
-            if (!occurrenceExists)
-            {
-                throw new DomainException("Event occurrence not found in this series.", "NOT_FOUND", 404);
-            }
-
-            var existing = await _eventOccurrenceRepository.GetBySeriesIdAndScheduledStartAtAsync(eventSeriesId, normalizedStartAt);
+            var series = await GetSeriesAsync(careGroupId, eventSeriesId);
+            var resolution = await ResolveOccurrenceAsync(series, scheduledStartAt);
+            var occurrenceKeyStartAt = resolution.OccurrenceKeyStartAt;
+            var existing = await _eventOccurrenceRepository.GetBySeriesIdAndOccurrenceKeyStartAtAsync(eventSeriesId, occurrenceKeyStartAt);
             var now = NormalizeTimestamp(TimeHelper.UtcNow);
+
+            if (overrideEndsAt.HasValue)
+            {
+                var effectiveStart = NormalizeTimestamp(overrideStartsAt ?? resolution.CurrentEffectiveStartAt);
+                var effectiveEnd = NormalizeTimestamp(overrideEndsAt.Value);
+                if (effectiveEnd < effectiveStart)
+                {
+                    throw new DomainException("The endsAt value must be greater than or equal to startsAt.", "VALIDATION_FAILED", 400);
+                }
+            }
 
             if (existing == null)
             {
-                var created = new EventOccurrence
+                existing = new EventOccurrence
                 {
                     EventSeriesId = eventSeriesId,
                     CareGroupId = careGroupId,
-                    ScheduledStartAt = normalizedStartAt,
-                    ScheduledEndAt = CalculateScheduledEndAt(normalizedStartAt, series.DurationMinutes),
-                    Status = status,
+                    OccurrenceKeyStartAt = occurrenceKeyStartAt,
                     CreatedAt = now,
-                    UpdatedAt = now,
                     CreatedBy = currentUserId.ToString()
                 };
 
-                await _eventOccurrenceRepository.AddAsync(created);
-            }
-            else
-            {
-                existing.Status = status;
-                existing.UpdatedAt = now;
-                await _eventOccurrenceRepository.UpdateAsync(existing);
+                await _eventOccurrenceRepository.AddAsync(existing);
             }
 
+            existing.OverrideTitle = overrideTitle ?? existing.OverrideTitle;
+            existing.OverrideDescription = overrideDescription ?? existing.OverrideDescription;
+            existing.OverrideParticipants = overrideParticipants != null
+                ? overrideParticipants.ToArray()
+                : existing.OverrideParticipants;
+            existing.OverrideStartAt = ResolveOverrideStartAt(overrideStartsAt, occurrenceKeyStartAt, existing.OverrideStartAt);
+            existing.OverrideEndAt = ResolveOverrideEndAt(
+                overrideEndsAt,
+                existing.OverrideStartAt ?? resolution.CurrentEffectiveStartAt,
+                occurrenceKeyStartAt,
+                series.DurationMinutes,
+                existing.OverrideEndAt);
+            existing.Status = overrideStatus ?? existing.Status;
+            existing.OverrideIsImportant = overrideIsImportant ?? existing.OverrideIsImportant;
+            existing.UpdatedAt = now;
+
+            await _eventOccurrenceRepository.UpdateAsync(existing);
             await _eventOccurrenceRepository.SaveChangesAsync();
+
+            return (series, existing, occurrenceKeyStartAt);
         }
 
         private async Task CheckMembershipAsync(Guid careGroupId, Guid userId)
@@ -131,6 +188,43 @@ namespace SeasonsCare.Api.Services
             {
                 throw new DomainException("You are not a member of this care group.", "FORBIDDEN", 403);
             }
+        }
+
+        private async Task<EventSeries> GetSeriesAsync(Guid careGroupId, Guid eventSeriesId)
+        {
+            var series = await _eventSeriesRepository.GetByIdAsync(eventSeriesId);
+            if (series == null || series.CareGroupId != careGroupId)
+            {
+                throw new DomainException("Event series not found.", "NOT_FOUND", 404);
+            }
+
+            return series;
+        }
+
+        private async Task<ResolvedOccurrence> ResolveOccurrenceAsync(EventSeries series, DateTime requestedScheduledStartAt)
+        {
+            var normalizedRequestedStartAt = NormalizeTimestamp(requestedScheduledStartAt);
+            var existing = await _eventOccurrenceRepository.GetBySeriesIdAndEffectiveStartAtAsync(series.Id, normalizedRequestedStartAt);
+            if (existing != null)
+            {
+                return new ResolvedOccurrence(
+                    NormalizeTimestamp(existing.OccurrenceKeyStartAt),
+                    NormalizeTimestamp(existing.OverrideStartAt ?? existing.OccurrenceKeyStartAt));
+            }
+
+            var occurrenceExists = ExpandSeriesOccurrences(
+                    series,
+                    normalizedRequestedStartAt,
+                    normalizedRequestedStartAt,
+                    new Dictionary<(Guid SeriesId, DateTime ScheduledStartAt), EventOccurrence>())
+                .Any();
+
+            if (!occurrenceExists)
+            {
+                throw new DomainException("Event occurrence not found in this series.", "NOT_FOUND", 404);
+            }
+
+            return new ResolvedOccurrence(normalizedRequestedStartAt, normalizedRequestedStartAt);
         }
 
         private static IEnumerable<EventOccurrenceResponse> ExpandSeriesOccurrences(
@@ -180,14 +274,15 @@ namespace SeasonsCare.Api.Services
                     yield break;
                 }
 
-                if (scheduledStartAt < from)
+                var effectiveStartAt = ResolveEffectiveStartAt(series.Id, scheduledStartAt, overrideLookup);
+                if (effectiveStartAt < from)
                 {
                     continue;
                 }
 
-                if (scheduledStartAt > to)
+                if (effectiveStartAt > to)
                 {
-                    yield break;
+                    continue;
                 }
 
                 yield return BuildOccurrenceResponse(series, scheduledStartAt, overrideLookup);
@@ -212,14 +307,15 @@ namespace SeasonsCare.Api.Services
                     yield break;
                 }
 
-                if (scheduledStartAt < from)
+                var effectiveStartAt = ResolveEffectiveStartAt(series.Id, scheduledStartAt, overrideLookup);
+                if (effectiveStartAt < from)
                 {
                     continue;
                 }
 
-                if (scheduledStartAt > to)
+                if (effectiveStartAt > to)
                 {
-                    yield break;
+                    continue;
                 }
 
                 yield return BuildOccurrenceResponse(series, scheduledStartAt, overrideLookup);
@@ -244,21 +340,21 @@ namespace SeasonsCare.Api.Services
                     yield break;
                 }
 
-                if (scheduledStartAt < from)
+                var effectiveStartAt = ResolveEffectiveStartAt(series.Id, scheduledStartAt, overrideLookup);
+                if (effectiveStartAt < from)
                 {
                     continue;
                 }
 
-                if (scheduledStartAt > to)
+                if (effectiveStartAt > to)
                 {
-                    yield break;
+                    continue;
                 }
 
                 yield return BuildOccurrenceResponse(series, scheduledStartAt, overrideLookup);
             }
         }
 
-        // Daily 規則直接依 repeatInterval 以天數遞增。
         private static IEnumerable<DateTime> EnumerateDailyOccurrences(EventSeries series, DateTime rangeEnd)
         {
             var start = NormalizeTimestamp(series.StartsAt);
@@ -322,7 +418,6 @@ namespace SeasonsCare.Api.Services
             }
         }
 
-        // Monthly 規則沿用 startsAt 的日與時間；若該月沒有相同日，則退到該月最後一天。
         private static IEnumerable<DateTime> EnumerateMonthlyOccurrences(EventSeries series, DateTime rangeEnd)
         {
             var start = NormalizeTimestamp(series.StartsAt);
@@ -352,7 +447,6 @@ namespace SeasonsCare.Api.Services
             }
         }
 
-        // 每月重複固定沿用 startsAt 的日與時間；若該月沒有該日，則落在該月最後一天。
         private static DateTime BuildMonthlyOccurrenceStart(DateTime start, int monthsToAdd)
         {
             var targetMonth = start.AddMonths(monthsToAdd);
@@ -405,23 +499,30 @@ namespace SeasonsCare.Api.Services
 
         private static EventOccurrenceResponse BuildOccurrenceResponse(
             EventSeries series,
-            DateTime scheduledStartAt,
+            DateTime occurrenceKeyStartAt,
             IReadOnlyDictionary<(Guid SeriesId, DateTime ScheduledStartAt), EventOccurrence> overrideLookup)
         {
-            var key = (series.Id, NormalizeTimestamp(scheduledStartAt));
+            var key = (series.Id, NormalizeTimestamp(occurrenceKeyStartAt));
             if (overrideLookup.TryGetValue(key, out var overrideOccurrence))
             {
+                var effectiveStartAt = NormalizeTimestamp(overrideOccurrence.OverrideStartAt ?? occurrenceKeyStartAt);
+                var defaultEndAt = CalculateScheduledEndAt(occurrenceKeyStartAt, series.DurationMinutes);
+                var overrideEndAt = overrideOccurrence.OverrideEndAt;
+                var effectiveEndAt = overrideEndAt ?? (overrideOccurrence.OverrideStartAt.HasValue
+                    ? CalculateScheduledEndAt(effectiveStartAt, series.DurationMinutes)
+                    : defaultEndAt);
+
                 return new EventOccurrenceResponse
                 {
                     Id = overrideOccurrence.Id,
                     EventSeriesId = series.Id,
                     Title = overrideOccurrence.OverrideTitle ?? series.Title,
                     Description = overrideOccurrence.OverrideDescription ?? series.Description,
-                    ScheduledStartAt = TimeHelper.ToTaiwanOffset(overrideOccurrence.ScheduledStartAt),
-                    ScheduledEndAt = TimeHelper.ToTaiwanOffset(overrideOccurrence.ScheduledEndAt ?? CalculateScheduledEndAt(scheduledStartAt, series.DurationMinutes)),
+                    ScheduledStartAt = TimeHelper.ToTaiwanOffset(effectiveStartAt),
+                    ScheduledEndAt = TimeHelper.ToTaiwanOffset(effectiveEndAt),
                     Participants = (overrideOccurrence.OverrideParticipants ?? series.Participants).ToList(),
                     Status = overrideOccurrence.Status,
-                    IsImportant = overrideOccurrence.IsImportantOverride || series.IsImportant,
+                    IsImportant = overrideOccurrence.OverrideIsImportant ?? series.IsImportant,
                     HasOverrides = true
                 };
             }
@@ -432,13 +533,24 @@ namespace SeasonsCare.Api.Services
                 EventSeriesId = series.Id,
                 Title = series.Title,
                 Description = series.Description,
-                ScheduledStartAt = TimeHelper.ToTaiwanOffset(scheduledStartAt),
-                ScheduledEndAt = TimeHelper.ToTaiwanOffset(CalculateScheduledEndAt(scheduledStartAt, series.DurationMinutes)),
+                ScheduledStartAt = TimeHelper.ToTaiwanOffset(occurrenceKeyStartAt),
+                ScheduledEndAt = TimeHelper.ToTaiwanOffset(CalculateScheduledEndAt(occurrenceKeyStartAt, series.DurationMinutes)),
                 Participants = series.Participants.ToList(),
                 Status = EventOccurrenceStatus.Scheduled,
                 IsImportant = series.IsImportant,
                 HasOverrides = false
             };
+        }
+
+        private static DateTime ResolveEffectiveStartAt(
+            Guid eventSeriesId,
+            DateTime occurrenceKeyStartAt,
+            IReadOnlyDictionary<(Guid SeriesId, DateTime ScheduledStartAt), EventOccurrence> overrideLookup)
+        {
+            var key = (eventSeriesId, NormalizeTimestamp(occurrenceKeyStartAt));
+            return overrideLookup.TryGetValue(key, out var overrideOccurrence)
+                ? NormalizeTimestamp(overrideOccurrence.OverrideStartAt ?? occurrenceKeyStartAt)
+                : NormalizeTimestamp(occurrenceKeyStartAt);
         }
 
         private static DateTime? CalculateScheduledEndAt(DateTime scheduledStartAt, int? durationMinutes)
@@ -451,6 +563,46 @@ namespace SeasonsCare.Api.Services
             return scheduledStartAt.AddMinutes(durationMinutes.Value);
         }
 
+        private static DateTime? ResolveOverrideStartAt(DateTime? requestedOverrideStartAt, DateTime occurrenceKeyStartAt, DateTime? currentOverrideStartAt)
+        {
+            if (!requestedOverrideStartAt.HasValue)
+            {
+                return currentOverrideStartAt;
+            }
+
+            var normalizedOverrideStartAt = NormalizeTimestamp(requestedOverrideStartAt.Value);
+            return normalizedOverrideStartAt == occurrenceKeyStartAt ? null : normalizedOverrideStartAt;
+        }
+
+        private static DateTime? ResolveOverrideEndAt(
+            DateTime? requestedOverrideEndAt,
+            DateTime effectiveStartAt,
+            DateTime occurrenceKeyStartAt,
+            int? durationMinutes,
+            DateTime? currentOverrideEndAt)
+        {
+            if (!requestedOverrideEndAt.HasValue)
+            {
+                return currentOverrideEndAt;
+            }
+
+            var normalizedOverrideEndAt = NormalizeTimestamp(requestedOverrideEndAt.Value);
+            var defaultEndAt = CalculateScheduledEndAt(occurrenceKeyStartAt, durationMinutes);
+            var expectedShiftedEndAt = CalculateScheduledEndAt(NormalizeTimestamp(effectiveStartAt), durationMinutes);
+
+            if (defaultEndAt.HasValue && normalizedOverrideEndAt == defaultEndAt.Value && effectiveStartAt == occurrenceKeyStartAt)
+            {
+                return null;
+            }
+
+            if (expectedShiftedEndAt.HasValue && normalizedOverrideEndAt == expectedShiftedEndAt.Value)
+            {
+                return null;
+            }
+
+            return normalizedOverrideEndAt;
+        }
+
         private static DateTime NormalizeTimestamp(DateTime value)
         {
             var utcValue = value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime();
@@ -461,5 +613,7 @@ namespace SeasonsCare.Api.Services
         {
             return left <= right ? left : right;
         }
+
+        private sealed record ResolvedOccurrence(DateTime OccurrenceKeyStartAt, DateTime CurrentEffectiveStartAt);
     }
 }

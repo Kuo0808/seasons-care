@@ -26,9 +26,11 @@ namespace SeasonsCare.Api.Models.Entities
         [ForeignKey(nameof(CareGroupId))]
         public CareGroup CareGroup { get; set; } = null!;
 
-        public DateTime ScheduledStartAt { get; set; }
+        public DateTime OccurrenceKeyStartAt { get; set; }
 
-        public DateTime? ScheduledEndAt { get; set; }
+        public DateTime? OverrideStartAt { get; set; }
+
+        public DateTime? OverrideEndAt { get; set; }
 
         public string? OverrideTitle { get; set; }
 
@@ -38,7 +40,7 @@ namespace SeasonsCare.Api.Models.Entities
 
         public EventOccurrenceStatus Status { get; set; } = EventOccurrenceStatus.Scheduled;
 
-        public bool IsImportantOverride { get; set; }
+        public bool? OverrideIsImportant { get; set; }
 
 public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
 

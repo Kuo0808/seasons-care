@@ -8,7 +8,8 @@ namespace SeasonsCare.Api.Repositories
     public interface IEventOccurrenceRepository
     {
         Task<List<EventOccurrence>> GetByRangeAsync(Guid careGroupId, DateTime from, DateTime to);
-        Task<EventOccurrence?> GetBySeriesIdAndScheduledStartAtAsync(Guid eventSeriesId, DateTime scheduledStartAt);
+        Task<EventOccurrence?> GetBySeriesIdAndOccurrenceKeyStartAtAsync(Guid eventSeriesId, DateTime occurrenceKeyStartAt);
+        Task<EventOccurrence?> GetBySeriesIdAndEffectiveStartAtAsync(Guid eventSeriesId, DateTime effectiveStartAt);
         Task AddAsync(EventOccurrence occurrence);
         Task UpdateAsync(EventOccurrence occurrence);
         Task SaveChangesAsync();

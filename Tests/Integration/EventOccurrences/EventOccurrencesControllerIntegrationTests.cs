@@ -39,6 +39,42 @@ public class EventOccurrencesControllerIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task UpdateOccurrence_ReturnsOk()
+    {
+        using var factory = new StubApiFactory<IEventOccurrenceService>(new StubEventOccurrenceService());
+        using var client = factory.CreateClient();
+
+        var response = await client.PatchAsJsonAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/event-occurrences", new
+        {
+            eventSeriesId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            scheduledStartAt = "2026-04-08T15:00:00Z",
+            title = "Updated Reminder"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ClearOccurrenceOverride_ReturnsOk()
+    {
+        using var factory = new StubApiFactory<IEventOccurrenceService>(new StubEventOccurrenceService());
+        using var client = factory.CreateClient();
+
+        var request = new HttpRequestMessage(HttpMethod.Delete, "/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/event-occurrences/override")
+        {
+            Content = JsonContent.Create(new
+            {
+                eventSeriesId = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                scheduledStartAt = "2026-04-08T15:00:00Z"
+            })
+        };
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private sealed class StubEventOccurrenceService : IEventOccurrenceService
     {
         public Task<IReadOnlyList<EventOccurrenceResponse>> GetOccurrencesAsync(Guid currentUserId, Guid careGroupId, DateTime from, DateTime to)
@@ -61,6 +97,24 @@ public class EventOccurrencesControllerIntegrationTests
             => Task.CompletedTask;
 
         public Task CompleteOccurrenceAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
+            => Task.CompletedTask;
+
+        public Task<EventOccurrenceResponse> UpdateOccurrenceAsync(Guid currentUserId, Guid careGroupId, UpdateEventOccurrenceRequest request)
+        {
+            return Task.FromResult(new EventOccurrenceResponse
+            {
+                EventSeriesId = request.EventSeriesId,
+                Title = request.Title ?? "Medication Reminder",
+                ScheduledStartAt = request.StartsAt ?? request.ScheduledStartAt,
+                ScheduledEndAt = request.EndsAt,
+                Participants = request.Participants ?? new List<string>(),
+                Status = request.Status ?? EventOccurrenceStatus.Scheduled,
+                IsImportant = request.IsImportant ?? false,
+                HasOverrides = true
+            });
+        }
+
+        public Task ClearOccurrenceOverrideAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
             => Task.CompletedTask;
     }
 }

@@ -1,3 +1,4 @@
+using SeasonsCare.Api.DTOs.EventOccurrences;
 using SeasonsCare.Api.Models.Entities;
 using SeasonsCare.Api.Models.Enums;
 using SeasonsCare.Api.Repositories;
@@ -53,23 +54,7 @@ public class EventOccurrenceServiceTests
         var careGroupId = Guid.NewGuid();
         var userId = Guid.NewGuid();
         var seriesId = Guid.NewGuid();
-        var seriesRepository = new FakeEventSeriesRepository(
-            new EventSeries
-            {
-                Id = seriesId,
-                CareGroupId = careGroupId,
-                Title = "Weekly Clinic",
-                StartsAt = new DateTime(2026, 4, 6, 9, 0, 0, DateTimeKind.Utc),
-                RepeatPattern = EventRepeatPattern.Weekly,
-                RepeatInterval = 1,
-                DaysOfWeekMask = 1 << (int)DayOfWeek.Monday,
-                EndType = EventSeriesEndType.Never,
-                Participants = new[] { userId.ToString() },
-                CreatedBy = userId.ToString()
-            });
-        var occurrenceRepository = new FakeEventOccurrenceRepository();
-        var groupRepository = new FakeCareGroupRepository(isMember: true);
-        var service = new EventOccurrenceService(seriesRepository, occurrenceRepository, groupRepository);
+        var service = BuildWeeklyService(careGroupId, userId, seriesId, out var occurrenceRepository);
         var thirdWeek = new DateTime(2026, 4, 20, 9, 0, 0, DateTimeKind.Utc);
 
         await service.CancelOccurrenceAsync(userId, careGroupId, seriesId, thirdWeek);
@@ -84,6 +69,7 @@ public class EventOccurrenceServiceTests
         Assert.Equal(EventOccurrenceStatus.Cancelled, cancelled.Status);
         Assert.True(cancelled.HasOverrides);
         Assert.Single(occurrenceRepository.Items);
+        Assert.Equal(thirdWeek, occurrenceRepository.Items[0].OccurrenceKeyStartAt);
     }
 
     [Fact]
@@ -125,6 +111,105 @@ public class EventOccurrenceServiceTests
     }
 
     [Fact]
+    public async Task UpdateOccurrenceAsync_CreatesOverride_AndMovesOccurrence()
+    {
+        var careGroupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+        var service = BuildWeeklyService(careGroupId, userId, seriesId, out var occurrenceRepository);
+        var originalStart = new DateTime(2026, 4, 20, 9, 0, 0, DateTimeKind.Utc);
+        var movedStart = new DateTime(2026, 4, 20, 11, 0, 0, DateTimeKind.Utc);
+        var movedEnd = new DateTime(2026, 4, 20, 12, 30, 0, DateTimeKind.Utc);
+
+        var updated = await service.UpdateOccurrenceAsync(userId, careGroupId, new UpdateEventOccurrenceRequest
+        {
+            EventSeriesId = seriesId,
+            ScheduledStartAt = originalStart,
+            Title = "Moved Clinic",
+            Description = "Bring reports",
+            StartsAt = movedStart,
+            EndsAt = movedEnd,
+            Participants = new List<string> { userId.ToString(), "helper" },
+            IsImportant = false,
+            Status = EventOccurrenceStatus.Scheduled
+        });
+
+        Assert.Equal(movedStart, updated.ScheduledStartAt.UtcDateTime);
+        Assert.Equal(movedEnd, updated.ScheduledEndAt!.Value.UtcDateTime);
+        Assert.Equal("Moved Clinic", updated.Title);
+        Assert.Equal("Bring reports", updated.Description);
+        Assert.Equal(new[] { userId.ToString(), "helper" }, updated.Participants);
+        Assert.False(updated.IsImportant);
+        Assert.True(updated.HasOverrides);
+
+        var stored = Assert.Single(occurrenceRepository.Items);
+        Assert.Equal(originalStart, stored.OccurrenceKeyStartAt);
+        Assert.Equal(movedStart, stored.OverrideStartAt);
+        Assert.Equal(movedEnd, stored.OverrideEndAt);
+        Assert.False(stored.OverrideIsImportant);
+    }
+
+    [Fact]
+    public async Task UpdateOccurrenceAsync_UsesDisplayedStartTime_ForExistingMovedOccurrence()
+    {
+        var careGroupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+        var service = BuildWeeklyService(careGroupId, userId, seriesId, out _);
+        var originalStart = new DateTime(2026, 4, 20, 9, 0, 0, DateTimeKind.Utc);
+        var movedStart = new DateTime(2026, 4, 20, 11, 0, 0, DateTimeKind.Utc);
+
+        await service.UpdateOccurrenceAsync(userId, careGroupId, new UpdateEventOccurrenceRequest
+        {
+            EventSeriesId = seriesId,
+            ScheduledStartAt = originalStart,
+            StartsAt = movedStart
+        });
+
+        var updated = await service.UpdateOccurrenceAsync(userId, careGroupId, new UpdateEventOccurrenceRequest
+        {
+            EventSeriesId = seriesId,
+            ScheduledStartAt = movedStart,
+            Title = "Follow-up Visit"
+        });
+
+        Assert.Equal(movedStart, updated.ScheduledStartAt.UtcDateTime);
+        Assert.Equal("Follow-up Visit", updated.Title);
+    }
+
+    [Fact]
+    public async Task ClearOccurrenceOverrideAsync_RemovesOverride_AndRestoresSeriesDefaults()
+    {
+        var careGroupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+        var service = BuildWeeklyService(careGroupId, userId, seriesId, out var occurrenceRepository);
+        var originalStart = new DateTime(2026, 4, 20, 9, 0, 0, DateTimeKind.Utc);
+        var movedStart = new DateTime(2026, 4, 20, 11, 0, 0, DateTimeKind.Utc);
+
+        await service.UpdateOccurrenceAsync(userId, careGroupId, new UpdateEventOccurrenceRequest
+        {
+            EventSeriesId = seriesId,
+            ScheduledStartAt = originalStart,
+            Title = "Moved Clinic",
+            StartsAt = movedStart
+        });
+
+        await service.ClearOccurrenceOverrideAsync(userId, careGroupId, seriesId, movedStart);
+
+        var items = await service.GetOccurrencesAsync(
+            userId,
+            careGroupId,
+            new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 4, 30, 23, 59, 59, DateTimeKind.Utc));
+
+        var restored = items.Single(x => x.ScheduledStartAt == originalStart);
+        Assert.Equal("Weekly Clinic", restored.Title);
+        Assert.False(restored.HasOverrides);
+        Assert.True(occurrenceRepository.Items[0].DeletedAt.HasValue);
+    }
+
+    [Fact]
     public async Task GetOccurrencesAsync_ExpandsDailySeriesWithinRange()
     {
         var careGroupId = Guid.NewGuid();
@@ -153,10 +238,10 @@ public class EventOccurrenceServiceTests
             new DateTime(2026, 4, 7, 23, 59, 59, DateTimeKind.Utc));
 
         Assert.Equal(4, items.Count);
-        Assert.Equal(new DateTime(2026, 4, 1, 8, 30, 0, DateTimeKind.Utc), items[0].ScheduledStartAt);
-        Assert.Equal(new DateTime(2026, 4, 3, 8, 30, 0, DateTimeKind.Utc), items[1].ScheduledStartAt);
-        Assert.Equal(new DateTime(2026, 4, 5, 8, 30, 0, DateTimeKind.Utc), items[2].ScheduledStartAt);
-        Assert.Equal(new DateTime(2026, 4, 7, 8, 30, 0, DateTimeKind.Utc), items[3].ScheduledStartAt);
+        Assert.Equal(new DateTime(2026, 4, 1, 8, 30, 0, DateTimeKind.Utc), items[0].ScheduledStartAt.UtcDateTime);
+        Assert.Equal(new DateTime(2026, 4, 3, 8, 30, 0, DateTimeKind.Utc), items[1].ScheduledStartAt.UtcDateTime);
+        Assert.Equal(new DateTime(2026, 4, 5, 8, 30, 0, DateTimeKind.Utc), items[2].ScheduledStartAt.UtcDateTime);
+        Assert.Equal(new DateTime(2026, 4, 7, 8, 30, 0, DateTimeKind.Utc), items[3].ScheduledStartAt.UtcDateTime);
     }
 
     [Fact]
@@ -188,10 +273,33 @@ public class EventOccurrenceServiceTests
             new DateTime(2026, 4, 30, 23, 59, 59, DateTimeKind.Utc));
 
         Assert.Equal(4, items.Count);
-        Assert.Equal(new DateTime(2026, 1, 31, 10, 0, 0, DateTimeKind.Utc), items[0].ScheduledStartAt);
-        Assert.Equal(new DateTime(2026, 2, 28, 10, 0, 0, DateTimeKind.Utc), items[1].ScheduledStartAt);
-        Assert.Equal(new DateTime(2026, 3, 31, 10, 0, 0, DateTimeKind.Utc), items[2].ScheduledStartAt);
-        Assert.Equal(new DateTime(2026, 4, 30, 10, 0, 0, DateTimeKind.Utc), items[3].ScheduledStartAt);
+        Assert.Equal(new DateTime(2026, 1, 31, 10, 0, 0, DateTimeKind.Utc), items[0].ScheduledStartAt.UtcDateTime);
+        Assert.Equal(new DateTime(2026, 2, 28, 10, 0, 0, DateTimeKind.Utc), items[1].ScheduledStartAt.UtcDateTime);
+        Assert.Equal(new DateTime(2026, 3, 31, 10, 0, 0, DateTimeKind.Utc), items[2].ScheduledStartAt.UtcDateTime);
+        Assert.Equal(new DateTime(2026, 4, 30, 10, 0, 0, DateTimeKind.Utc), items[3].ScheduledStartAt.UtcDateTime);
+    }
+
+    private static EventOccurrenceService BuildWeeklyService(Guid careGroupId, Guid userId, Guid seriesId, out FakeEventOccurrenceRepository occurrenceRepository)
+    {
+        var seriesRepository = new FakeEventSeriesRepository(
+            new EventSeries
+            {
+                Id = seriesId,
+                CareGroupId = careGroupId,
+                Title = "Weekly Clinic",
+                StartsAt = new DateTime(2026, 4, 6, 9, 0, 0, DateTimeKind.Utc),
+                DurationMinutes = 60,
+                RepeatPattern = EventRepeatPattern.Weekly,
+                RepeatInterval = 1,
+                DaysOfWeekMask = 1 << (int)DayOfWeek.Monday,
+                EndType = EventSeriesEndType.Never,
+                Participants = new[] { userId.ToString() },
+                IsImportant = true,
+                CreatedBy = userId.ToString()
+            });
+        occurrenceRepository = new FakeEventOccurrenceRepository();
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        return new EventOccurrenceService(seriesRepository, occurrenceRepository, groupRepository);
     }
 
     private sealed class FakeEventSeriesRepository : IEventSeriesRepository
@@ -229,12 +337,30 @@ public class EventOccurrenceServiceTests
 
         public Task<List<EventOccurrence>> GetByRangeAsync(Guid careGroupId, DateTime from, DateTime to)
         {
-            return Task.FromResult(Items.Where(x => x.CareGroupId == careGroupId && x.ScheduledStartAt >= from && x.ScheduledStartAt <= to).ToList());
+            return Task.FromResult(Items
+                .Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null)
+                .Where(x =>
+                {
+                    var effectiveStart = x.OverrideStartAt ?? x.OccurrenceKeyStartAt;
+                    return effectiveStart >= from && effectiveStart <= to;
+                })
+                .ToList());
         }
 
-        public Task<EventOccurrence?> GetBySeriesIdAndScheduledStartAtAsync(Guid eventSeriesId, DateTime scheduledStartAt)
+        public Task<EventOccurrence?> GetBySeriesIdAndOccurrenceKeyStartAtAsync(Guid eventSeriesId, DateTime occurrenceKeyStartAt)
         {
-            return Task.FromResult(Items.FirstOrDefault(x => x.EventSeriesId == eventSeriesId && x.ScheduledStartAt == scheduledStartAt));
+            return Task.FromResult(Items.FirstOrDefault(x =>
+                x.EventSeriesId == eventSeriesId &&
+                x.OccurrenceKeyStartAt == occurrenceKeyStartAt &&
+                x.DeletedAt == null));
+        }
+
+        public Task<EventOccurrence?> GetBySeriesIdAndEffectiveStartAtAsync(Guid eventSeriesId, DateTime effectiveStartAt)
+        {
+            return Task.FromResult(Items.FirstOrDefault(x =>
+                x.EventSeriesId == eventSeriesId &&
+                (x.OverrideStartAt ?? x.OccurrenceKeyStartAt) == effectiveStartAt &&
+                x.DeletedAt == null));
         }
 
         public Task AddAsync(EventOccurrence occurrence)

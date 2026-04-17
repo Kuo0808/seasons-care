@@ -20,14 +20,23 @@ namespace SeasonsCare.Api.Repositories
         public async Task<List<EventOccurrence>> GetByRangeAsync(Guid careGroupId, DateTime from, DateTime to)
         {
             return await _context.EventOccurrences
-                .Where(x => x.CareGroupId == careGroupId && x.ScheduledStartAt >= from && x.ScheduledStartAt <= to)
+                .Where(x => x.CareGroupId == careGroupId &&
+                            (x.OverrideStartAt ?? x.OccurrenceKeyStartAt) >= from &&
+                            (x.OverrideStartAt ?? x.OccurrenceKeyStartAt) <= to)
                 .ToListAsync();
         }
 
-        public async Task<EventOccurrence?> GetBySeriesIdAndScheduledStartAtAsync(Guid eventSeriesId, DateTime scheduledStartAt)
+        public async Task<EventOccurrence?> GetBySeriesIdAndOccurrenceKeyStartAtAsync(Guid eventSeriesId, DateTime occurrenceKeyStartAt)
         {
             return await _context.EventOccurrences
-                .FirstOrDefaultAsync(x => x.EventSeriesId == eventSeriesId && x.ScheduledStartAt == scheduledStartAt);
+                .FirstOrDefaultAsync(x => x.EventSeriesId == eventSeriesId && x.OccurrenceKeyStartAt == occurrenceKeyStartAt);
+        }
+
+        public async Task<EventOccurrence?> GetBySeriesIdAndEffectiveStartAtAsync(Guid eventSeriesId, DateTime effectiveStartAt)
+        {
+            return await _context.EventOccurrences
+                .FirstOrDefaultAsync(x => x.EventSeriesId == eventSeriesId &&
+                                          (x.OverrideStartAt ?? x.OccurrenceKeyStartAt) == effectiveStartAt);
         }
 
         public async Task AddAsync(EventOccurrence occurrence)

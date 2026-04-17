@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
@@ -11,7 +12,7 @@ namespace SeasonsCare.Api.Controllers
 {
     /// <summary>
     /// 事件實例 API。
-    /// 提供查詢、取消與完成單次事件的能力。
+    /// 提供查詢、取消、完成、更新單次事件，以及清除單次覆寫回復系列預設的能力。
     /// </summary>
     [Authorize]
     [ApiController]
@@ -30,13 +31,15 @@ namespace SeasonsCare.Api.Controllers
         /// <summary>
         /// 取得指定區間內的事件實例。
         /// </summary>
+        /// <param name="careGroupId">照護群組 ID。</param>
+        /// <param name="request">查詢區間，from 與 to 皆必填，回傳結果已套用單次覆寫。</param>
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<EventOccurrenceResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("取得事件實例列表")]
-        [EndpointDescription("依照 from 與 to 查詢指定照護群組內的事件實例，回傳已展開的單次事件資料。")]
+        [EndpointSummary("取得事件實例")]
+        [EndpointDescription("依 from 與 to 查詢區間內的事件實例，回傳已套用單次覆寫後的結果。")]
         public async Task<IActionResult> GetOccurrences(Guid careGroupId, [FromQuery] GetEventOccurrencesRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -48,6 +51,8 @@ namespace SeasonsCare.Api.Controllers
         /// <summary>
         /// 取消單次事件。
         /// </summary>
+        /// <param name="careGroupId">照護群組 ID。</param>
+        /// <param name="request">以 eventSeriesId 與 scheduledStartAt 指定要取消的單次事件。</param>
         [HttpPost("cancel")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -55,7 +60,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [EndpointSummary("取消單次事件")]
-        [EndpointDescription("依照 eventSeriesId 與 scheduledStartAt 只取消該次事件實例，不影響同系列其他事件。")]
+        [EndpointDescription("依 eventSeriesId 與 scheduledStartAt 將單次事件標記為 cancelled。")]
         public async Task<IActionResult> CancelOccurrence(Guid careGroupId, [FromBody] CancelEventOccurrenceRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -65,21 +70,65 @@ namespace SeasonsCare.Api.Controllers
         }
 
         /// <summary>
-        /// 標記單次事件已完成。
+        /// 標記單次事件完成。
         /// </summary>
+        /// <param name="careGroupId">照護群組 ID。</param>
+        /// <param name="request">以 eventSeriesId 與 scheduledStartAt 指定要標記完成的單次事件。</param>
         [HttpPost("complete")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [EndpointSummary("標記單次事件完成")]
-        [EndpointDescription("依照 eventSeriesId 與 scheduledStartAt 只更新該次事件實例，將狀態標記為 completed，不影響同系列其他事件。")]
+        [EndpointSummary("完成單次事件")]
+        [EndpointDescription("依 eventSeriesId 與 scheduledStartAt 將單次事件標記為 completed。")]
         public async Task<IActionResult> CompleteOccurrence(Guid careGroupId, [FromBody] CompleteEventOccurrenceRequest request)
         {
             var currentUserId = _currentUserService.UserId;
             await _eventOccurrenceService.CompleteOccurrenceAsync(currentUserId, careGroupId, request.EventSeriesId, request.ScheduledStartAt);
-            var response = new ApiResponse<object>(null, "標記單次事件完成成功", HttpContext.TraceIdentifier);
+            var response = new ApiResponse<object>(null, "完成單次事件成功", HttpContext.TraceIdentifier);
+            return Ok(response);
+        }
+
+        /// <summary>
+        /// 更新單次事件。
+        /// </summary>
+        /// <param name="careGroupId">照護群組 ID。</param>
+        /// <param name="request">指定單次事件後，可一次更新標題、描述、時間、參與者、狀態與重要性。</param>
+        [HttpPatch]
+        [ProducesResponseType(typeof(ApiResponse<EventOccurrenceResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [EndpointSummary("更新單次事件")]
+        [EndpointDescription("更新單次事件的時間、內容、參與者、狀態與重要性，不影響原始 series 規則。")]
+        public async Task<IActionResult> UpdateOccurrence(Guid careGroupId, [FromBody] UpdateEventOccurrenceRequest request)
+        {
+            var currentUserId = _currentUserService.UserId;
+            var item = await _eventOccurrenceService.UpdateOccurrenceAsync(currentUserId, careGroupId, request);
+            var response = new ApiResponse<EventOccurrenceResponse>(item, "更新事件實例成功", HttpContext.TraceIdentifier);
+            return Ok(response);
+        }
+
+        /// <summary>
+        /// 清除單次事件覆寫。
+        /// </summary>
+        /// <param name="careGroupId">照護群組 ID。</param>
+        /// <param name="request">以 eventSeriesId 與 scheduledStartAt 指定要移除覆寫的單次事件，清除後會回復成系列預設值。</param>
+        [HttpDelete("override")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [EndpointSummary("清除單次覆寫")]
+        [EndpointDescription("刪除單次事件覆寫，回復成 series 預設內容。")]
+        public async Task<IActionResult> ClearOccurrenceOverride(Guid careGroupId, [FromBody] ClearEventOccurrenceOverrideRequest request)
+        {
+            var currentUserId = _currentUserService.UserId;
+            await _eventOccurrenceService.ClearOccurrenceOverrideAsync(currentUserId, careGroupId, request.EventSeriesId, request.ScheduledStartAt);
+            var response = new ApiResponse<object>(null, "清除事件實例覆寫成功", HttpContext.TraceIdentifier);
             return Ok(response);
         }
     }

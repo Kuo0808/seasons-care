@@ -125,7 +125,7 @@ namespace SeasonsCare.Api.Data
                 entity.Property(e => e.OverrideDescription).HasColumnType("text");
                 entity.Property(e => e.OverrideParticipants).HasColumnType("text[]");
                 entity.Property(e => e.Status).HasConversion<int>();
-                entity.HasIndex(e => new { e.EventSeriesId, e.ScheduledStartAt }).IsUnique();
+                entity.HasIndex(e => new { e.EventSeriesId, e.OccurrenceKeyStartAt }).IsUnique();
 
                 entity.HasOne(e => e.EventSeries)
                       .WithMany(x => x.Occurrences)
