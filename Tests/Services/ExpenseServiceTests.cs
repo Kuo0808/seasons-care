@@ -266,24 +266,29 @@ public class ExpenseServiceTests
 
         var result = await service.GetMemberExpenseTotalsAsync(payerId, careGroupId, new MemberExpenseTotalsRequest
         {
-            Scope = "all",
-            PendingOnly = true
+            Scope = "all"
         });
 
-        Assert.Equal(1200m, result.TotalAmount);
+        // payer 視角只算 Pending，Settled 那筆 999 不該被列入
+        Assert.Equal(1200m, result.PayerTotalAmount);
+        Assert.Equal(0m, result.ShareTotalAmount); // 沒有分帳明細
         Assert.Equal(2, result.MemberCount);
 
         var payerItem = result.Members.First(x => x.UserId == payerId);
-        Assert.Equal(1200m, payerItem.TotalAmount);
-        Assert.Equal(2, payerItem.ExpenseCount);
+        Assert.Equal(1200m, payerItem.PayerTotal);
+        Assert.Equal(2, payerItem.PayerCount);
+        Assert.Equal(0m, payerItem.ShareTotal);
+        Assert.Equal(0, payerItem.ShareCount);
         Assert.Equal("avatar/payer.png", payerItem.AvatarUrl);
 
         var nonPayerItem = result.Members.First(x => x.UserId == nonPayerId);
-        Assert.Equal(0m, nonPayerItem.TotalAmount);
-        Assert.Equal(0, nonPayerItem.ExpenseCount);
+        Assert.Equal(0m, nonPayerItem.PayerTotal);
+        Assert.Equal(0, nonPayerItem.PayerCount);
+        Assert.Equal(0m, nonPayerItem.ShareTotal);
+        Assert.Equal(0, nonPayerItem.ShareCount);
         Assert.Null(nonPayerItem.AvatarUrl);
 
-        // 排序：金額由高到低
+        // 排序：payerTotal + shareTotal 由高到低
         Assert.Equal(payerId, result.Members[0].UserId);
         Assert.Equal(nonPayerId, result.Members[1].UserId);
     }
@@ -410,14 +415,17 @@ public class ExpenseServiceTests
 
         var result = await service.GetMemberExpenseTotalsAsync(payerId, careGroupId, new MemberExpenseTotalsRequest
         {
-            Scope = "all",
-            ViewMode = "share"
+            Scope = "all"
         });
 
-        Assert.Equal(1200m, result.TotalAmount);
+        // share 視角從 ExpenseSplit 聚合，每人 400
+        Assert.Equal(1200m, result.ShareTotalAmount);
+        Assert.Equal(0m, result.PayerTotalAmount); // 沒有 Pending 的 ExpenseRecord
         Assert.Equal(3, result.MemberCount);
-        Assert.All(result.Members, m => Assert.Equal(400m, m.TotalAmount));
-        Assert.All(result.Members, m => Assert.Equal(1, m.ExpenseCount));
+        Assert.All(result.Members, m => Assert.Equal(400m, m.ShareTotal));
+        Assert.All(result.Members, m => Assert.Equal(1, m.ShareCount));
+        Assert.All(result.Members, m => Assert.Equal(0m, m.PayerTotal));
+        Assert.All(result.Members, m => Assert.Equal(0, m.PayerCount));
     }
 
     private sealed class FakeExpenseRepository : IExpenseRepository

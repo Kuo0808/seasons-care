@@ -5,28 +5,36 @@ namespace SeasonsCare.Api.DTOs.Expenses
 {
     /// <summary>
     /// 各成員累積花費總覽（對應前端「各成員累積花費」卡片）。
-    /// 用來呈現照護群組內每位成員「目前作為付款人」累積支付的金額。
+    /// 同時回傳兩種視角的金額，前端可直接依當前畫面需求取用，不需額外呼叫：
+    /// - payer（待分帳）：依付款人（ExpenseRecord.CreatedBy）累積「尚未結算」的金額，對應一鍵分帳前的卡片。
+    /// - share（已分攤）：依分攤對象（ExpenseSplit.UserId）累積已結算的 ShareAmount，對應分帳後的卡片。
     /// </summary>
     public class MemberExpenseTotalsResponse
     {
         /// <summary>
-        /// 本次查詢條件下，群組所有成員加總後的總金額。
-        /// </summary>
-        public decimal TotalAmount { get; set; }
-
-        /// <summary>
-        /// 群組中納入計算的成員人數（含未付款者）。
+        /// 群組中納入計算的成員人數（含完全沒金額的成員）。
         /// </summary>
         public int MemberCount { get; set; }
 
         /// <summary>
-        /// 各成員累積花費明細，回傳順序：金額由高到低，金額相同者依名稱排序。
+        /// 「待分帳」付款人視角下所有成員加總後的總金額（僅含 Pending）。
+        /// </summary>
+        public decimal PayerTotalAmount { get; set; }
+
+        /// <summary>
+        /// 「已分攤」分攤對象視角下所有成員加總後的總金額（來自 ExpenseSplit）。
+        /// </summary>
+        public decimal ShareTotalAmount { get; set; }
+
+        /// <summary>
+        /// 各成員累積花費明細。每位成員同時包含兩個視角的金額。
+        /// 排序：payerTotal + shareTotal 由高到低，相同者依名稱排序。
         /// </summary>
         public List<MemberExpenseTotalItem> Members { get; set; } = new List<MemberExpenseTotalItem>();
     }
 
     /// <summary>
-    /// 單一成員的累積花費資訊。
+    /// 單一成員的累積花費資訊（同時含付款人視角與分攤對象視角）。
     /// </summary>
     public class MemberExpenseTotalItem
     {
@@ -43,18 +51,25 @@ namespace SeasonsCare.Api.DTOs.Expenses
         public string? AvatarUrl { get; set; }
 
         /// <summary>
-        /// 累積金額。
-        /// - viewMode=payer：該成員作為付款人（CreatedBy）累積支付的總金額。
-        /// - viewMode=share：該成員作為分攤對象累積應分擔的總金額。
-        /// 沒有對應紀錄時為 0。
+        /// 付款人視角：該成員作為付款人（CreatedBy）「待分帳」的累積金額（僅含 Pending）。
+        /// 分帳前的卡片取這個值。
         /// </summary>
-        public decimal TotalAmount { get; set; }
+        public decimal PayerTotal { get; set; }
 
         /// <summary>
-        /// 累積筆數。
-        /// - viewMode=payer：該成員作為付款人的支出筆數。
-        /// - viewMode=share：該成員出現在分帳明細中的筆數（即被分攤到幾筆 expense）。
+        /// 付款人視角：該成員作為付款人、尚未結算的支出筆數。
         /// </summary>
-        public int ExpenseCount { get; set; }
+        public int PayerCount { get; set; }
+
+        /// <summary>
+        /// 分攤對象視角：該成員作為分攤對象（ExpenseSplit.UserId）累積的 ShareAmount。
+        /// 分帳後的卡片取這個值。
+        /// </summary>
+        public decimal ShareTotal { get; set; }
+
+        /// <summary>
+        /// 分攤對象視角：該成員出現在分帳明細中的筆數（即被分攤到幾筆 expense）。
+        /// </summary>
+        public int ShareCount { get; set; }
     }
 }

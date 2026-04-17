@@ -328,47 +328,49 @@ namespace SeasonsCare.Api.Services
             var (dateFromUtc, dateToUtc) = ResolveScopeRange(request.Scope, request.TargetDate);
             var members = await _careGroupRepository.GetActiveMembersWithUserAsync(careGroupId);
 
-            // 2. 依 viewMode 取得每位 user 的（金額,筆數）
-            var viewMode = (request.ViewMode ?? "payer").Trim().ToLowerInvariant();
-            var totalsByUser = viewMode == "share"
-                ? await BuildShareTotalsAsync(careGroupId, dateFromUtc, dateToUtc)
-                : await BuildPayerTotalsAsync(careGroupId, dateFromUtc, dateToUtc, request.PendingOnly);
+            // 2. 同時計算兩種視角的金額（一次 API 呼叫回傳兩組數字，前端無需切換）
+            var payerTotalsByUser = await BuildPayerTotalsAsync(careGroupId, dateFromUtc, dateToUtc);
+            var shareTotalsByUser = await BuildShareTotalsAsync(careGroupId, dateFromUtc, dateToUtc);
 
             // 3. 組裝每位成員的明細（沒對應紀錄的也要回傳，金額 0）
             var items = members
                 .Where(m => m.User != null)
                 .Select(m =>
                 {
-                    var stat = totalsByUser.TryGetValue(m.UserId, out var v) ? v : (Total: 0m, Count: 0);
+                    var payerStat = payerTotalsByUser.TryGetValue(m.UserId, out var p) ? p : (Total: 0m, Count: 0);
+                    var shareStat = shareTotalsByUser.TryGetValue(m.UserId, out var s) ? s : (Total: 0m, Count: 0);
                     return new MemberExpenseTotalItem
                     {
                         UserId = m.UserId,
                         Name = m.User.Username,
                         AvatarUrl = string.IsNullOrWhiteSpace(m.User.AvatarKey) ? null : m.User.AvatarKey,
-                        TotalAmount = stat.Total,
-                        ExpenseCount = stat.Count
+                        PayerTotal = payerStat.Total,
+                        PayerCount = payerStat.Count,
+                        ShareTotal = shareStat.Total,
+                        ShareCount = shareStat.Count
                     };
                 })
-                .OrderByDescending(x => x.TotalAmount)
+                .OrderByDescending(x => x.PayerTotal + x.ShareTotal)
                 .ThenBy(x => x.Name)
                 .ToList();
 
             return new MemberExpenseTotalsResponse
             {
-                TotalAmount = items.Sum(x => x.TotalAmount),
                 MemberCount = items.Count,
+                PayerTotalAmount = items.Sum(x => x.PayerTotal),
+                ShareTotalAmount = items.Sum(x => x.ShareTotal),
                 Members = items
             };
         }
 
         /// <summary>
-        /// payer 視角：以 ExpenseRecord.CreatedBy（付款人）為 key 聚合金額。
+        /// payer 視角：以 ExpenseRecord.CreatedBy（付款人）為 key 聚合「待分帳」金額。
+        /// 固定只計算 Pending，讓分帳前的卡片顯示「尚未結算的累積支付」。
         /// </summary>
         private async Task<Dictionary<Guid, (decimal Total, int Count)>> BuildPayerTotalsAsync(
-            Guid careGroupId, DateTime? dateFromUtc, DateTime? dateToUtc, bool pendingOnly)
+            Guid careGroupId, DateTime? dateFromUtc, DateTime? dateToUtc)
         {
-            var statusFilter = pendingOnly ? (ExpenseSplitStatus?)ExpenseSplitStatus.Pending : null;
-            var expenses = await _expenseRepository.GetByCareGroupAsync(careGroupId, dateFromUtc, dateToUtc, statusFilter);
+            var expenses = await _expenseRepository.GetByCareGroupAsync(careGroupId, dateFromUtc, dateToUtc, ExpenseSplitStatus.Pending);
 
             return expenses
                 .Where(e => Guid.TryParse(e.CreatedBy, out _))
@@ -378,7 +380,7 @@ namespace SeasonsCare.Api.Services
 
         /// <summary>
         /// share 視角：以 ExpenseSplit.UserId（被分攤對象）為 key 聚合 ShareAmount。
-        /// 分帳明細只會在「確認分帳」後產生，因此不需考慮 PendingOnly。
+        /// 分帳明細只會在「確認分帳」後產生，因此不需要額外的狀態過濾。
         /// </summary>
         private async Task<Dictionary<Guid, (decimal Total, int Count)>> BuildShareTotalsAsync(
             Guid careGroupId, DateTime? dateFromUtc, DateTime? dateToUtc)
