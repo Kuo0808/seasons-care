@@ -12,8 +12,7 @@ using SeasonsCare.Api.Models.Enums;
 namespace SeasonsCare.Api.Services
 {
     /// <summary>
-    /// Facade — 將 6 支對前端的 FME API 分派到 IEventSeriesService / IEventOccurrenceService。
-    /// 不含領域邏輯；僅做 DTO 轉換 + 分派。
+    /// FME-1 ~ FME-6 的分派層；只做 DTO 轉換與底層 Service 呼叫。
     /// </summary>
     public class EventFacadeService : IEventFacadeService
     {
@@ -33,13 +32,13 @@ namespace SeasonsCare.Api.Services
             {
                 Title = request.Title,
                 Description = request.Description,
-                StartsAt = request.StartsAt,
+                StartsAt = request.StartsAt.UtcDateTime,
                 DurationMinutes = request.DurationMinutes,
                 RepeatPattern = request.RepeatPattern,
                 RepeatInterval = request.RepeatInterval,
                 DaysOfWeek = request.DaysOfWeek,
                 EndType = request.EndType,
-                EndAt = request.EndAt,
+                EndAt = request.EndAt?.UtcDateTime,
                 OccurrenceCount = request.OccurrenceCount,
                 Participants = request.Participants,
                 IsImportant = request.IsImportant
@@ -51,7 +50,7 @@ namespace SeasonsCare.Api.Services
         // FME-2：取得（展開後）
         public async Task<IReadOnlyList<EventOccurrenceItem>> GetEventsAsync(Guid currentUserId, Guid careGroupId, GetEventsRequest request)
         {
-            var occurrences = await _occurrenceService.GetOccurrencesAsync(currentUserId, careGroupId, request.From, request.To);
+            var occurrences = await _occurrenceService.GetOccurrencesAsync(currentUserId, careGroupId, request.From.UtcDateTime, request.To.UtcDateTime);
             var seriesList = await _seriesService.GetAllSeriesAsync(currentUserId, careGroupId);
             var repeatPatternBySeries = seriesList.ToDictionary(s => s.Id, s => s.RepeatPattern);
 
@@ -67,13 +66,13 @@ namespace SeasonsCare.Api.Services
             {
                 Title = request.Title,
                 Description = request.Description,
-                StartsAt = request.StartsAt,
+                StartsAt = request.StartsAt.UtcDateTime,
                 DurationMinutes = request.DurationMinutes,
                 RepeatPattern = request.RepeatPattern,
                 RepeatInterval = request.RepeatInterval,
                 DaysOfWeek = request.DaysOfWeek,
                 EndType = request.EndType,
-                EndAt = request.EndAt,
+                EndAt = request.EndAt?.UtcDateTime,
                 OccurrenceCount = request.OccurrenceCount,
                 Participants = request.Participants,
                 IsImportant = request.IsImportant
@@ -94,19 +93,21 @@ namespace SeasonsCare.Api.Services
             var status = (request.Status ?? string.Empty).Trim().ToLowerInvariant();
             var hasContentEdit = request.Description != null || request.Participants != null;
 
+            var scheduledAtUtc = request.ScheduledAt.UtcDateTime;
+
             // 純狀態切換（沒有 description / participants）
             if (!hasContentEdit)
             {
                 switch (status)
                 {
                     case "completed":
-                        await _occurrenceService.CompleteOccurrenceAsync(currentUserId, careGroupId, eventId, request.ScheduledAt);
+                        await _occurrenceService.CompleteOccurrenceAsync(currentUserId, careGroupId, eventId, scheduledAtUtc);
                         return;
                     case "cancelled":
-                        await _occurrenceService.CancelOccurrenceAsync(currentUserId, careGroupId, eventId, request.ScheduledAt);
+                        await _occurrenceService.CancelOccurrenceAsync(currentUserId, careGroupId, eventId, scheduledAtUtc);
                         return;
                     case "pending":
-                        await _occurrenceService.ClearOccurrenceOverrideAsync(currentUserId, careGroupId, eventId, request.ScheduledAt);
+                        await _occurrenceService.ClearOccurrenceOverrideAsync(currentUserId, careGroupId, eventId, scheduledAtUtc);
                         return;
                     case "":
                         throw new DomainException("至少須提供 status、description 或 participants 其中一項", "VALIDATION_FAILED", 400);
@@ -128,7 +129,7 @@ namespace SeasonsCare.Api.Services
             await _occurrenceService.UpdateOccurrenceAsync(currentUserId, careGroupId, new UpdateEventOccurrenceRequest
             {
                 EventSeriesId = eventId,
-                ScheduledStartAt = request.ScheduledAt,
+                ScheduledStartAt = scheduledAtUtc,
                 Description = request.Description,
                 Participants = request.Participants,
                 Status = occurrenceStatus
@@ -136,10 +137,11 @@ namespace SeasonsCare.Api.Services
         }
 
         // FME-6：取得單次狀態
-        public async Task<EventOccurrenceItem> GetInstanceStatusAsync(Guid currentUserId, Guid careGroupId, Guid eventId, DateTime scheduledAt)
+        public async Task<EventOccurrenceItem> GetInstanceStatusAsync(Guid currentUserId, Guid careGroupId, Guid eventId, DateTimeOffset scheduledAt)
         {
-            var occurrences = await _occurrenceService.GetOccurrencesAsync(currentUserId, careGroupId, scheduledAt, scheduledAt);
-            var target = occurrences.FirstOrDefault(o => o.EventSeriesId == eventId && o.ScheduledStartAt.UtcDateTime == scheduledAt.ToUniversalTime());
+            var scheduledAtUtc = scheduledAt.UtcDateTime;
+            var occurrences = await _occurrenceService.GetOccurrencesAsync(currentUserId, careGroupId, scheduledAtUtc, scheduledAtUtc);
+            var target = occurrences.FirstOrDefault(o => o.EventSeriesId == eventId && o.ScheduledStartAt.UtcDateTime == scheduledAtUtc);
             if (target == null)
             {
                 throw new DomainException("找不到指定的事件實例", "NOT_FOUND", 404);

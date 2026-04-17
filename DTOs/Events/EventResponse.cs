@@ -5,13 +5,11 @@ using SeasonsCare.Api.Models.Enums;
 namespace SeasonsCare.Api.DTOs.Events
 {
     /// <summary>
-    /// 事件回應（FME-1 / FME-3 回傳用；代表一個事件系列的當前規則）。
+    /// 事件系列回應（FME-1 / FME-3）。
     /// </summary>
     public class EventResponse
     {
-        /// <summary>事件系列 ID（作為 FME-3 / FME-4 / FME-5 / FME-6 的 {eventId}）。</summary>
         public Guid Id { get; set; }
-
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public DateTimeOffset StartsAt { get; set; }

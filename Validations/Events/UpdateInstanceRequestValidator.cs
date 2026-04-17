@@ -10,7 +10,7 @@ namespace SeasonsCare.Api.Validations.Events
         public UpdateInstanceRequestValidator()
         {
             RuleFor(x => x.ScheduledAt)
-                .NotEqual(default(System.DateTime)).WithMessage("scheduledAt 為必填");
+                .NotEqual(default(System.DateTimeOffset)).WithMessage("scheduledAt 為必填");
 
             RuleFor(x => x.Status)
                 .Must(s => AllowedStatuses.Contains(s!.Trim().ToLowerInvariant()))

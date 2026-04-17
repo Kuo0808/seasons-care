@@ -6,8 +6,7 @@ using SeasonsCare.Api.DTOs.Events;
 namespace SeasonsCare.Api.Services
 {
     /// <summary>
-    /// 對前端統一的事件 Facade（對應 FME-1 ~ FME-6）。
-    /// 底層轉呼叫 IEventSeriesService + IEventOccurrenceService，本身不含領域邏輯。
+    /// 對應 FME-1 ~ FME-6 的事件介面。
     /// </summary>
     public interface IEventFacadeService
     {
@@ -27,6 +26,6 @@ namespace SeasonsCare.Api.Services
         Task UpdateInstanceAsync(Guid currentUserId, Guid careGroupId, Guid eventId, UpdateInstanceRequest request);
 
         // FME-6
-        Task<EventOccurrenceItem> GetInstanceStatusAsync(Guid currentUserId, Guid careGroupId, Guid eventId, DateTime scheduledAt);
+        Task<EventOccurrenceItem> GetInstanceStatusAsync(Guid currentUserId, Guid careGroupId, Guid eventId, DateTimeOffset scheduledAt);
     }
 }

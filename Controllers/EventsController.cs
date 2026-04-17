@@ -11,14 +11,11 @@ using SeasonsCare.Api.Services;
 namespace SeasonsCare.Api.Controllers
 {
     /// <summary>
-    /// 事件 Facade API（對應前端 FME-1 ~ FME-6）。
-    /// 這層將「事件系列規則」與「單次實例覆寫」兩個底層模組包裝成單一 /events 介面，
-    /// 讓前端只處理「事件」這一個主體；內部仍走 event-series / event-occurrences。
-    /// 前端串接請優先使用這組 API；只有在需要分頁、單筆系列規則等進階用途時才呼叫 /event-series 或 /event-occurrences。
+    /// 事件 API（FME-1 ~ FME-6）。
     /// </summary>
     [Authorize]
     [ApiController]
-    [Tags("Events (建議：對應前端 FME-1 ~ FME-6)")]
+    [Tags("Events")]
     [Route("api/care-groups/{careGroupId}/events")]
     public class EventsController : ControllerBase
     {
@@ -38,7 +35,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("FME-1 新增重複事件")]
-        [EndpointDescription("建立一個事件。repeatPattern 傳 none 即為單次事件。設計稿未提供的欄位（結束條件、間隔、星期）由後端填入預設值：endType=never、repeatInterval=1、weekly 時自動取 scheduledAt 當天的星期。")]
+        [EndpointDescription("建立事件；repeatPattern = none 代表單次事件。")]
         public async Task<IActionResult> CreateEvent(Guid careGroupId, [FromBody] CreateEventRequest request)
         {
             var userId = _currentUserService.UserId;
@@ -54,7 +51,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("FME-2 取得重複事件（依區間展開）")]
-        [EndpointDescription("依 from 與 to 查詢區間內所有事件實例，已套用單次覆寫。回傳額外包含 series 的 repeatPattern，方便前端顯示重複標籤。")]
+        [EndpointDescription("依 from / to 回傳區間內所有事件實例，已套用單次覆寫。")]
         public async Task<IActionResult> GetEvents(Guid careGroupId, [FromQuery] GetEventsRequest request)
         {
             var userId = _currentUserService.UserId;
@@ -71,7 +68,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [EndpointSummary("FME-3 編輯重複事件")]
-        [EndpointDescription("更新事件系列的規則與預設內容。已被單次覆寫的 occurrence 不受影響。")]
+        [EndpointDescription("更新整個事件系列；已被單次覆寫的 occurrence 不受影響。")]
         public async Task<IActionResult> UpdateEvent(Guid careGroupId, Guid eventId, [FromBody] UpdateEventRequest request)
         {
             var userId = _currentUserService.UserId;
@@ -87,7 +84,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [EndpointSummary("FME-4 刪除重複事件")]
-        [EndpointDescription("soft delete 整個事件系列；刪除後該系列展開的 occurrence 不再出現在 FME-2 結果。")]
+        [EndpointDescription("Soft delete 整個事件系列。")]
         public async Task<IActionResult> DeleteEvent(Guid careGroupId, Guid eventId)
         {
             var userId = _currentUserService.UserId;
@@ -104,7 +101,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [EndpointSummary("FME-5 編輯重複事件（單次）")]
-        [EndpointDescription("針對 {eventId}（系列）中 scheduledAt 所指的單次實例做編輯。可單獨傳 status，或同時帶 description / participants 對此實例建立 override。status 可傳 completed / cancelled / pending；單純傳 pending 代表清除 override 回復系列預設。")]
+        [EndpointDescription("編輯 scheduledAt 指定的單次實例；可傳 status / description / participants。status 僅 pending 代表清除 override。")]
         public async Task<IActionResult> UpdateInstance(Guid careGroupId, Guid eventId, [FromBody] UpdateInstanceRequest request)
         {
             var userId = _currentUserService.UserId;
@@ -121,8 +118,8 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [EndpointSummary("FME-6 取得重複事件狀態（單次）")]
-        [EndpointDescription("取得 {eventId}（系列）中 scheduledAt 所指單次實例的當前內容與狀態。若前端已透過 FME-2 取得完整列表，此 API 可不必呼叫。")]
-        public async Task<IActionResult> GetInstanceStatus(Guid careGroupId, Guid eventId, [FromQuery] DateTime scheduledAt)
+        [EndpointDescription("取得 scheduledAt 指定單次實例的當前內容與狀態。")]
+        public async Task<IActionResult> GetInstanceStatus(Guid careGroupId, Guid eventId, [FromQuery] DateTimeOffset scheduledAt)
         {
             var userId = _currentUserService.UserId;
             var item = await _eventFacade.GetInstanceStatusAsync(userId, careGroupId, eventId, scheduledAt);
