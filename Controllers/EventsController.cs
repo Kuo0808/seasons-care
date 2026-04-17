@@ -103,13 +103,13 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [EndpointSummary("FME-5 編輯重複事件狀態（單次）")]
-        [EndpointDescription("針對 {eventId}（系列）中 scheduledAt 所指的單次實例，設定狀態。status 可傳 completed / cancelled / pending；pending 代表清除 override 回復系列預設。")]
-        public async Task<IActionResult> UpdateInstanceStatus(Guid careGroupId, Guid eventId, [FromBody] UpdateInstanceStatusRequest request)
+        [EndpointSummary("FME-5 編輯重複事件（單次）")]
+        [EndpointDescription("針對 {eventId}（系列）中 scheduledAt 所指的單次實例做編輯。可單獨傳 status，或同時帶 description / participants 對此實例建立 override。status 可傳 completed / cancelled / pending；單純傳 pending 代表清除 override 回復系列預設。")]
+        public async Task<IActionResult> UpdateInstance(Guid careGroupId, Guid eventId, [FromBody] UpdateInstanceRequest request)
         {
             var userId = _currentUserService.UserId;
-            await _eventFacade.UpdateInstanceStatusAsync(userId, careGroupId, eventId, request);
-            var response = new ApiResponse<object>(null, "更新重複事件狀態成功", HttpContext.TraceIdentifier);
+            await _eventFacade.UpdateInstanceAsync(userId, careGroupId, eventId, request);
+            var response = new ApiResponse<object>(null, "更新重複事件單次內容成功", HttpContext.TraceIdentifier);
             return Ok(response);
         }
 

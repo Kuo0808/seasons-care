@@ -32,12 +32,15 @@ namespace SeasonsCare.Api.Services
             var seriesRequest = new CreateEventSeriesRequest
             {
                 Title = request.Title,
-                Description = request.Notes,
-                StartsAt = request.ScheduledAt,
-                RepeatPattern = ParseRepeatPattern(request.RepeatPattern),
-                RepeatInterval = 1,
-                DaysOfWeek = BuildDefaultDaysOfWeek(request.RepeatPattern, request.ScheduledAt),
-                EndType = EventSeriesEndType.Never,
+                Description = request.Description,
+                StartsAt = request.StartsAt,
+                DurationMinutes = request.DurationMinutes,
+                RepeatPattern = request.RepeatPattern,
+                RepeatInterval = request.RepeatInterval,
+                DaysOfWeek = request.DaysOfWeek,
+                EndType = request.EndType,
+                EndAt = request.EndAt,
+                OccurrenceCount = request.OccurrenceCount,
                 Participants = request.Participants,
                 IsImportant = request.IsImportant
             };
@@ -50,7 +53,7 @@ namespace SeasonsCare.Api.Services
         {
             var occurrences = await _occurrenceService.GetOccurrencesAsync(currentUserId, careGroupId, request.From, request.To);
             var seriesList = await _seriesService.GetAllSeriesAsync(currentUserId, careGroupId);
-            var repeatPatternBySeries = seriesList.ToDictionary(s => s.Id, s => FormatRepeatPattern(s.RepeatPattern));
+            var repeatPatternBySeries = seriesList.ToDictionary(s => s.Id, s => s.RepeatPattern);
 
             return occurrences
                 .Select(o => MapToOccurrenceItem(o, repeatPatternBySeries))
@@ -63,12 +66,15 @@ namespace SeasonsCare.Api.Services
             var seriesRequest = new UpdateEventSeriesRequest
             {
                 Title = request.Title,
-                Description = request.Notes,
-                StartsAt = request.ScheduledAt,
-                RepeatPattern = ParseRepeatPattern(request.RepeatPattern),
-                RepeatInterval = 1,
-                DaysOfWeek = BuildDefaultDaysOfWeek(request.RepeatPattern, request.ScheduledAt),
-                EndType = EventSeriesEndType.Never,
+                Description = request.Description,
+                StartsAt = request.StartsAt,
+                DurationMinutes = request.DurationMinutes,
+                RepeatPattern = request.RepeatPattern,
+                RepeatInterval = request.RepeatInterval,
+                DaysOfWeek = request.DaysOfWeek,
+                EndType = request.EndType,
+                EndAt = request.EndAt,
+                OccurrenceCount = request.OccurrenceCount,
                 Participants = request.Participants,
                 IsImportant = request.IsImportant
             };
@@ -82,24 +88,51 @@ namespace SeasonsCare.Api.Services
             return _seriesService.DeleteSeriesAsync(currentUserId, careGroupId, eventId);
         }
 
-        // FME-5：編輯單次狀態
-        public async Task UpdateInstanceStatusAsync(Guid currentUserId, Guid careGroupId, Guid eventId, UpdateInstanceStatusRequest request)
+        // FME-5：編輯單次實例（狀態 / 描述 / 參與者）
+        public async Task UpdateInstanceAsync(Guid currentUserId, Guid careGroupId, Guid eventId, UpdateInstanceRequest request)
         {
             var status = (request.Status ?? string.Empty).Trim().ToLowerInvariant();
-            switch (status)
+            var hasContentEdit = request.Description != null || request.Participants != null;
+
+            // 純狀態切換（沒有 description / participants）
+            if (!hasContentEdit)
             {
-                case "completed":
-                    await _occurrenceService.CompleteOccurrenceAsync(currentUserId, careGroupId, eventId, request.ScheduledAt);
-                    break;
-                case "cancelled":
-                    await _occurrenceService.CancelOccurrenceAsync(currentUserId, careGroupId, eventId, request.ScheduledAt);
-                    break;
-                case "pending":
-                    await _occurrenceService.ClearOccurrenceOverrideAsync(currentUserId, careGroupId, eventId, request.ScheduledAt);
-                    break;
-                default:
-                    throw new DomainException("status 必須為 completed / cancelled / pending", "VALIDATION_FAILED", 400);
+                switch (status)
+                {
+                    case "completed":
+                        await _occurrenceService.CompleteOccurrenceAsync(currentUserId, careGroupId, eventId, request.ScheduledAt);
+                        return;
+                    case "cancelled":
+                        await _occurrenceService.CancelOccurrenceAsync(currentUserId, careGroupId, eventId, request.ScheduledAt);
+                        return;
+                    case "pending":
+                        await _occurrenceService.ClearOccurrenceOverrideAsync(currentUserId, careGroupId, eventId, request.ScheduledAt);
+                        return;
+                    case "":
+                        throw new DomainException("至少須提供 status、description 或 participants 其中一項", "VALIDATION_FAILED", 400);
+                    default:
+                        throw new DomainException("status 必須為 completed / cancelled / pending", "VALIDATION_FAILED", 400);
+                }
             }
+
+            // 含描述 / 參與者變更：走單次 override 更新
+            EventOccurrenceStatus? occurrenceStatus = status switch
+            {
+                "" => null,
+                "completed" => EventOccurrenceStatus.Completed,
+                "cancelled" => EventOccurrenceStatus.Cancelled,
+                "pending" => EventOccurrenceStatus.Scheduled,
+                _ => throw new DomainException("status 必須為 completed / cancelled / pending", "VALIDATION_FAILED", 400)
+            };
+
+            await _occurrenceService.UpdateOccurrenceAsync(currentUserId, careGroupId, new UpdateEventOccurrenceRequest
+            {
+                EventSeriesId = eventId,
+                ScheduledStartAt = request.ScheduledAt,
+                Description = request.Description,
+                Participants = request.Participants,
+                Status = occurrenceStatus
+            });
         }
 
         // FME-6：取得單次狀態
@@ -113,47 +146,8 @@ namespace SeasonsCare.Api.Services
             }
 
             var seriesList = await _seriesService.GetAllSeriesAsync(currentUserId, careGroupId);
-            var repeatPatternBySeries = seriesList.ToDictionary(s => s.Id, s => FormatRepeatPattern(s.RepeatPattern));
+            var repeatPatternBySeries = seriesList.ToDictionary(s => s.Id, s => s.RepeatPattern);
             return MapToOccurrenceItem(target, repeatPatternBySeries);
-        }
-
-        private static EventRepeatPattern ParseRepeatPattern(string? value)
-        {
-            return (value ?? "none").Trim().ToLowerInvariant() switch
-            {
-                "none" => EventRepeatPattern.None,
-                "daily" => EventRepeatPattern.Daily,
-                "weekly" => EventRepeatPattern.Weekly,
-                "weeklyday" => EventRepeatPattern.Weekly,
-                "monthly" => EventRepeatPattern.Monthly,
-                _ => throw new DomainException("repeatPattern 必須為 none / daily / weekly / monthly", "VALIDATION_FAILED", 400)
-            };
-        }
-
-        private static string FormatRepeatPattern(EventRepeatPattern pattern)
-        {
-            return pattern switch
-            {
-                EventRepeatPattern.None => "none",
-                EventRepeatPattern.Daily => "daily",
-                EventRepeatPattern.Weekly => "weekly",
-                EventRepeatPattern.Monthly => "monthly",
-                _ => "none"
-            };
-        }
-
-        private static List<DayOfWeek>? BuildDefaultDaysOfWeek(string? repeatPattern, DateTime scheduledAt)
-        {
-            // 設計稿不含「選星期」欄位。Weekly 時自動取 scheduledAt 當天的星期。
-            if (ParseRepeatPattern(repeatPattern) != EventRepeatPattern.Weekly)
-            {
-                return null;
-            }
-
-            var localDay = scheduledAt.Kind == DateTimeKind.Utc
-                ? scheduledAt.ToLocalTime().DayOfWeek
-                : scheduledAt.DayOfWeek;
-            return new List<DayOfWeek> { localDay };
         }
 
         private static EventResponse MapToEventResponse(EventSeriesResponse series)
@@ -162,11 +156,17 @@ namespace SeasonsCare.Api.Services
             {
                 Id = series.Id,
                 Title = series.Title,
-                ScheduledAt = series.StartsAt,
-                RepeatPattern = FormatRepeatPattern(series.RepeatPattern),
+                Description = series.Description,
+                StartsAt = series.StartsAt,
+                DurationMinutes = series.DurationMinutes,
+                RepeatPattern = series.RepeatPattern,
+                RepeatInterval = series.RepeatInterval,
+                DaysOfWeek = series.DaysOfWeek,
+                EndType = series.EndType,
+                EndAt = series.EndAt,
+                OccurrenceCount = series.OccurrenceCount,
                 Participants = series.Participants ?? new List<string>(),
                 IsImportant = series.IsImportant,
-                Notes = series.Description,
                 CareGroupId = series.CareGroupId,
                 CreatedAt = series.CreatedAt,
                 UpdatedAt = series.UpdatedAt,
@@ -174,7 +174,7 @@ namespace SeasonsCare.Api.Services
             };
         }
 
-        private static EventOccurrenceItem MapToOccurrenceItem(EventOccurrenceResponse occurrence, IReadOnlyDictionary<Guid, string> repeatPatternBySeries)
+        private static EventOccurrenceItem MapToOccurrenceItem(EventOccurrenceResponse occurrence, IReadOnlyDictionary<Guid, EventRepeatPattern> repeatPatternBySeries)
         {
             repeatPatternBySeries.TryGetValue(occurrence.EventSeriesId, out var pattern);
             return new EventOccurrenceItem
@@ -182,12 +182,12 @@ namespace SeasonsCare.Api.Services
                 Id = occurrence.Id,
                 EventSeriesId = occurrence.EventSeriesId,
                 Title = occurrence.Title,
+                Description = occurrence.Description,
                 ScheduledAt = occurrence.ScheduledStartAt,
                 Participants = occurrence.Participants ?? new List<string>(),
                 Status = FormatOccurrenceStatus(occurrence.Status),
                 IsImportant = occurrence.IsImportant,
-                Notes = occurrence.Description,
-                RepeatPattern = pattern ?? "none",
+                RepeatPattern = pattern,
                 HasOverrides = occurrence.HasOverrides
             };
         }

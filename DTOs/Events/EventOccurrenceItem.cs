@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.DTOs.Events
 {
@@ -17,6 +18,8 @@ namespace SeasonsCare.Api.DTOs.Events
 
         public string Title { get; set; } = string.Empty;
 
+        public string? Description { get; set; }
+
         /// <summary>此次實例預定時間（套用 override 後的值）。</summary>
         public DateTimeOffset ScheduledAt { get; set; }
 
@@ -27,10 +30,8 @@ namespace SeasonsCare.Api.DTOs.Events
 
         public bool IsImportant { get; set; }
 
-        public string? Notes { get; set; }
-
-        /// <summary>系列的重複規則：none / daily / weekly / monthly（方便前端直接顯示標籤）。</summary>
-        public string RepeatPattern { get; set; } = "none";
+        /// <summary>系列的重複規則（序列化為字串 none / daily / weeklyDay / monthly）。</summary>
+        public EventRepeatPattern RepeatPattern { get; set; }
 
         /// <summary>此實例是否已被單次覆寫（true 代表 Status/Title/時間等已不同於系列預設）。</summary>
         public bool HasOverrides { get; set; }

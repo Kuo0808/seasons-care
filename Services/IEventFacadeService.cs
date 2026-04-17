@@ -24,7 +24,7 @@ namespace SeasonsCare.Api.Services
         Task DeleteEventAsync(Guid currentUserId, Guid careGroupId, Guid eventId);
 
         // FME-5
-        Task UpdateInstanceStatusAsync(Guid currentUserId, Guid careGroupId, Guid eventId, UpdateInstanceStatusRequest request);
+        Task UpdateInstanceAsync(Guid currentUserId, Guid careGroupId, Guid eventId, UpdateInstanceRequest request);
 
         // FME-6
         Task<EventOccurrenceItem> GetInstanceStatusAsync(Guid currentUserId, Guid careGroupId, Guid eventId, DateTime scheduledAt);

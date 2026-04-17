@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.DTOs.Events
 {
@@ -11,10 +12,16 @@ namespace SeasonsCare.Api.DTOs.Events
     public class UpdateEventRequest
     {
         public string Title { get; set; } = string.Empty;
-        public DateTime ScheduledAt { get; set; }
-        public string RepeatPattern { get; set; } = "none";
+        public string? Description { get; set; }
+        public DateTime StartsAt { get; set; }
+        public int? DurationMinutes { get; set; }
+        public EventRepeatPattern RepeatPattern { get; set; } = EventRepeatPattern.None;
+        public int RepeatInterval { get; set; } = 1;
+        public List<DayOfWeek>? DaysOfWeek { get; set; }
+        public EventSeriesEndType EndType { get; set; } = EventSeriesEndType.Never;
+        public DateTime? EndAt { get; set; }
+        public int? OccurrenceCount { get; set; }
         public List<string>? Participants { get; set; }
         public bool IsImportant { get; set; }
-        public string? Notes { get; set; }
     }
 }

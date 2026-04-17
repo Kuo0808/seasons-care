@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SeasonsCare.Api.Models.Enums;
 
 namespace SeasonsCare.Api.DTOs.Events
 {
@@ -8,15 +9,21 @@ namespace SeasonsCare.Api.DTOs.Events
     /// </summary>
     public class EventResponse
     {
-        /// <summary>事件系列 ID（作為 FME-3 / FME-4 的 {eventId}）。</summary>
+        /// <summary>事件系列 ID（作為 FME-3 / FME-4 / FME-5 / FME-6 的 {eventId}）。</summary>
         public Guid Id { get; set; }
 
         public string Title { get; set; } = string.Empty;
-        public DateTimeOffset ScheduledAt { get; set; }
-        public string RepeatPattern { get; set; } = "none";
+        public string? Description { get; set; }
+        public DateTimeOffset StartsAt { get; set; }
+        public int? DurationMinutes { get; set; }
+        public EventRepeatPattern RepeatPattern { get; set; }
+        public int RepeatInterval { get; set; }
+        public List<DayOfWeek> DaysOfWeek { get; set; } = new();
+        public EventSeriesEndType EndType { get; set; }
+        public DateTimeOffset? EndAt { get; set; }
+        public int? OccurrenceCount { get; set; }
         public List<string> Participants { get; set; } = new();
         public bool IsImportant { get; set; }
-        public string? Notes { get; set; }
 
         public Guid CareGroupId { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
