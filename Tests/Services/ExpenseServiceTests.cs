@@ -485,10 +485,79 @@ public class ExpenseServiceTests
         Assert.Equal(1000m, payerItem.ShareTotal);
         Assert.Equal(500m, payerItem.SelfExpenseTotal);
         Assert.Equal(1500m, payerItem.PersonalPayableTotal);
+        Assert.Equal(1500m, payerItem.CurrentPayableTotal);
         Assert.Equal(1, payerItem.SelfExpenseCount);
 
         Assert.Equal(500m, result.SelfExpenseTotalAmount);
         Assert.Equal(3500m, result.PersonalPayableTotalAmount);
+        Assert.Equal(3500m, result.CurrentPayableTotalAmount);
+    }
+
+    [Fact]
+    public async Task GetMemberExpenseTotalsAsync_CurrentPayable_IncludesPendingShareAndSelfExpense()
+    {
+        var careGroupId = Guid.NewGuid();
+        var payerId = Guid.NewGuid();
+
+        var users = new[]
+        {
+            new User { Id = payerId, Username = "Payer" }
+        };
+
+        var careGroupRepository = new FakeCareGroupRepository(isMember: true)
+        {
+            Members = new List<CareGroupMember>
+            {
+                new CareGroupMember { CareGroupId = careGroupId, UserId = payerId, User = users[0] }
+            }
+        };
+
+        var repository = new FakeExpenseRepository(
+            new ExpenseRecord
+            {
+                Id = Guid.NewGuid(),
+                CareGroupId = careGroupId,
+                Title = "Pending Expense",
+                Amount = 200m,
+                SplitStatus = ExpenseSplitStatus.Pending,
+                CreatedBy = payerId.ToString(),
+                ExpenseDate = DateTime.UtcNow
+            },
+            new ExpenseRecord
+            {
+                Id = Guid.NewGuid(),
+                CareGroupId = careGroupId,
+                Title = "Self Expense",
+                Amount = 500m,
+                SplitStatus = ExpenseSplitStatus.None,
+                CreatedBy = payerId.ToString(),
+                ExpenseDate = DateTime.UtcNow
+            });
+
+        var splitRepository = new FakeExpenseSplitRepository();
+        splitRepository.Splits.Add(new ExpenseSplit
+        {
+            CareGroupId = careGroupId,
+            UserId = payerId,
+            ShareAmount = 1000m,
+            IsPayer = true
+        });
+
+        var userRepository = new FakeUserRepository(users);
+        var service = new ExpenseService(repository, careGroupRepository, userRepository, splitRepository);
+
+        var result = await service.GetMemberExpenseTotalsAsync(payerId, careGroupId, new MemberExpenseTotalsRequest
+        {
+            Scope = "all"
+        });
+
+        var payerItem = result.Members.Single();
+        Assert.Equal(200m, payerItem.PayerTotal);
+        Assert.Equal(1000m, payerItem.ShareTotal);
+        Assert.Equal(500m, payerItem.SelfExpenseTotal);
+        Assert.Equal(1500m, payerItem.PersonalPayableTotal);
+        Assert.Equal(1700m, payerItem.CurrentPayableTotal);
+        Assert.Equal(1700m, result.CurrentPayableTotalAmount);
     }
 
     private sealed class FakeExpenseRepository : IExpenseRepository

@@ -39,6 +39,13 @@ namespace SeasonsCare.Api.DTOs.Expenses
         public decimal PersonalPayableTotalAmount { get; set; }
 
         /// <summary>
+        /// 全體成員目前即時總負擔金額。
+        /// 計算方式為 payerTotalAmount + shareTotalAmount + selfExpenseTotalAmount。
+        /// 可用來顯示「目前這個群組下，所有成員現在總共扛了多少金額」。
+        /// </summary>
+        public decimal CurrentPayableTotalAmount { get; set; }
+
+        /// <summary>
         /// 各成員累積花費明細。每位成員同時包含兩個視角的金額。
         /// 排序：payerTotal + shareTotal 由高到低，相同者依名稱排序。
         /// </summary>
@@ -101,5 +108,12 @@ namespace SeasonsCare.Api.DTOs.Expenses
         /// 例如：分帳後自己分到 1000，加上一筆不分帳 500，personalPayableTotal = 1500。
         /// </summary>
         public decimal PersonalPayableTotal { get; set; }
+
+        /// <summary>
+        /// 該成員目前即時總負擔金額。
+        /// 計算方式為 payerTotal + shareTotal + selfExpenseTotal。
+        /// 適合用來顯示「此人目前總共需要承擔多少」，包含待分帳代墊、已分帳應分、以及不分帳自付。
+        /// </summary>
+        public decimal CurrentPayableTotal { get; set; }
     }
 }

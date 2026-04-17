@@ -352,10 +352,11 @@ namespace SeasonsCare.Api.Services
                         ShareCount = shareStat.Count,
                         SelfExpenseTotal = selfExpenseStat.Total,
                         SelfExpenseCount = selfExpenseStat.Count,
-                        PersonalPayableTotal = shareStat.Total + selfExpenseStat.Total
+                        PersonalPayableTotal = shareStat.Total + selfExpenseStat.Total,
+                        CurrentPayableTotal = payerStat.Total + shareStat.Total + selfExpenseStat.Total
                     };
                 })
-                .OrderByDescending(x => x.PersonalPayableTotal)
+                .OrderByDescending(x => x.CurrentPayableTotal)
                 .ThenBy(x => x.Name)
                 .ToList();
 
@@ -366,6 +367,7 @@ namespace SeasonsCare.Api.Services
                 ShareTotalAmount = items.Sum(x => x.ShareTotal),
                 SelfExpenseTotalAmount = items.Sum(x => x.SelfExpenseTotal),
                 PersonalPayableTotalAmount = items.Sum(x => x.PersonalPayableTotal),
+                CurrentPayableTotalAmount = items.Sum(x => x.CurrentPayableTotal),
                 Members = items
             };
         }
