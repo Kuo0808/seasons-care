@@ -51,6 +51,19 @@ namespace SeasonsCare.Api.Repositories
             await _context.EventSeries.AddAsync(series);
         }
 
+        public Task UpdateAsync(EventSeries series)
+        {
+            _context.EventSeries.Update(series);
+            return Task.CompletedTask;
+        }
+
+        public Task SoftDeleteAsync(EventSeries series)
+        {
+            series.DeletedAt = Config.TimeHelper.UtcNow;
+            _context.EventSeries.Update(series);
+            return Task.CompletedTask;
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();

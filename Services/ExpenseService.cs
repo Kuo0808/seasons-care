@@ -331,6 +331,7 @@ namespace SeasonsCare.Api.Services
             // 2. 同時計算兩種視角的金額（一次 API 呼叫回傳兩組數字，前端無需切換）
             var payerTotalsByUser = await BuildPayerTotalsAsync(careGroupId, dateFromUtc, dateToUtc);
             var shareTotalsByUser = await BuildShareTotalsAsync(careGroupId, dateFromUtc, dateToUtc);
+            var selfExpenseTotalsByUser = await BuildSelfExpenseTotalsAsync(careGroupId, dateFromUtc, dateToUtc);
 
             // 3. 組裝每位成員的明細（沒對應紀錄的也要回傳，金額 0）
             var items = members
@@ -339,6 +340,7 @@ namespace SeasonsCare.Api.Services
                 {
                     var payerStat = payerTotalsByUser.TryGetValue(m.UserId, out var p) ? p : (Total: 0m, Count: 0);
                     var shareStat = shareTotalsByUser.TryGetValue(m.UserId, out var s) ? s : (Total: 0m, Count: 0);
+                    var selfExpenseStat = selfExpenseTotalsByUser.TryGetValue(m.UserId, out var n) ? n : (Total: 0m, Count: 0);
                     return new MemberExpenseTotalItem
                     {
                         UserId = m.UserId,
@@ -347,10 +349,13 @@ namespace SeasonsCare.Api.Services
                         PayerTotal = payerStat.Total,
                         PayerCount = payerStat.Count,
                         ShareTotal = shareStat.Total,
-                        ShareCount = shareStat.Count
+                        ShareCount = shareStat.Count,
+                        SelfExpenseTotal = selfExpenseStat.Total,
+                        SelfExpenseCount = selfExpenseStat.Count,
+                        PersonalPayableTotal = shareStat.Total + selfExpenseStat.Total
                     };
                 })
-                .OrderByDescending(x => x.PayerTotal + x.ShareTotal)
+                .OrderByDescending(x => x.PersonalPayableTotal)
                 .ThenBy(x => x.Name)
                 .ToList();
 
@@ -359,6 +364,8 @@ namespace SeasonsCare.Api.Services
                 MemberCount = items.Count,
                 PayerTotalAmount = items.Sum(x => x.PayerTotal),
                 ShareTotalAmount = items.Sum(x => x.ShareTotal),
+                SelfExpenseTotalAmount = items.Sum(x => x.SelfExpenseTotal),
+                PersonalPayableTotalAmount = items.Sum(x => x.PersonalPayableTotal),
                 Members = items
             };
         }
@@ -390,6 +397,21 @@ namespace SeasonsCare.Api.Services
             return splits
                 .GroupBy(s => s.UserId)
                 .ToDictionary(g => g.Key, g => (Total: g.Sum(x => x.ShareAmount), Count: g.Count()));
+        }
+
+        /// <summary>
+        /// self expense 統計：以 ExpenseRecord.CreatedBy 為 key，
+        /// 僅統計 splitStatus = None 的支出，代表這筆支出不分帳、由自己全額負擔。
+        /// </summary>
+        private async Task<Dictionary<Guid, (decimal Total, int Count)>> BuildSelfExpenseTotalsAsync(
+            Guid careGroupId, DateTime? dateFromUtc, DateTime? dateToUtc)
+        {
+            var expenses = await _expenseRepository.GetByCareGroupAsync(careGroupId, dateFromUtc, dateToUtc, ExpenseSplitStatus.None);
+
+            return expenses
+                .Where(e => Guid.TryParse(e.CreatedBy, out _))
+                .GroupBy(e => Guid.Parse(e.CreatedBy))
+                .ToDictionary(g => g.Key, g => (Total: g.Sum(x => x.Amount), Count: g.Count()));
         }
 
         /// <summary>

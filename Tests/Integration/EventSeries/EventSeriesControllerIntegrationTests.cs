@@ -59,6 +59,9 @@ public class EventSeriesControllerIntegrationTests
         public Task<PagedResponse<EventSeriesResponse>> GetSeriesAsync(Guid currentUserId, Guid careGroupId, PaginationRequest pagination)
             => throw new NotImplementedException();
 
+        public Task<IReadOnlyList<EventSeriesResponse>> GetAllSeriesAsync(Guid currentUserId, Guid careGroupId)
+            => throw new NotImplementedException();
+
         public Task<EventSeriesResponse> GetSeriesByIdAsync(Guid currentUserId, Guid careGroupId, Guid seriesId)
             => throw new NotImplementedException();
 
@@ -79,5 +82,11 @@ public class EventSeriesControllerIntegrationTests
                 CreatedBy = currentUserId.ToString()
             });
         }
+
+        public Task<EventSeriesResponse> UpdateSeriesAsync(Guid currentUserId, Guid careGroupId, Guid seriesId, UpdateEventSeriesRequest request)
+            => throw new NotImplementedException();
+
+        public Task DeleteSeriesAsync(Guid currentUserId, Guid careGroupId, Guid seriesId)
+            => throw new NotImplementedException();
     }
 }

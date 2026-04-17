@@ -27,6 +27,18 @@ namespace SeasonsCare.Api.DTOs.Expenses
         public decimal ShareTotalAmount { get; set; }
 
         /// <summary>
+        /// 全體成員「不分帳、由自己全額負擔」的支出總額。
+        /// 來源為 ExpenseRecord，僅統計 splitStatus = none 且 createdBy = 該成員的金額。
+        /// </summary>
+        public decimal SelfExpenseTotalAmount { get; set; }
+
+        /// <summary>
+        /// 全體成員個人應支出總額。
+        /// 計算方式為 shareTotalAmount + selfExpenseTotalAmount。
+        /// </summary>
+        public decimal PersonalPayableTotalAmount { get; set; }
+
+        /// <summary>
         /// 各成員累積花費明細。每位成員同時包含兩個視角的金額。
         /// 排序：payerTotal + shareTotal 由高到低，相同者依名稱排序。
         /// </summary>
@@ -71,5 +83,23 @@ namespace SeasonsCare.Api.DTOs.Expenses
         /// 分攤對象視角：該成員出現在分帳明細中的筆數（即被分攤到幾筆 expense）。
         /// </summary>
         public int ShareCount { get; set; }
+
+        /// <summary>
+        /// 該成員自己建立、且不需要分帳（splitStatus = none）的支出總額。
+        /// 這類支出不會出現在 shareTotal，而是由自己全額負擔。
+        /// </summary>
+        public decimal SelfExpenseTotal { get; set; }
+
+        /// <summary>
+        /// 該成員自己建立、且不需要分帳（splitStatus = none）的支出筆數。
+        /// </summary>
+        public int SelfExpenseCount { get; set; }
+
+        /// <summary>
+        /// 該成員個人應支出總額。
+        /// 計算方式為 shareTotal + selfExpenseTotal。
+        /// 例如：分帳後自己分到 1000，加上一筆不分帳 500，personalPayableTotal = 1500。
+        /// </summary>
+        public decimal PersonalPayableTotal { get; set; }
     }
 }

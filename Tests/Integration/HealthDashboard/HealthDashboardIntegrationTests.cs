@@ -93,6 +93,8 @@ public class HealthDashboardIntegrationTests
         Assert.Equal("健康行動建議", data.GetProperty("actionSuggestionSection").GetProperty("label").GetString());
         Assert.Equal("health-report-v1", data.GetProperty("meta").GetProperty("rulesVersion").GetString());
         Assert.Equal(1, fakeAiService.CallCount);
+        Assert.NotNull(fakeAiService.LastInput);
+        Assert.Contains("目前只有 1 筆血壓", fakeAiService.LastInput!.BloodPressureSummary);
 
         var insights = await factory.GetAiHealthInsightsAsync();
         Assert.Single(insights);
@@ -175,10 +177,14 @@ public class HealthDashboardIntegrationTests
 
         using var payload = await JsonResponseHelper.ReadJsonAsync(response);
         var data = payload.RootElement.GetProperty("data");
+        var cards = data.GetProperty("cards");
 
         Assert.True(data.GetProperty("hasTodayRecords").GetBoolean());
         Assert.Equal(1, data.GetProperty("recordCount").GetInt32());
-        Assert.Contains("血壓", data.GetProperty("cards")[0].GetProperty("summary").GetString());
+        Assert.True(cards.GetArrayLength() >= 2);
+        Assert.Contains("先不用太緊張", cards[0].GetProperty("summary").GetString());
+        Assert.Contains("建議", cards[1].GetProperty("progressNote").GetString());
+        Assert.Contains("血壓", cards[1].GetProperty("title").GetString());
         // 不應呼叫 AI
         Assert.Equal(0, fakeAiService.CallCount);
     }
@@ -289,10 +295,12 @@ public class HealthDashboardIntegrationTests
     {
         public int CallCount { get; private set; }
         public bool ShouldThrow { get; set; }
+        public HealthInsightPromptInput? LastInput { get; private set; }
 
         public Task<AiGeneratedInsightDto> GenerateHealthInsightAsync(HealthInsightPromptInput input)
         {
             CallCount++;
+            LastInput = input;
 
             if (ShouldThrow)
             {

@@ -122,7 +122,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 LatestRecordAt = today.LatestRecordAt.HasValue
                     ? TimeHelper.ToTaiwanOffset(today.LatestRecordAt.Value)
                     : null,
-                Cards = BuildTodayCards(today),
+                Cards = BuildTodayCardsV2(today),
                 Meta = new HealthDashboardMetaDto
                 {
                     IsFallback = false,
@@ -367,6 +367,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             AppendDailySummary(sb, dateFrom, list, x => x.RecordDate,
                 dayRecords => $"收縮壓 {dayRecords.Average(x => x.Systolic):0.#}/{dayRecords.Average(x => x.Diastolic):0.#}");
 
+            sb.Append($" 判讀：{BuildBloodPressureWeeklyInterpretation(list)}");
             return sb.ToString();
         }
 
@@ -396,6 +397,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             AppendDailySummary(sb, dateFrom, list, x => x.RecordDate,
                 dayRecords => $"平均 {dayRecords.Average(x => x.GlucoseLevel):0.##}");
 
+            sb.Append($" 判讀：{BuildBloodSugarWeeklyInterpretation(list)}");
             return sb.ToString();
         }
 
@@ -460,10 +462,15 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         {
             var end = todayStart.AddDays(1);
             var metrics = new List<string>();
+            var interpretations = new List<TodayMetricInterpretation>();
             var types = 0;
             var timestamps = new List<DateTime>();
 
-            void AddMetric<T>(IEnumerable<T> source, Func<T, DateTime> dateSelector, Func<T, string> formatter)
+            void AddMetric<T>(
+                IEnumerable<T> source,
+                Func<T, DateTime> dateSelector,
+                Func<T, string> formatter,
+                Func<T, int, TodayMetricInterpretation>? interpretationFactory = null)
             {
                 var todayRecords = source
                     .Where(x => dateSelector(x) >= todayStart && dateSelector(x) < end)
@@ -472,26 +479,52 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 if (todayRecords.Count == 0) return;
                 timestamps.AddRange(todayRecords.Select(dateSelector));
                 metrics.Add(formatter(todayRecords[0]));
+                if (interpretationFactory != null)
+                {
+                    interpretations.Add(interpretationFactory(todayRecords[0], todayRecords.Count));
+                }
                 types++;
             }
 
             AddMetric(bp, x => x.RecordDate,
-                x => $"{TitleBloodPressure} {x.Systolic}/{x.Diastolic} mmHg");
+                x => $"{TitleBloodPressure} {x.Systolic}/{x.Diastolic} mmHg",
+                BuildBloodPressureTodayInterpretation);
             AddMetric(sugar, x => x.RecordDate,
-                x => $"{TitleBloodSugar} {x.GlucoseLevel.ToString("0.##", CultureInfo.InvariantCulture)} mg/dL");
+                x => $"{TitleBloodSugar} {x.GlucoseLevel.ToString("0.##", CultureInfo.InvariantCulture)} mg/dL",
+                BuildBloodSugarTodayInterpretation);
             AddMetric(weight, x => x.RecordDate,
-                x => $"{TitleWeight} {x.Value.ToString("0.##", CultureInfo.InvariantCulture)} kg");
+                x => $"{TitleWeight} {x.Value.ToString("0.##", CultureInfo.InvariantCulture)} kg",
+                BuildWeightTodayInterpretation);
             AddMetric(temp, x => x.RecordDate,
                 x => $"{TitleTemperature} {x.Value.ToString("0.##", CultureInfo.InvariantCulture)} °C");
             AddMetric(oxygen, x => x.RecordDate,
                 x => $"{TitleBloodOxygen} {x.SpO2.ToString("0.##", CultureInfo.InvariantCulture)}%");
+
+            var todayTemps = temp
+                .Where(x => x.RecordDate >= todayStart && x.RecordDate < end)
+                .OrderByDescending(x => x.RecordDate)
+                .ToList();
+            if (todayTemps.Count > 0)
+            {
+                interpretations.Add(BuildTemperatureTodayInterpretation(todayTemps[0], todayTemps.Count));
+            }
+
+            var todayOxygen = oxygen
+                .Where(x => x.RecordDate >= todayStart && x.RecordDate < end)
+                .OrderByDescending(x => x.RecordDate)
+                .ToList();
+            if (todayOxygen.Count > 0)
+            {
+                interpretations.Add(BuildBloodOxygenTodayInterpretation(todayOxygen[0], todayOxygen.Count));
+            }
 
             return new TodayMetricsResult
             {
                 RecordCount = timestamps.Count,
                 MetricTypeCount = types,
                 LatestRecordAt = timestamps.Count > 0 ? timestamps.Max() : null,
-                LatestMetrics = metrics
+                LatestMetrics = metrics,
+                Interpretations = interpretations
             };
         }
 
@@ -503,19 +536,265 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         {
             var progressPercent = (int)Math.Round(today.MetricTypeCount / 5.0 * 100, MidpointRounding.AwayFromZero);
 
-            return new List<HealthDashboardTodayCardDto>
+            var cards = new List<HealthDashboardTodayCardDto>
             {
                 new()
                 {
                     Title = TitleAiSummary,
                     Summary = today.RecordCount == 0
                         ? EmptyTodayInsight
-                        : BuildTodayRecordSummary(today.RecordCount, today.LatestMetrics),
+                        : BuildTodayRecordSummary(today.RecordCount, today.Interpretations, today.LatestMetrics),
                     ProgressNote = $"今日健康任務達成 {progressPercent}%",
                     IconType = today.RecordCount == 0 ? "reminder" : "insight",
                     Tone = today.RecordCount == 0 ? "neutral" : "supportive"
                 }
             };
+
+            return cards;
+        }
+
+        private static List<HealthDashboardTodayCardDto> BuildTodayCardsV2(TodayMetricsResult today)
+        {
+            var progressPercent = (int)Math.Round(today.MetricTypeCount / 5.0 * 100, MidpointRounding.AwayFromZero);
+            var cards = new List<HealthDashboardTodayCardDto>
+            {
+                new()
+                {
+                    Title = TitleAiSummary,
+                    Summary = today.RecordCount == 0
+                        ? EmptyTodayInsight
+                        : BuildTodayNarrative(today),
+                    ProgressNote = BuildTodayProgressNarrative(today, progressPercent),
+                    IconType = today.RecordCount == 0 ? "reminder" : "insight",
+                    Tone = today.RecordCount == 0 ? "neutral" : "supportive"
+                }
+            };
+
+            cards.AddRange(today.Interpretations
+                .OrderByDescending(x => x.Priority)
+                .ThenBy(x => x.Title)
+                .Take(2)
+                .Select(x => new HealthDashboardTodayCardDto
+                {
+                    Title = x.Title,
+                    Summary = x.Summary,
+                    ProgressNote = x.ProgressNote,
+                    IconType = x.IconType,
+                    Tone = x.Tone
+                }));
+
+            return cards;
+        }
+
+        private static string BuildTodayNarrative(TodayMetricsResult today)
+        {
+            if (today.Interpretations.Count == 0)
+            {
+                return BuildTodayRecordSummary(today.RecordCount, today.LatestMetrics);
+            }
+
+            var top = today.Interpretations
+                .OrderByDescending(x => x.Priority)
+                .ThenBy(x => x.Title)
+                .Take(2)
+                .ToList();
+
+            if (today.RecordCount == 1)
+            {
+                return top[0].Summary;
+            }
+
+            if (top.Count == 1)
+            {
+                return $"今天共新增 {today.RecordCount} 筆健康紀錄，先看到的是：{top[0].Summary}";
+            }
+
+            return $"今天共新增 {today.RecordCount} 筆健康紀錄，目前最值得注意的是：{top[0].Summary} 另外，{top[1].Summary}";
+        }
+
+        private static string BuildTodayProgressNarrative(TodayMetricsResult today, int progressPercent)
+        {
+            if (today.RecordCount == 0)
+            {
+                return $"隞?亙熒隞餃??? {progressPercent}%";
+            }
+
+            var topPriority = today.Interpretations.Count == 0
+                ? 0
+                : today.Interpretations.Max(x => x.Priority);
+
+            if (topPriority >= 4)
+            {
+                return "今天有較需要留意的數值，建議優先回量並留意是否持續不舒服。";
+            }
+
+            if (topPriority >= 2)
+            {
+                return "目前已有初步資料，再補 1 次同時段量測，判讀會更穩定。";
+            }
+
+            return $"今天已完成 {today.MetricTypeCount} 項指標紀錄，持續同時段量測會更容易比較變化。";
+        }
+
+        private static TodayMetricInterpretation BuildBloodPressureTodayInterpretation(BloodPressureRecord record, int todayCount)
+        {
+            var category = ClassifyBloodPressure(record.Systolic, record.Diastolic);
+            var countHint = todayCount <= 1 ? "目前只有 1 筆，還不能直接當成趨勢。" : $"今天已有 {todayCount} 筆血壓紀錄，可一起觀察。";
+
+            return new TodayMetricInterpretation
+            {
+                Title = TitleBloodPressure,
+                Summary = category switch
+                {
+                    "high" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 明顯偏高，建議先安靜休息後再量一次。{countHint}",
+                    "elevated" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 比理想區間高一點，先不用太緊張。{countHint}",
+                    _ => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 落在相對穩定的範圍，先把這次當作今天的基準值。"
+                },
+                ProgressNote = category switch
+                {
+                    "high" => "建議 10 到 15 分鐘後再量，若仍偏高可持續追蹤並留意不適。",
+                    "elevated" => "建議固定在相近時段補量 1 次，看看是否只是當下狀態影響。",
+                    _ => "維持固定時段量測，有助於後續觀察變化。"
+                },
+                IconType = category == "normal" ? "progress" : "insight",
+                Tone = category == "high" ? "neutral" : "supportive",
+                Priority = category switch
+                {
+                    "high" => 4,
+                    "elevated" => 2,
+                    _ => 1
+                }
+            };
+        }
+
+        private static TodayMetricInterpretation BuildBloodSugarTodayInterpretation(BloodSugarRecord record, int todayCount)
+        {
+            var context = (record.MeasurementContext ?? string.Empty).Trim();
+            var category = ClassifyBloodSugar(record.GlucoseLevel, context);
+            var contextLabel = string.IsNullOrWhiteSpace(context) ? "未註明情境" : context;
+            var countHint = todayCount <= 1 ? "先把它當成提醒訊號，還需要後續紀錄幫忙判讀。" : $"今天已有 {todayCount} 筆血糖資料，可一起比較。";
+
+            return new TodayMetricInterpretation
+            {
+                Title = TitleBloodSugar,
+                Summary = category switch
+                {
+                    "high" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）偏高一些，{countHint}",
+                    "low" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）偏低，建議先留意身體狀況並補記後續數值。",
+                    _ => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）大致在可接受範圍，可持續觀察。"
+                },
+                ProgressNote = category switch
+                {
+                    "high" => "建議下次補上飯前或飯後情境，系統會更容易判斷是否持續偏高。",
+                    "low" => "若有頭暈、冒冷汗等不適，請盡快處理並考慮尋求專業協助。",
+                    _ => "固定紀錄量測情境，之後的分析會更準。"
+                },
+                IconType = category == "normal" ? "progress" : "insight",
+                Tone = category == "low" ? "neutral" : "supportive",
+                Priority = category switch
+                {
+                    "high" => 3,
+                    "low" => 4,
+                    _ => 1
+                }
+            };
+        }
+
+        private static TodayMetricInterpretation BuildWeightTodayInterpretation(WeightRecord record, int todayCount)
+        {
+            return new TodayMetricInterpretation
+            {
+                Title = TitleWeight,
+                Summary = todayCount <= 1
+                    ? $"今天體重 {record.Value:0.##} kg，先把這次當成近期比較的基準。"
+                    : $"今天最新體重 {record.Value:0.##} kg，已有 {todayCount} 筆資料可和前面紀錄一起比較。",
+                ProgressNote = "體重建議固定在相近時段量測，週趨勢通常比單筆更有判讀價值。",
+                IconType = "progress",
+                Tone = "supportive",
+                Priority = 1
+            };
+        }
+
+        private static TodayMetricInterpretation BuildTemperatureTodayInterpretation(TemperatureRecord record, int todayCount)
+        {
+            var category = record.Value >= 38m ? "high" : (record.Value >= 37.3m ? "elevated" : "normal");
+            return new TodayMetricInterpretation
+            {
+                Title = TitleTemperature,
+                Summary = category switch
+                {
+                    "high" => $"今天體溫 {record.Value:0.##}°C 已偏高，建議留意精神狀態與後續變化。",
+                    "elevated" => $"今天體溫 {record.Value:0.##}°C 稍高，建議休息後再追一筆觀察。",
+                    _ => $"今天體溫 {record.Value:0.##}°C 大致穩定，可持續記錄。"
+                },
+                ProgressNote = category == "normal"
+                    ? "若今天有不舒服，仍可晚一點再補量一次。"
+                    : "若後續持續升高或伴隨明顯不適，請提高警覺。",
+                IconType = category == "normal" ? "progress" : "insight",
+                Tone = category == "high" ? "neutral" : "supportive",
+                Priority = category switch
+                {
+                    "high" => 4,
+                    "elevated" => 2,
+                    _ => 1
+                }
+            };
+        }
+
+        private static TodayMetricInterpretation BuildBloodOxygenTodayInterpretation(BloodOxygenRecord record, int todayCount)
+        {
+            var category = record.SpO2 < 92m ? "low" : (record.SpO2 < 95m ? "watch" : "normal");
+            return new TodayMetricInterpretation
+            {
+                Title = TitleBloodOxygen,
+                Summary = category switch
+                {
+                    "low" => $"今天血氧 {record.SpO2:0.##}% 偏低，建議盡快再次確認量測狀況並留意不適。",
+                    "watch" => $"今天血氧 {record.SpO2:0.##}% 比理想值低一些，建議稍後再量一次確認。",
+                    _ => $"今天血氧 {record.SpO2:0.##}% 在一般可接受範圍內。"
+                },
+                ProgressNote = category == "normal"
+                    ? "持續同時段記錄，較容易看出穩定度。"
+                    : "若重測仍偏低，請提高注意並視情況尋求協助。",
+                IconType = category == "normal" ? "progress" : "insight",
+                Tone = category == "low" ? "neutral" : "supportive",
+                Priority = category switch
+                {
+                    "low" => 4,
+                    "watch" => 3,
+                    _ => 1
+                }
+            };
+        }
+
+        private static string ClassifyBloodPressure(int systolic, int diastolic)
+        {
+            if (systolic >= 140 || diastolic >= 90) return "high";
+            if (systolic >= 120 || diastolic >= 80) return "elevated";
+            return "normal";
+        }
+
+        private static string ClassifyBloodSugar(decimal value, string context)
+        {
+            var normalized = context.ToLowerInvariant();
+            var isPostMeal = normalized.Contains("飯後") || normalized.Contains("餐後") || normalized.Contains("after");
+            var isFasting = normalized.Contains("飯前") || normalized.Contains("空腹") || normalized.Contains("fast");
+
+            if (isPostMeal)
+            {
+                if (value >= 200m) return "high";
+                return value >= 140m ? "high" : "normal";
+            }
+
+            if (isFasting)
+            {
+                if (value < 70m) return "low";
+                if (value >= 126m) return "high";
+                return value >= 100m ? "high" : "normal";
+            }
+
+            if (value < 70m) return "low";
+            return value > 140m ? "high" : "normal";
         }
 
         // ──────────────────────────────────────────────
@@ -784,6 +1063,53 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             return "low";
         }
 
+        private static string BuildBloodPressureWeeklyInterpretation(IReadOnlyList<BloodPressureRecord> records)
+        {
+            var latest = records[^1];
+            var avgSys = records.Average(x => x.Systolic);
+            var avgDia = records.Average(x => x.Diastolic);
+            var category = ClassifyBloodPressure((int)Math.Round(avgSys), (int)Math.Round(avgDia));
+
+            if (records.Count == 1)
+            {
+                return category switch
+                {
+                    "high" => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，偏高，建議在休息後補量 1 次再判斷是否持續。",
+                    "elevated" => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，略高於理想值，先持續追蹤即可。",
+                    _ => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，落在相對穩定範圍。"
+                };
+            }
+
+            return category switch
+            {
+                "high" => $"近 7 天平均血壓約 {avgSys:0.#}/{avgDia:0.#} mmHg，整體偏高，建議持續觀察是否反覆出現。",
+                "elevated" => $"近 7 天平均血壓略高於理想值，建議固定時段量測，確認是否形成穩定趨勢。",
+                _ => $"近 7 天血壓大致維持在相對穩定範圍。"
+            };
+        }
+
+        private static string BuildBloodSugarWeeklyInterpretation(IReadOnlyList<BloodSugarRecord> records)
+        {
+            var latest = records[^1];
+            var latestContext = (latest.MeasurementContext ?? string.Empty).Trim();
+            var category = ClassifyBloodSugar(latest.GlucoseLevel, latestContext);
+
+            if (records.Count == 1)
+            {
+                return category switch
+                {
+                    "low" => $"目前只有 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，偏低，建議優先留意當下狀況並補記後續資料。",
+                    "high" => $"目前只有 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，偏高，建議搭配飯前或飯後情境再追蹤。",
+                    _ => $"目前只有 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，可先作為最近狀態的參考。"
+                };
+            }
+
+            var avg = records.Average(x => x.GlucoseLevel);
+            return avg > 140m
+                ? $"近 7 天平均血糖約 {avg:0.##} mg/dL，整體偏高一些，建議持續補足量測情境。"
+                : $"近 7 天血糖大致落在可接受範圍，可持續觀察。";
+        }
+
         private static string DescribeTrend(IEnumerable<double> values)
         {
             var list = values.ToList();
@@ -798,6 +1124,23 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             return recordCount == 0
                 ? EmptyTodayInsight
                 : $"今日共 {recordCount} 筆紀錄，{string.Join("、", latestMetrics)}。";
+        }
+
+        private static string BuildTodayRecordSummary(
+            int recordCount,
+            IReadOnlyList<TodayMetricInterpretation> interpretations,
+            IReadOnlyList<string> latestMetrics)
+        {
+            if (interpretations.Count == 0)
+            {
+                return BuildTodayRecordSummary(recordCount, latestMetrics);
+            }
+
+            return interpretations
+                .OrderByDescending(x => x.Priority)
+                .ThenBy(x => x.Title)
+                .First()
+                .Summary;
         }
 
         private static string ResolveBloodPressureLabel(string? preferred, IReadOnlyList<BloodPressureRecord> records)
@@ -932,6 +1275,17 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             public int MetricTypeCount { get; init; }
             public DateTime? LatestRecordAt { get; init; }
             public IReadOnlyList<string> LatestMetrics { get; init; } = Array.Empty<string>();
+            public IReadOnlyList<TodayMetricInterpretation> Interpretations { get; init; } = Array.Empty<TodayMetricInterpretation>();
+        }
+
+        private sealed class TodayMetricInterpretation
+        {
+            public string Title { get; init; } = string.Empty;
+            public string Summary { get; init; } = string.Empty;
+            public string ProgressNote { get; init; } = string.Empty;
+            public string IconType { get; init; } = "insight";
+            public string Tone { get; init; } = "supportive";
+            public int Priority { get; init; }
         }
     }
 }

@@ -17,7 +17,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v8";
+        private const string PromptVersion = "health-dashboard-v9";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -118,6 +118,7 @@ namespace SeasonsCare.Api.Services.AI
             };
 
             var prompt = $"""
+即使只有 1 筆資料，也要根據參考區間先做保守判讀，再補上溫和、具體、有人味的下一步建議；不要只重述數值。
 你是一位有臨床背景的家庭照護助理，正在為一位家屬撰寫本週健康儀表板報告。
 這份報告會顯示在手機 App 首頁，閱讀者是長輩的家人，對醫療術語不熟，需要溫暖、貼心、像家庭護理師面對面說話的口吻。
 

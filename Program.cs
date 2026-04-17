@@ -138,6 +138,7 @@ builder.Services.AddScoped<ICareGroupService, CareGroupService>();
 builder.Services.AddScoped<ICareLogService, CareLogService>();
 builder.Services.AddScoped<IEventSeriesService, EventSeriesService>();
 builder.Services.AddScoped<IEventOccurrenceService, EventOccurrenceService>();
+builder.Services.AddScoped<IEventFacadeService, EventFacadeService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IAiHealthInsightService, AiHealthInsightService>();
 builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));

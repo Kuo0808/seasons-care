@@ -428,6 +428,69 @@ public class ExpenseServiceTests
         Assert.All(result.Members, m => Assert.Equal(0, m.PayerCount));
     }
 
+    [Fact]
+    public async Task GetMemberExpenseTotalsAsync_PersonalPayable_CombinesShareAndSelfExpense()
+    {
+        var careGroupId = Guid.NewGuid();
+        var payerId = Guid.NewGuid();
+        var memberA = Guid.NewGuid();
+        var memberB = Guid.NewGuid();
+
+        var users = new[]
+        {
+            new User { Id = payerId, Username = "Payer" },
+            new User { Id = memberA, Username = "MemberA" },
+            new User { Id = memberB, Username = "MemberB" }
+        };
+
+        var careGroupRepository = new FakeCareGroupRepository(isMember: true)
+        {
+            Members = new List<CareGroupMember>
+            {
+                new CareGroupMember { CareGroupId = careGroupId, UserId = payerId, User = users[0] },
+                new CareGroupMember { CareGroupId = careGroupId, UserId = memberA, User = users[1] },
+                new CareGroupMember { CareGroupId = careGroupId, UserId = memberB, User = users[2] }
+            }
+        };
+
+        var repository = new FakeExpenseRepository(
+            new ExpenseRecord
+            {
+                Id = Guid.NewGuid(),
+                CareGroupId = careGroupId,
+                Title = "Self Expense",
+                Amount = 500m,
+                SplitStatus = ExpenseSplitStatus.None,
+                CreatedBy = payerId.ToString(),
+                ExpenseDate = DateTime.UtcNow
+            });
+
+        var splitRepository = new FakeExpenseSplitRepository();
+        splitRepository.Splits.AddRange(new[]
+        {
+            new ExpenseSplit { CareGroupId = careGroupId, UserId = payerId, ShareAmount = 1000m, IsPayer = true },
+            new ExpenseSplit { CareGroupId = careGroupId, UserId = memberA, ShareAmount = 1000m, IsPayer = false },
+            new ExpenseSplit { CareGroupId = careGroupId, UserId = memberB, ShareAmount = 1000m, IsPayer = false }
+        });
+
+        var userRepository = new FakeUserRepository(users);
+        var service = new ExpenseService(repository, careGroupRepository, userRepository, splitRepository);
+
+        var result = await service.GetMemberExpenseTotalsAsync(payerId, careGroupId, new MemberExpenseTotalsRequest
+        {
+            Scope = "all"
+        });
+
+        var payerItem = result.Members.First(x => x.UserId == payerId);
+        Assert.Equal(1000m, payerItem.ShareTotal);
+        Assert.Equal(500m, payerItem.SelfExpenseTotal);
+        Assert.Equal(1500m, payerItem.PersonalPayableTotal);
+        Assert.Equal(1, payerItem.SelfExpenseCount);
+
+        Assert.Equal(500m, result.SelfExpenseTotalAmount);
+        Assert.Equal(3500m, result.PersonalPayableTotalAmount);
+    }
+
     private sealed class FakeExpenseRepository : IExpenseRepository
     {
         public List<ExpenseRecord> Expenses { get; } = new();

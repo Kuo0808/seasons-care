@@ -11,6 +11,8 @@ namespace SeasonsCare.Api.Repositories
         Task<List<EventSeries>> GetAllByCareGroupIdAsync(Guid careGroupId);
         Task<(List<EventSeries> Data, int TotalCount)> GetPagedByCareGroupIdAsync(Guid careGroupId, int page, int pageSize, string sort);
         Task AddAsync(EventSeries series);
+        Task UpdateAsync(EventSeries series);
+        Task SoftDeleteAsync(EventSeries series);
         Task SaveChangesAsync();
     }
 }

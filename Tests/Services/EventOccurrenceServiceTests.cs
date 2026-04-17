@@ -328,6 +328,14 @@ public class EventOccurrenceServiceTests
             return Task.CompletedTask;
         }
 
+        public Task UpdateAsync(EventSeries series) => Task.CompletedTask;
+
+        public Task SoftDeleteAsync(EventSeries series)
+        {
+            series.DeletedAt = DateTime.UtcNow;
+            return Task.CompletedTask;
+        }
+
         public Task SaveChangesAsync() => Task.CompletedTask;
     }
 

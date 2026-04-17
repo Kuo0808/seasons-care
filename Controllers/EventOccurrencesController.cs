@@ -11,11 +11,13 @@ using SeasonsCare.Api.Services;
 namespace SeasonsCare.Api.Controllers
 {
     /// <summary>
-    /// 事件實例 API。
+    /// 事件實例 API（進階：直接操作單次覆寫）。
     /// 提供查詢、取消、完成、更新單次事件，以及清除單次覆寫回復系列預設的能力。
+    /// 前端一般頁面串接請優先使用 /events Facade（FME-2 查列表、FME-5 改狀態、FME-6 查單次）；此模組保留給特殊整合情境使用。
     /// </summary>
     [Authorize]
     [ApiController]
+    [Tags("Event Occurrences (進階：直接操作單次覆寫)")]
     [Route("api/care-groups/{careGroupId}/event-occurrences")]
     public class EventOccurrencesController : ControllerBase
     {

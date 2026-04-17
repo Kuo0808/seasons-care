@@ -11,11 +11,13 @@ using SeasonsCare.Api.Services;
 namespace SeasonsCare.Api.Controllers
 {
     /// <summary>
-    /// 事件系列 API。
+    /// 事件系列 API（進階：直接操作系列規則本身）。
     /// 這個模組用來建立與管理可重複的系列事件，例如每週固定回診、固定復健、固定陪診。
+    /// 前端一般頁面串接請優先使用 /events Facade（FME-1 ~ FME-6）；此模組保留給需要分頁列表或系列細節時使用。
     /// </summary>
     [Authorize]
     [ApiController]
+    [Tags("Event Series (進階：直接操作系列規則)")]
     [Route("api/care-groups/{careGroupId}/event-series")]
     public class EventSeriesController : ControllerBase
     {
@@ -83,6 +85,43 @@ namespace SeasonsCare.Api.Controllers
             var result = await _eventSeriesService.CreateSeriesAsync(currentUserId, careGroupId, request);
             var response = new ApiResponse<EventSeriesResponse>(result, "建立事件系列成功", HttpContext.TraceIdentifier);
             return StatusCode(201, response);
+        }
+
+        /// <summary>
+        /// 更新事件系列。
+        /// </summary>
+        [HttpPut("{seriesId}")]
+        [ProducesResponseType(typeof(ApiResponse<EventSeriesResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [EndpointSummary("更新事件系列")]
+        [EndpointDescription("更新指定的事件系列。未被單次覆寫的 occurrence 會依新規則展開；已被單次覆寫的 occurrence 維持其原本覆寫內容。")]
+        public async Task<IActionResult> UpdateSeries(Guid careGroupId, Guid seriesId, [FromBody] UpdateEventSeriesRequest request)
+        {
+            var currentUserId = _currentUserService.UserId;
+            var result = await _eventSeriesService.UpdateSeriesAsync(currentUserId, careGroupId, seriesId, request);
+            var response = new ApiResponse<EventSeriesResponse>(result, "更新事件系列成功", HttpContext.TraceIdentifier);
+            return Ok(response);
+        }
+
+        /// <summary>
+        /// 刪除事件系列（soft delete）。
+        /// </summary>
+        [HttpDelete("{seriesId}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [EndpointSummary("刪除事件系列")]
+        [EndpointDescription("刪除指定的事件系列。此操作為 soft delete；刪除後該系列展開的 occurrence 將不再出現在 GET 查詢結果。")]
+        public async Task<IActionResult> DeleteSeries(Guid careGroupId, Guid seriesId)
+        {
+            var currentUserId = _currentUserService.UserId;
+            await _eventSeriesService.DeleteSeriesAsync(currentUserId, careGroupId, seriesId);
+            var response = new ApiResponse<object>(null, "刪除事件系列成功", HttpContext.TraceIdentifier);
+            return Ok(response);
         }
     }
 }

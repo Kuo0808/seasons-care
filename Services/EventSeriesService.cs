@@ -30,6 +30,13 @@ namespace SeasonsCare.Api.Services
             return new PagedResponse<EventSeriesResponse>(items, totalCount, pagination.Page, pagination.PageSize);
         }
 
+        public async Task<IReadOnlyList<EventSeriesResponse>> GetAllSeriesAsync(Guid currentUserId, Guid careGroupId)
+        {
+            await CheckMembershipAsync(careGroupId, currentUserId);
+            var items = await _eventSeriesRepository.GetAllByCareGroupIdAsync(careGroupId);
+            return items.Select(MapToResponse).ToList();
+        }
+
         public async Task<EventSeriesResponse> GetSeriesByIdAsync(Guid currentUserId, Guid careGroupId, Guid seriesId)
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
@@ -72,6 +79,51 @@ namespace SeasonsCare.Api.Services
             await _eventSeriesRepository.AddAsync(series);
             await _eventSeriesRepository.SaveChangesAsync();
             return MapToResponse(series);
+        }
+
+        public async Task<EventSeriesResponse> UpdateSeriesAsync(Guid currentUserId, Guid careGroupId, Guid seriesId, UpdateEventSeriesRequest request)
+        {
+            await CheckMembershipAsync(careGroupId, currentUserId);
+            var series = await _eventSeriesRepository.GetByIdAsync(seriesId);
+            if (series == null || series.CareGroupId != careGroupId)
+            {
+                throw new DomainException("Event series not found.", "NOT_FOUND", 404);
+            }
+
+            var participants = await ValidateParticipantsAsync(careGroupId, request.Participants);
+            var now = NormalizeTimestamp(TimeHelper.UtcNow);
+
+            series.Title = request.Title;
+            series.Description = request.Description;
+            series.StartsAt = NormalizeTimestamp(request.StartsAt);
+            series.DurationMinutes = request.DurationMinutes;
+            series.RepeatPattern = request.RepeatPattern;
+            series.RepeatInterval = request.RepeatInterval;
+            series.DaysOfWeekMask = BuildDaysOfWeekMask(request.DaysOfWeek);
+            series.EndType = request.EndType;
+            series.EndAt = request.EndAt.HasValue ? NormalizeTimestamp(request.EndAt.Value) : null;
+            series.OccurrenceCount = request.OccurrenceCount;
+            series.Participants = participants;
+            series.Status = request.Status;
+            series.IsImportant = request.IsImportant;
+            series.UpdatedAt = now;
+
+            await _eventSeriesRepository.UpdateAsync(series);
+            await _eventSeriesRepository.SaveChangesAsync();
+            return MapToResponse(series);
+        }
+
+        public async Task DeleteSeriesAsync(Guid currentUserId, Guid careGroupId, Guid seriesId)
+        {
+            await CheckMembershipAsync(careGroupId, currentUserId);
+            var series = await _eventSeriesRepository.GetByIdAsync(seriesId);
+            if (series == null || series.CareGroupId != careGroupId)
+            {
+                throw new DomainException("Event series not found.", "NOT_FOUND", 404);
+            }
+
+            await _eventSeriesRepository.SoftDeleteAsync(series);
+            await _eventSeriesRepository.SaveChangesAsync();
         }
 
         private async Task CheckMembershipAsync(Guid careGroupId, Guid userId)

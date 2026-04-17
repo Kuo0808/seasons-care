@@ -62,6 +62,92 @@ public class EventSeriesServiceTests
         Assert.Equal("VALIDATION_FAILED", exception.ErrorCode);
     }
 
+    [Fact]
+    public async Task UpdateSeriesAsync_UpdatesFields_WhenSeriesExists()
+    {
+        var creatorId = Guid.NewGuid();
+        var careGroupId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+
+        var existing = new EventSeries
+        {
+            Id = seriesId,
+            CareGroupId = careGroupId,
+            Title = "舊標題",
+            StartsAt = new DateTime(2026, 4, 10, 9, 0, 0, DateTimeKind.Utc),
+            RepeatPattern = EventRepeatPattern.None,
+            RepeatInterval = 1
+        };
+
+        var repository = new FakeEventSeriesRepository();
+        repository.Items.Add(existing);
+        var groupRepository = new FakeCareGroupRepository(isMember: true, groupMembers: new[] { creatorId });
+        var service = new EventSeriesService(repository, groupRepository);
+
+        var result = await service.UpdateSeriesAsync(creatorId, careGroupId, seriesId, new UpdateEventSeriesRequest
+        {
+            Title = "新標題",
+            StartsAt = new DateTime(2026, 4, 20, 10, 0, 0, DateTimeKind.Utc),
+            RepeatPattern = EventRepeatPattern.Daily,
+            RepeatInterval = 2,
+            IsImportant = true
+        });
+
+        Assert.Equal("新標題", result.Title);
+        Assert.Equal(EventRepeatPattern.Daily, result.RepeatPattern);
+        Assert.Equal(2, result.RepeatInterval);
+        Assert.True(result.IsImportant);
+    }
+
+    [Fact]
+    public async Task UpdateSeriesAsync_ThrowsNotFound_WhenSeriesMissing()
+    {
+        var creatorId = Guid.NewGuid();
+        var careGroupId = Guid.NewGuid();
+        var repository = new FakeEventSeriesRepository();
+        var groupRepository = new FakeCareGroupRepository(isMember: true, groupMembers: new[] { creatorId });
+        var service = new EventSeriesService(repository, groupRepository);
+
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            service.UpdateSeriesAsync(creatorId, careGroupId, Guid.NewGuid(), new UpdateEventSeriesRequest
+            {
+                Title = "x",
+                StartsAt = DateTime.UtcNow
+            }));
+
+        Assert.Equal(404, ex.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteSeriesAsync_MarksDeletedAt_AndHidesFromSubsequentReads()
+    {
+        var creatorId = Guid.NewGuid();
+        var careGroupId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+
+        var existing = new EventSeries
+        {
+            Id = seriesId,
+            CareGroupId = careGroupId,
+            Title = "待刪除",
+            StartsAt = DateTime.UtcNow
+        };
+
+        var repository = new FakeEventSeriesRepository();
+        repository.Items.Add(existing);
+        var groupRepository = new FakeCareGroupRepository(isMember: true, groupMembers: new[] { creatorId });
+        var service = new EventSeriesService(repository, groupRepository);
+
+        await service.DeleteSeriesAsync(creatorId, careGroupId, seriesId);
+
+        Assert.NotNull(existing.DeletedAt);
+
+        // 再次讀取會被 fake 的 DeletedAt 過濾掉
+        var readAgain = await Assert.ThrowsAsync<DomainException>(() =>
+            service.GetSeriesByIdAsync(creatorId, careGroupId, seriesId));
+        Assert.Equal(404, readAgain.StatusCode);
+    }
+
     private sealed class FakeEventSeriesRepository : IEventSeriesRepository
     {
         public List<EventSeries> Items { get; } = new();
@@ -85,6 +171,18 @@ public class EventSeriesServiceTests
         public Task AddAsync(EventSeries series)
         {
             Items.Add(series);
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateAsync(EventSeries series)
+        {
+            // in-memory fake：series 已是 tracked 物件，值在呼叫端就地改掉
+            return Task.CompletedTask;
+        }
+
+        public Task SoftDeleteAsync(EventSeries series)
+        {
+            series.DeletedAt = DateTime.UtcNow;
             return Task.CompletedTask;
         }
 
