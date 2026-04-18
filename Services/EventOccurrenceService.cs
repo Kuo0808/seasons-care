@@ -145,6 +145,7 @@ namespace SeasonsCare.Api.Services
                 }
             }
 
+            var isNewRecord = existing == null;
             if (existing == null)
             {
                 existing = new EventOccurrence
@@ -175,7 +176,10 @@ namespace SeasonsCare.Api.Services
             existing.OverrideIsImportant = overrideIsImportant ?? existing.OverrideIsImportant;
             existing.UpdatedAt = now;
 
-            await _eventOccurrenceRepository.UpdateAsync(existing);
+            if (!isNewRecord)
+            {
+                await _eventOccurrenceRepository.UpdateAsync(existing);
+            }
             await _eventOccurrenceRepository.SaveChangesAsync();
 
             return (series, existing, occurrenceKeyStartAt);
