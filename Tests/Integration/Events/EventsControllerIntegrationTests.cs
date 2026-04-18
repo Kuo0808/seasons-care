@@ -65,6 +65,18 @@ public class EventsControllerIntegrationTests
         Assert.Equal("weeklyDay", first.GetProperty("repeatPattern").GetString());
     }
 
+    [Fact]
+    public async Task GetEvents_Returns400_WhenFromAndToAreMissing()
+    {
+        var stub = new StubEventFacadeService();
+        using var factory = new StubApiFactory<IEventFacadeService>(stub);
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/care-groups/{CareGroupIdPath}/events");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     // FME-3
     [Fact]
     public async Task UpdateEvent_Returns200_AndPassesFieldSetToFacade()
