@@ -5,7 +5,13 @@
       "Bash(dotnet test:*)",
       "Bash(grep:*)",
       "Bash(find /c/Users/家偉/DESKTOP/SEASONS-CARE -name \"*.cs\" -type f ! -path \"*/obj/*\" ! -path \"*/bin/*\" -exec grep -l \"^\\\\s*//.*[a-zA-Z]\" {} \\\\;)",
-      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && grep \"public DateTime\\\\|public DateTimeOffset\" {}')"
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && grep \"public DateTime\\\\|public DateTimeOffset\" {}')",
+      "Bash(python -c \" import json payload = { 'model': 'gpt-4o', 'instructions': 'test', 'input': [{'role':'user','content':[{'type':'input_text','text':'hi'}]}], 'text': { 'format': { 'type': 'json_schema', 'name': 'test_schema', 'strict': True, 'schema': { 'type': 'object', 'additionalProperties': False, 'properties': { 'cards': { 'type': 'array', 'minItems': 1, 'maxItems': 3, 'items': { 'type': 'object', 'additionalProperties': False, 'properties': {'title': {'type':'string'}}, 'required': ['title'] } } }, 'required': ['cards'] } } } } print\\(json.dumps\\(payload\\)\\) \")",
+      "Read(//tmp/**)",
+      "Bash(curl -sS -X POST https://api.openai.com/v1/responses -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -d @/tmp/test_payload.json)",
+      "Bash(python -c \"import json; print\\(json.load\\(open\\('/c/Users/家偉/desktop/seasons-care/appsettings.Development.json'\\)\\)['OpenAI']['ApiKey']\\)\")",
+      "Bash(cp \"/c/Users/家偉/desktop/seasons-care/appsettings.Development.json\" /tmp/dev.json)",
+      "Bash(python -c \"import json; print\\(json.load\\(open\\('/tmp/dev.json'\\)\\)['OpenAI']['ApiKey']\\)\")"
     ]
   }
 }

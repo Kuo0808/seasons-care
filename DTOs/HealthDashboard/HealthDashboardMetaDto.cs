@@ -29,5 +29,11 @@ namespace SeasonsCare.Api.DTOs.HealthDashboard
         /// 代表目前 API 回應欄位規格的 rules 版本。
         /// </summary>
         public string? RulesVersion { get; set; }
+
+        /// <summary>
+        /// 當 AI 生成失敗進入 fallback 時，此欄位承載 OpenAI 回傳的錯誤訊息，
+        /// 供前端 / 開發者快速定位原因；正常情況為 null。
+        /// </summary>
+        public string? DebugError { get; set; }
     }
 }

@@ -233,7 +233,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var today = GetTodayMetrics(todayStart, bp, sugar, weight, temp, oxygen);
             var total = bp.Count + sugar.Count + weight.Count + temp.Count + oxygen.Count;
 
-            var (insight, isFromCache, isFallback) = await GetOrGenerateInsightAsync(
+            var (insight, isFromCache, isFallback, debugError) = await GetOrGenerateInsightAsync(
                 currentUserId, careGroupId, dateFrom, dateTo, total, today.RecordCount,
                 BuildTodayRecordSummary(today.RecordCount, today.LatestMetrics),
                 bp, sugar, weight, temp, oxygen);
@@ -249,6 +249,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 Insight = insight,
                 IsFromCache = isFromCache,
                 IsFallback = isFallback,
+                DebugError = debugError,
                 BloodPressureCount = bp.Count,
                 BloodSugarCount = sugar.Count
             };
@@ -258,7 +259,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         // AI 生成 / 快取
         // ──────────────────────────────────────────────
 
-        private async Task<(AiGeneratedInsightDto? Insight, bool IsFromCache, bool IsFallback)> GetOrGenerateInsightAsync(
+        private async Task<(AiGeneratedInsightDto? Insight, bool IsFromCache, bool IsFallback, string? DebugError)> GetOrGenerateInsightAsync(
             Guid currentUserId, Guid careGroupId,
             DateTime dateFrom, DateTime dateTo,
             int totalRecordCount, int todayRecordCount, string todaySummary,
@@ -272,7 +273,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 careGroupId, DashboardReportType, dateFrom, dateTo);
             if (cached != null && cached.PromptVersion == CurrentPromptVersion)
             {
-                return (MapInsight(cached), true, false);
+                return (MapInsight(cached), true, false, null);
             }
 
             if (cached != null)
@@ -345,14 +346,19 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 insight.PromptVersion = saved.PromptVersion;
                 insight.GeneratedAt = saved.GeneratedAt.UtcDateTime;
 
-                return (insight, false, false);
+                return (insight, false, false, null);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex,
                     "AI 健康分析產生失敗，careGroupId={CareGroupId}，改用 fallback 內容。",
                     careGroupId);
-                return (null, false, true);
+                var errorDetail = $"{ex.GetType().Name}: {ex.Message}";
+                if (ex.InnerException != null)
+                {
+                    errorDetail += $" | Inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}";
+                }
+                return (null, false, true, errorDetail);
             }
         }
 
@@ -1395,7 +1401,8 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 Confidence = ResolveConfidence(context),
                 ModelName = context.Insight?.ModelName,
                 PromptVersion = context.Insight?.PromptVersion,
-                RulesVersion = RulesVersion
+                RulesVersion = RulesVersion,
+                DebugError = context.DebugError
             };
         }
 
@@ -1615,6 +1622,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             public AiGeneratedInsightDto? Insight { get; init; }
             public bool IsFromCache { get; init; }
             public bool IsFallback { get; init; }
+            public string? DebugError { get; init; }
             public int BloodPressureCount { get; init; }
             public int BloodSugarCount { get; init; }
         }
