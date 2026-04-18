@@ -22,7 +22,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
     {
         private const string DashboardReportType = "health_dashboard_7d";
         private const string RulesVersion = "health-report-v1";
-        private const string CurrentPromptVersion = "health-dashboard-v10";
+        private const string CurrentPromptVersion = "health-dashboard-v11";
         private const string EmptyTodayInsight = "今天尚無健康紀錄，新增量測後會顯示摘要。";
         private const string LabelKeyInsight = "關鍵數據洞察";
         private const string LabelActionSuggestion = "健康行動建議";
@@ -365,7 +365,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var avgDia = list.Average(x => x.Diastolic);
 
             var sb = new StringBuilder();
-            sb.Append($"共 {list.Count} 筆，最新 {latest.Systolic}/{latest.Diastolic} mmHg，");
+            sb.Append($"最新 {latest.Systolic}/{latest.Diastolic} mmHg，");
             sb.Append($"平均 {avgSys:0.#}/{avgDia:0.#} mmHg，");
             sb.Append($"收縮壓範圍 {list.Min(x => x.Systolic)}-{list.Max(x => x.Systolic)}，");
             sb.Append($"舒張壓範圍 {list.Min(x => x.Diastolic)}-{list.Max(x => x.Diastolic)}，");
@@ -386,7 +386,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
             var latest = list[^1];
             var sb = new StringBuilder();
-            sb.Append($"共 {list.Count} 筆，最新 {latest.GlucoseLevel:0.##} mg/dL，");
+            sb.Append($"最新 {latest.GlucoseLevel:0.##} mg/dL，");
             sb.Append($"平均 {list.Average(x => x.GlucoseLevel):0.##} mg/dL，");
             sb.Append($"範圍 {list.Min(x => x.GlucoseLevel):0.##}-{list.Max(x => x.GlucoseLevel):0.##} mg/dL，");
             sb.Append($"趨勢 {DescribeTrend(list.Select(x => (double)x.GlucoseLevel))}。");
@@ -394,7 +394,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             // 量測情境分組
             var grouped = list
                 .GroupBy(x => x.MeasurementContext)
-                .Select(g => $"{g.Key}: {g.Count()} 筆, 平均 {g.Average(x => x.GlucoseLevel):0.##}")
+                .Select(g => $"{g.Key}: 平均 {g.Average(x => x.GlucoseLevel):0.##}")
                 .ToList();
             if (grouped.Count > 0)
             {
@@ -420,7 +420,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
             var values = sortedRecords.Select(valueSelector).ToList();
             var sb = new StringBuilder();
-            sb.Append($"共 {values.Count} 筆，最新 {values[^1]:0.##}{unit}，");
+            sb.Append($"最新 {values[^1]:0.##}{unit}，");
             sb.Append($"平均 {values.Average():0.##}{unit}，");
             sb.Append($"範圍 {values.Min():0.##}-{values.Max():0.##}{unit}，");
             sb.Append($"趨勢 {DescribeTrend(values)}。");
@@ -447,7 +447,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 if (dayRecords.Count == 0) continue;
 
                 var dateLabel = TimeHelper.ToTaiwanTime(dayStart).ToString("MM/dd", CultureInfo.InvariantCulture);
-                dailyParts.Add($"{dateLabel}: {dayRecords.Count} 筆, {dayFormatter(dayRecords)}");
+                dailyParts.Add($"{dateLabel}: {dayFormatter(dayRecords)}");
             }
 
             if (dailyParts.Count > 0)

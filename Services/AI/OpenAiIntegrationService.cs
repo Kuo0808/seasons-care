@@ -17,7 +17,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v10";
+        private const string PromptVersion = "health-dashboard-v11";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -104,9 +104,6 @@ namespace SeasonsCare.Api.Services.AI
                     from = input.DateFrom.ToString("yyyy-MM-dd"),
                     to = input.DateTo.ToString("yyyy-MM-dd")
                 },
-                totalRecordCount = input.TotalRecordCount,
-                todayRecordCount = input.TodayRecordCount,
-                todaySummary = input.TodaySummary,
                 metrics = new Dictionary<string, string>
                 {
                     ["bloodPressure"] = input.BloodPressureSummary,
@@ -114,6 +111,12 @@ namespace SeasonsCare.Api.Services.AI
                     ["weight"] = input.WeightSummary,
                     ["temperature"] = input.TemperatureSummary,
                     ["bloodOxygen"] = input.BloodOxygenSummary
+                },
+                _meta = new
+                {
+                    note = "以下欄位僅供判斷 confidence 使用，嚴禁在任何輸出文字中提及紀錄筆數。",
+                    totalRecordCount = input.TotalRecordCount,
+                    todayRecordCount = input.TodayRecordCount
                 }
             };
 
