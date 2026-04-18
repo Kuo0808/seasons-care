@@ -13,13 +13,8 @@ namespace SeasonsCare.Api.DTOs.Events
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public DateTimeOffset StartsAt { get; set; }
-        public int? DurationMinutes { get; set; }
         public EventRepeatPattern RepeatPattern { get; set; }
-        public int RepeatInterval { get; set; }
         public List<DayOfWeek> DaysOfWeek { get; set; } = new();
-        public EventSeriesEndType EndType { get; set; }
-        public DateTimeOffset? EndAt { get; set; }
-        public int? OccurrenceCount { get; set; }
         public List<string> Participants { get; set; } = new();
         public bool IsImportant { get; set; }
 

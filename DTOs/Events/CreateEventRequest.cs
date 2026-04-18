@@ -15,22 +15,11 @@ namespace SeasonsCare.Api.DTOs.Events
 
         public DateTimeOffset StartsAt { get; set; }
 
-        public int? DurationMinutes { get; set; }
-
         /// <summary>none / daily / weeklyDay / monthly。</summary>
         public EventRepeatPattern RepeatPattern { get; set; } = EventRepeatPattern.None;
 
-        public int RepeatInterval { get; set; } = 1;
-
         /// <summary>週重複時指定的星期（0=Sunday ... 6=Saturday）。</summary>
         public List<DayOfWeek>? DaysOfWeek { get; set; }
-
-        /// <summary>0=Never、1=OnDate、2=AfterOccurrences。</summary>
-        public EventSeriesEndType EndType { get; set; } = EventSeriesEndType.Never;
-
-        public DateTimeOffset? EndAt { get; set; }
-
-        public int? OccurrenceCount { get; set; }
 
         public List<string>? Participants { get; set; }
 

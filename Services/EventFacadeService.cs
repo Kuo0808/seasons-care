@@ -33,13 +33,13 @@ namespace SeasonsCare.Api.Services
                 Title = request.Title,
                 Description = request.Description,
                 StartsAt = request.StartsAt.UtcDateTime,
-                DurationMinutes = request.DurationMinutes,
+                DurationMinutes = null,
                 RepeatPattern = request.RepeatPattern,
-                RepeatInterval = request.RepeatInterval,
+                RepeatInterval = 1,
                 DaysOfWeek = request.DaysOfWeek,
-                EndType = request.EndType,
-                EndAt = request.EndAt?.UtcDateTime,
-                OccurrenceCount = request.OccurrenceCount,
+                EndType = EventSeriesEndType.Never,
+                EndAt = null,
+                OccurrenceCount = null,
                 Participants = request.Participants,
                 IsImportant = request.IsImportant
             };
@@ -67,13 +67,13 @@ namespace SeasonsCare.Api.Services
                 Title = request.Title,
                 Description = request.Description,
                 StartsAt = request.StartsAt.UtcDateTime,
-                DurationMinutes = request.DurationMinutes,
+                DurationMinutes = null,
                 RepeatPattern = request.RepeatPattern,
-                RepeatInterval = request.RepeatInterval,
+                RepeatInterval = 1,
                 DaysOfWeek = request.DaysOfWeek,
-                EndType = request.EndType,
-                EndAt = request.EndAt?.UtcDateTime,
-                OccurrenceCount = request.OccurrenceCount,
+                EndType = EventSeriesEndType.Never,
+                EndAt = null,
+                OccurrenceCount = null,
                 Participants = request.Participants,
                 IsImportant = request.IsImportant
             };
@@ -160,13 +160,8 @@ namespace SeasonsCare.Api.Services
                 Title = series.Title,
                 Description = series.Description,
                 StartsAt = series.StartsAt,
-                DurationMinutes = series.DurationMinutes,
                 RepeatPattern = series.RepeatPattern,
-                RepeatInterval = series.RepeatInterval,
                 DaysOfWeek = series.DaysOfWeek,
-                EndType = series.EndType,
-                EndAt = series.EndAt,
-                OccurrenceCount = series.OccurrenceCount,
                 Participants = series.Participants ?? new List<string>(),
                 IsImportant = series.IsImportant,
                 CareGroupId = series.CareGroupId,
@@ -181,7 +176,6 @@ namespace SeasonsCare.Api.Services
             repeatPatternBySeries.TryGetValue(occurrence.EventSeriesId, out var pattern);
             return new EventOccurrenceItem
             {
-                Id = occurrence.Id,
                 EventSeriesId = occurrence.EventSeriesId,
                 Title = occurrence.Title,
                 Description = occurrence.Description,
@@ -189,8 +183,7 @@ namespace SeasonsCare.Api.Services
                 Participants = occurrence.Participants ?? new List<string>(),
                 Status = FormatOccurrenceStatus(occurrence.Status),
                 IsImportant = occurrence.IsImportant,
-                RepeatPattern = pattern,
-                HasOverrides = occurrence.HasOverrides
+                RepeatPattern = pattern
             };
         }
 

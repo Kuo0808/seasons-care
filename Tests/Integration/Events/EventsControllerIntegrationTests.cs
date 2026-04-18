@@ -15,7 +15,7 @@ public class EventsControllerIntegrationTests
 
     // FME-1
     [Fact]
-    public async Task CreateEvent_Returns201_AndPassesFullFieldSetToFacade()
+    public async Task CreateEvent_Returns201_AndPassesFieldSetToFacade()
     {
         var stub = new StubEventFacadeService();
         using var factory = new StubApiFactory<IEventFacadeService>(stub);
@@ -26,12 +26,8 @@ public class EventsControllerIntegrationTests
             title = "每週陪診",
             description = "記得帶健保卡",
             startsAt = "2026-04-20T09:00:00Z",
-            durationMinutes = 60,
             repeatPattern = "weeklyDay",
-            repeatInterval = 1,
             daysOfWeek = new[] { 1 },
-            endType = 2,
-            occurrenceCount = 10,
             participants = new[] { "user-a" },
             isImportant = true
         });
@@ -43,15 +39,10 @@ public class EventsControllerIntegrationTests
         Assert.Equal("每週陪診", data.GetProperty("title").GetString());
         Assert.Equal("記得帶健保卡", data.GetProperty("description").GetString());
         Assert.Equal("weeklyDay", data.GetProperty("repeatPattern").GetString());
-        Assert.Equal(60, data.GetProperty("durationMinutes").GetInt32());
-        Assert.Equal(10, data.GetProperty("occurrenceCount").GetInt32());
         Assert.True(data.GetProperty("isImportant").GetBoolean());
 
         Assert.NotNull(stub.LastCreate);
         Assert.Equal(EventRepeatPattern.Weekly, stub.LastCreate!.RepeatPattern);
-        Assert.Equal(60, stub.LastCreate.DurationMinutes);
-        Assert.Equal(EventSeriesEndType.AfterOccurrences, stub.LastCreate.EndType);
-        Assert.Equal(10, stub.LastCreate.OccurrenceCount);
         Assert.Contains(DayOfWeek.Monday, stub.LastCreate.DaysOfWeek ?? new List<DayOfWeek>());
     }
 
@@ -72,12 +63,11 @@ public class EventsControllerIntegrationTests
         var first = payload.RootElement.GetProperty("data")[0];
         Assert.Equal("pending", first.GetProperty("status").GetString());
         Assert.Equal("weeklyDay", first.GetProperty("repeatPattern").GetString());
-        Assert.False(first.GetProperty("hasOverrides").GetBoolean());
     }
 
     // FME-3
     [Fact]
-    public async Task UpdateEvent_Returns200_AndPassesFullFieldSetToFacade()
+    public async Task UpdateEvent_Returns200_AndPassesFieldSetToFacade()
     {
         var stub = new StubEventFacadeService();
         using var factory = new StubApiFactory<IEventFacadeService>(stub);
@@ -90,8 +80,6 @@ public class EventsControllerIntegrationTests
                 description = "線上會議",
                 startsAt = "2026-05-01T09:00:00Z",
                 repeatPattern = "monthly",
-                repeatInterval = 1,
-                endType = 0,
                 isImportant = false
             });
 
@@ -197,13 +185,8 @@ public class EventsControllerIntegrationTests
                 Title = request.Title,
                 Description = request.Description,
                 StartsAt = request.StartsAt,
-                DurationMinutes = request.DurationMinutes,
                 RepeatPattern = request.RepeatPattern,
-                RepeatInterval = request.RepeatInterval,
                 DaysOfWeek = request.DaysOfWeek ?? new List<DayOfWeek>(),
-                EndType = request.EndType,
-                EndAt = request.EndAt,
-                OccurrenceCount = request.OccurrenceCount,
                 Participants = request.Participants ?? new List<string>(),
                 IsImportant = request.IsImportant,
                 CareGroupId = careGroupId,
@@ -219,13 +202,11 @@ public class EventsControllerIntegrationTests
             [
                 new EventOccurrenceItem
                 {
-                    Id = Guid.NewGuid(),
                     EventSeriesId = EventSeriesId,
                     Title = "每週陪診",
                     ScheduledAt = new DateTimeOffset(2026, 4, 20, 9, 0, 0, TimeSpan.Zero),
                     Status = "pending",
-                    RepeatPattern = EventRepeatPattern.Weekly,
-                    HasOverrides = false
+                    RepeatPattern = EventRepeatPattern.Weekly
                 }
             ];
             return Task.FromResult(items);
@@ -241,13 +222,8 @@ public class EventsControllerIntegrationTests
                 Title = request.Title,
                 Description = request.Description,
                 StartsAt = request.StartsAt,
-                DurationMinutes = request.DurationMinutes,
                 RepeatPattern = request.RepeatPattern,
-                RepeatInterval = request.RepeatInterval,
                 DaysOfWeek = request.DaysOfWeek ?? new List<DayOfWeek>(),
-                EndType = request.EndType,
-                EndAt = request.EndAt,
-                OccurrenceCount = request.OccurrenceCount,
                 Participants = request.Participants ?? new List<string>(),
                 IsImportant = request.IsImportant,
                 CareGroupId = careGroupId,
@@ -269,17 +245,15 @@ public class EventsControllerIntegrationTests
             return Task.CompletedTask;
         }
 
-        public Task<EventOccurrenceItem> GetInstanceStatusAsync(Guid currentUserId, Guid careGroupId, Guid eventId, DateTime scheduledAt)
+        public Task<EventOccurrenceItem> GetInstanceStatusAsync(Guid currentUserId, Guid careGroupId, Guid eventId, DateTimeOffset scheduledAt)
         {
             return Task.FromResult(new EventOccurrenceItem
             {
-                Id = Guid.NewGuid(),
                 EventSeriesId = eventId,
                 Title = "每週陪診",
                 ScheduledAt = scheduledAt,
                 Status = "pending",
-                RepeatPattern = EventRepeatPattern.Weekly,
-                HasOverrides = false
+                RepeatPattern = EventRepeatPattern.Weekly
             });
         }
     }

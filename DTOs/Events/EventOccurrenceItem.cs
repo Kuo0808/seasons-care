@@ -9,7 +9,7 @@ namespace SeasonsCare.Api.DTOs.Events
     /// </summary>
     public class EventOccurrenceItem
     {
-        public Guid? Id { get; set; }
+        /// <summary>對應的事件系列 Id（前端呼叫 FME-5 / FME-6 時使用）。</summary>
         public Guid EventSeriesId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
@@ -21,6 +21,5 @@ namespace SeasonsCare.Api.DTOs.Events
 
         public bool IsImportant { get; set; }
         public EventRepeatPattern RepeatPattern { get; set; }
-        public bool HasOverrides { get; set; }
     }
 }
