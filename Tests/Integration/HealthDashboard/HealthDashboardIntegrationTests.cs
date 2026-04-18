@@ -39,6 +39,7 @@ public class HealthDashboardIntegrationTests
         var cachedInsight = SeedDataHelper.CreateAiHealthInsight(careGroup.Id, "health_dashboard_7d", DateTime.UtcNow);
         cachedInsight.DateFrom = dateFrom;
         cachedInsight.DateTo = dateTo;
+        cachedInsight.PromptVersion = "health-dashboard-v12";
         cachedInsight.OverallSummary = "近 7 天整體狀態穩定";
         cachedInsight.TodaySummary = "今天已完成血壓量測";
         cachedInsight.KeyInsights = "今日量測可與本週趨勢一起判讀";
@@ -94,6 +95,9 @@ public class HealthDashboardIntegrationTests
         Assert.Equal("health-report-v1", data.GetProperty("meta").GetProperty("rulesVersion").GetString());
         Assert.Equal(1, fakeAiService.CallCount);
         Assert.NotNull(fakeAiService.LastInput);
+        Assert.NotEmpty(fakeAiService.LastInput!.PriorityFindings);
+        Assert.NotEmpty(fakeAiService.LastInput.ClinicalSummary);
+        Assert.Contains("single_or_sparse_reading", fakeAiService.LastInput.FewShotScenarios);
         Assert.Contains("目前只有 1 筆血壓", fakeAiService.LastInput!.BloodPressureSummary);
 
         var insights = await factory.GetAiHealthInsightsAsync();
@@ -356,7 +360,7 @@ public class HealthDashboardIntegrationTests
                 Alerts = new List<HealthDashboardAlertDto>(),
                 SourceDataHash = "default-hash",
                 ModelName = "gpt-test",
-                PromptVersion = "test-v1",
+                PromptVersion = "health-dashboard-v12",
                 GeneratedAt = DateTime.UtcNow
             });
         }

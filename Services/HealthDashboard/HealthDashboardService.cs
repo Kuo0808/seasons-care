@@ -22,7 +22,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
     {
         private const string DashboardReportType = "health_dashboard_7d";
         private const string RulesVersion = "health-report-v1";
-        private const string CurrentPromptVersion = "health-dashboard-v11";
+        private const string CurrentPromptVersion = "health-dashboard-v12";
         private const string EmptyTodayInsight = "今天尚無健康紀錄，新增量測後會顯示摘要。";
         private const string LabelKeyInsight = "關鍵數據洞察";
         private const string LabelActionSuggestion = "健康行動建議";
@@ -284,6 +284,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
             try
             {
+                var priorityFindings = BuildPriorityFindings(bp, sugar, weight, temp, oxygen);
                 var promptInput = new HealthInsightPromptInput
                 {
                     CareGroupId = careGroupId,
@@ -303,6 +304,10 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                     BloodOxygenSummary = BuildDetailedMetricSummary(
                         oxygen.OrderBy(x => x.RecordDate).ToList(),
                         x => x.RecordDate, x => (double)x.SpO2, "血氧", "%", dateFrom)
+                    , ClinicalSummary = BuildClinicalSummary(priorityFindings),
+                    NarrativeDirective = BuildNarrativeDirective(priorityFindings),
+                    FewShotScenarios = BuildFewShotScenarios(priorityFindings),
+                    PriorityFindings = priorityFindings
                 };
 
                 var insight = await _aiIntegrationService.GenerateHealthInsightAsync(promptInput);
@@ -459,6 +464,343 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         // ──────────────────────────────────────────────
         // 今日統計
         // ──────────────────────────────────────────────
+
+        private static List<HealthPriorityFindingPromptDto> BuildPriorityFindings(
+            IReadOnlyList<BloodPressureRecord> bp,
+            IReadOnlyList<BloodSugarRecord> sugar,
+            IReadOnlyList<WeightRecord> weight,
+            IReadOnlyList<TemperatureRecord> temp,
+            IReadOnlyList<BloodOxygenRecord> oxygen)
+        {
+            var findings = new List<HealthPriorityFindingPromptDto>();
+
+            AddFinding(findings, BuildBloodPressureFinding(bp));
+            AddFinding(findings, BuildBloodSugarFinding(sugar));
+            AddFinding(findings, BuildTemperatureFinding(temp));
+            AddFinding(findings, BuildBloodOxygenFinding(oxygen));
+            AddFinding(findings, BuildWeightFinding(weight));
+            AddFinding(findings, BuildCombinedFinding(findings));
+
+            return findings
+                .OrderByDescending(x => GetSeverityRank(x.Severity))
+                .ThenByDescending(x => GetConfidenceRank(x.Confidence))
+                .ThenByDescending(x => x.IsMultiMetric)
+                .ThenBy(x => x.MetricType)
+                .Take(4)
+                .ToList();
+        }
+
+        private static void AddFinding(List<HealthPriorityFindingPromptDto> findings, HealthPriorityFindingPromptDto? finding)
+        {
+            if (finding != null)
+            {
+                findings.Add(finding);
+            }
+        }
+
+        private static HealthPriorityFindingPromptDto? BuildBloodPressureFinding(IReadOnlyList<BloodPressureRecord> records)
+        {
+            if (records.Count == 0) return null;
+
+            var ordered = records.OrderBy(x => x.RecordDate).ToList();
+            var latest = ordered[^1];
+            var averageSystolic = (int)Math.Round(ordered.Average(x => x.Systolic), MidpointRounding.AwayFromZero);
+            var averageDiastolic = (int)Math.Round(ordered.Average(x => x.Diastolic), MidpointRounding.AwayFromZero);
+            var latestCategory = ClassifyBloodPressure(latest.Systolic, latest.Diastolic);
+            var averageCategory = ClassifyBloodPressure(averageSystolic, averageDiastolic);
+
+            return new HealthPriorityFindingPromptDto
+            {
+                MetricType = "blood_pressure",
+                Severity = latestCategory == "high" ? "high" : (latestCategory == "elevated" ? "medium" : "low"),
+                Confidence = ResolveFindingConfidence(ordered.Count),
+                Title = latestCategory == "high" ? "血壓偏高需要先留意" : (latestCategory == "elevated" ? "血壓略高值得觀察" : "血壓大致穩定"),
+                Evidence = ordered.Count == 1
+                    ? $"近 7 天 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg。"
+                    : $"近 7 天 {ordered.Count} 筆血壓，最新 {latest.Systolic}/{latest.Diastolic} mmHg，平均 {averageSystolic}/{averageDiastolic} mmHg。",
+                Assessment = latestCategory == "high"
+                    ? $"最新血壓已落在偏高區間，平均也接近 {MapBloodPressureCategory(averageCategory)}。"
+                    : (latestCategory == "elevated"
+                        ? $"最新血壓比理想區間高一些，整體接近 {MapBloodPressureCategory(averageCategory)}。"
+                        : "目前血壓仍在可接受範圍，重點是維持量測節奏。"),
+                SuggestedFocus = latestCategory == "normal"
+                    ? "先肯定目前穩定，再提醒固定時段量測。"
+                    : "先提醒休息後補量一次，再引導觀察接下來幾天是否持續偏高。"
+            };
+        }
+
+        private static HealthPriorityFindingPromptDto? BuildBloodSugarFinding(IReadOnlyList<BloodSugarRecord> records)
+        {
+            if (records.Count == 0) return null;
+
+            var ordered = records.OrderBy(x => x.RecordDate).ToList();
+            var latest = ordered[^1];
+            var measurementContext = (latest.MeasurementContext ?? string.Empty).Trim();
+            var latestCategory = ClassifyBloodSugar(latest.GlucoseLevel, measurementContext);
+            var average = ordered.Average(x => x.GlucoseLevel);
+
+            return new HealthPriorityFindingPromptDto
+            {
+                MetricType = "blood_sugar",
+                Severity = latestCategory == "high" || latestCategory == "low" ? "high" : "low",
+                Confidence = ResolveFindingConfidence(ordered.Count),
+                Title = latestCategory switch
+                {
+                    "high" => "血糖偏高需要控制飲食與量測節奏",
+                    "low" => "血糖偏低需要先留意身體狀態",
+                    _ => "血糖目前大致穩定"
+                },
+                Evidence = ordered.Count == 1
+                    ? $"近 7 天 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，情境為 {NormalizeMeasurementContext(measurementContext)}。"
+                    : $"近 7 天 {ordered.Count} 筆血糖，最新 {latest.GlucoseLevel:0.##} mg/dL，平均 {average:0.##} mg/dL。",
+                Assessment = latestCategory switch
+                {
+                    "high" => "這筆血糖已高於理想區間，值得先觀察飲食時間與飯後活動。",
+                    "low" => "這筆血糖偏低，表達上要溫和提醒補充與觀察不適。",
+                    _ => "血糖暫時沒有明顯警訊，可用肯定語氣帶出持續追蹤。"
+                },
+                SuggestedFocus = latestCategory == "normal"
+                    ? "先肯定，再提醒記錄飯前或飯後情境。"
+                    : "聚焦飲食、量測時機與是否需要補量確認。"
+            };
+        }
+
+        private static HealthPriorityFindingPromptDto? BuildTemperatureFinding(IReadOnlyList<TemperatureRecord> records)
+        {
+            if (records.Count == 0) return null;
+
+            var ordered = records.OrderBy(x => x.RecordDate).ToList();
+            var latest = ordered[^1];
+            var severity = latest.Value > 39m ? "high" : (latest.Value >= 37.3m ? "medium" : "low");
+
+            return new HealthPriorityFindingPromptDto
+            {
+                MetricType = "temperature",
+                Severity = severity,
+                Confidence = ResolveFindingConfidence(ordered.Count),
+                Title = severity == "high" ? "體溫偏高要留意是否持續發燒" : (severity == "medium" ? "體溫略高建議持續觀察" : "體溫暫時穩定"),
+                Evidence = ordered.Count == 1
+                    ? $"近 7 天 1 筆體溫 {latest.Value:0.##}°C。"
+                    : $"近 7 天 {ordered.Count} 筆體溫，最新 {latest.Value:0.##}°C，平均 {ordered.Average(x => x.Value):0.##}°C。",
+                Assessment = severity == "high"
+                    ? "目前體溫已高於一般理想範圍，敘事要先聚焦持續觀察與不適症狀。"
+                    : (severity == "medium"
+                        ? "這筆體溫略高，適合提醒補水、休息與再次量測。"
+                        : "體溫目前沒有明顯異常。"),
+                SuggestedFocus = severity == "low"
+                    ? "用肯定口吻提醒繼續觀察。"
+                    : "提醒休息、補水與留意是否持續升高。"
+            };
+        }
+
+        private static HealthPriorityFindingPromptDto? BuildBloodOxygenFinding(IReadOnlyList<BloodOxygenRecord> records)
+        {
+            if (records.Count == 0) return null;
+
+            var ordered = records.OrderBy(x => x.RecordDate).ToList();
+            var latest = ordered[^1];
+            var severity = latest.SpO2 < 90m ? "high" : (latest.SpO2 < 95m ? "medium" : "low");
+
+            return new HealthPriorityFindingPromptDto
+            {
+                MetricType = "blood_oxygen",
+                Severity = severity,
+                Confidence = ResolveFindingConfidence(ordered.Count),
+                Title = severity == "high" ? "血氧偏低要優先注意" : (severity == "medium" ? "血氧略低建議持續留意" : "血氧大致穩定"),
+                Evidence = ordered.Count == 1
+                    ? $"近 7 天 1 筆血氧 {latest.SpO2:0.##}%。"
+                    : $"近 7 天 {ordered.Count} 筆血氧，最新 {latest.SpO2:0.##}%，平均 {ordered.Average(x => x.SpO2):0.##}%。",
+                Assessment = severity == "high"
+                    ? "這筆血氧已低於一般理想區間，敘事要先講風險，再提醒觀察身體狀況。"
+                    : (severity == "medium"
+                        ? "血氧略低於理想值，適合提醒再次量測與留意呼吸狀況。"
+                        : "血氧目前沒有明顯警訊。"),
+                SuggestedFocus = severity == "low"
+                    ? "以穩定表現描述即可。"
+                    : "提醒再次量測並留意呼吸不適或活動後變化。"
+            };
+        }
+
+        private static HealthPriorityFindingPromptDto? BuildWeightFinding(IReadOnlyList<WeightRecord> records)
+        {
+            if (records.Count == 0) return null;
+
+            var ordered = records.OrderBy(x => x.RecordDate).ToList();
+            var range = ordered.Max(x => x.Value) - ordered.Min(x => x.Value);
+            var severity = range > 2m ? "medium" : "low";
+
+            return new HealthPriorityFindingPromptDto
+            {
+                MetricType = "weight",
+                Severity = severity,
+                Confidence = ResolveFindingConfidence(ordered.Count),
+                Title = severity == "medium" ? "體重波動較大需要持續觀察" : "體重變化大致平穩",
+                Evidence = ordered.Count == 1
+                    ? $"近 7 天 1 筆體重 {ordered[^1].Value:0.##} kg。"
+                    : $"近 7 天 {ordered.Count} 筆體重，最新 {ordered[^1].Value:0.##} kg，一週變化約 {range:0.##} kg。",
+                Assessment = severity == "medium"
+                    ? "體重波動已超過一般日常變動，適合溫和提醒留意飲食與水分狀態。"
+                    : "體重目前沒有明顯波動，適合用維持型敘事。",
+                SuggestedFocus = severity == "medium"
+                    ? "提醒固定時段量測體重，觀察是否持續變化。"
+                    : "先肯定穩定，再提醒持續紀錄。"
+            };
+        }
+
+        private static HealthPriorityFindingPromptDto? BuildCombinedFinding(IReadOnlyList<HealthPriorityFindingPromptDto> findings)
+        {
+            var bloodPressure = findings.FirstOrDefault(x => x.MetricType == "blood_pressure");
+            var bloodSugar = findings.FirstOrDefault(x => x.MetricType == "blood_sugar");
+            if (HasMediumOrHigher(bloodPressure) && HasMediumOrHigher(bloodSugar))
+            {
+                return new HealthPriorityFindingPromptDto
+                {
+                    MetricType = "general",
+                    Severity = bloodPressure!.Severity == "high" || bloodSugar!.Severity == "high" ? "high" : "medium",
+                    Confidence = MergeConfidence(bloodPressure!.Confidence, bloodSugar!.Confidence),
+                    Title = "血壓與血糖都值得一起留意",
+                    Evidence = $"{bloodPressure.Evidence} {bloodSugar.Evidence}",
+                    Assessment = "這不是單一指標波動，建議敘事優先聚焦多指標一起偏高的提醒。",
+                    SuggestedFocus = "先講最主要異常，再把飲食、作息與補量安排串成同一段建議。",
+                    IsMultiMetric = true
+                };
+            }
+
+            var temperature = findings.FirstOrDefault(x => x.MetricType == "temperature");
+            var oxygen = findings.FirstOrDefault(x => x.MetricType == "blood_oxygen");
+            if (HasMediumOrHigher(temperature) && HasMediumOrHigher(oxygen))
+            {
+                return new HealthPriorityFindingPromptDto
+                {
+                    MetricType = "general",
+                    Severity = temperature!.Severity == "high" || oxygen!.Severity == "high" ? "high" : "medium",
+                    Confidence = MergeConfidence(temperature!.Confidence, oxygen!.Confidence),
+                    Title = "體溫與血氧需要一起觀察",
+                    Evidence = $"{temperature.Evidence} {oxygen.Evidence}",
+                    Assessment = "體溫與血氧同時偏離理想值時，文案要更聚焦身體狀態與持續觀察。",
+                    SuggestedFocus = "提醒補量、留意不適與必要時尋求醫療協助。",
+                    IsMultiMetric = true
+                };
+            }
+
+            return null;
+        }
+
+        private static string BuildClinicalSummary(IReadOnlyList<HealthPriorityFindingPromptDto> findings)
+        {
+            if (findings.Count == 0)
+            {
+                return "目前沒有可判讀的指標異常，請用溫和邀請的口吻鼓勵開始累積第一筆健康紀錄。";
+            }
+
+            var topFindings = findings
+                .OrderByDescending(x => GetSeverityRank(x.Severity))
+                .ThenByDescending(x => GetConfidenceRank(x.Confidence))
+                .Take(2)
+                .ToList();
+
+            if (GetSeverityRank(topFindings[0].Severity) >= GetSeverityRank("medium"))
+            {
+                return $"本次請優先聚焦：{string.Join("；", topFindings.Select(x => x.Title))}。避免先寒暄，先講判讀與下一步。";
+            }
+
+            return $"本次整體以穩定或輕微變化為主，請先肯定，再補上最值得持續觀察的重點：{topFindings[0].Title}。";
+        }
+
+        private static string BuildNarrativeDirective(IReadOnlyList<HealthPriorityFindingPromptDto> findings)
+        {
+            if (findings.Count == 0)
+            {
+                return "用陪伴式開場，邀請家屬從第一筆紀錄開始，避免系統訊息口吻。";
+            }
+
+            var topFinding = findings
+                .OrderByDescending(x => GetSeverityRank(x.Severity))
+                .ThenByDescending(x => GetConfidenceRank(x.Confidence))
+                .First();
+
+            return GetSeverityRank(topFinding.Severity) >= GetSeverityRank("medium")
+                ? $"heroReport、keyInsight、actionSuggestion 都要優先圍繞「{topFinding.Title}」來寫。"
+                : $"先肯定目前狀態，再以「{topFinding.Title}」做輕提醒，避免語氣過重。";
+        }
+
+        private static List<string> BuildFewShotScenarios(IReadOnlyList<HealthPriorityFindingPromptDto> findings)
+        {
+            var scenarios = new List<string>();
+            if (findings.Any(x => x.IsMultiMetric))
+            {
+                scenarios.Add("multi_metric_abnormal");
+            }
+
+            if (findings.Any(x => x.Confidence == "low"))
+            {
+                scenarios.Add("single_or_sparse_reading");
+            }
+
+            if (findings.Count > 0 && findings.All(x => x.Severity == "low"))
+            {
+                scenarios.Add("stable_with_light_variation");
+            }
+
+            if (scenarios.Count == 0)
+            {
+                scenarios.Add("focused_single_metric");
+            }
+
+            return scenarios;
+        }
+
+        private static string NormalizeMeasurementContext(string context)
+        {
+            return string.IsNullOrWhiteSpace(context) ? "未標註情境" : context;
+        }
+
+        private static string ResolveFindingConfidence(int recordCount)
+        {
+            if (recordCount >= 6) return "high";
+            if (recordCount >= 3) return "medium";
+            return "low";
+        }
+
+        private static string MergeConfidence(string left, string right)
+        {
+            return GetConfidenceRank(left) <= GetConfidenceRank(right) ? left : right;
+        }
+
+        private static bool HasMediumOrHigher(HealthPriorityFindingPromptDto? finding)
+        {
+            return finding != null && GetSeverityRank(finding.Severity) >= GetSeverityRank("medium");
+        }
+
+        private static int GetSeverityRank(string severity)
+        {
+            return severity switch
+            {
+                "high" => 3,
+                "medium" => 2,
+                _ => 1
+            };
+        }
+
+        private static int GetConfidenceRank(string confidence)
+        {
+            return confidence switch
+            {
+                "high" => 3,
+                "medium" => 2,
+                _ => 1
+            };
+        }
+
+        private static string MapBloodPressureCategory(string category)
+        {
+            return category switch
+            {
+                "high" => "偏高區間",
+                "elevated" => "略高區間",
+                _ => "理想區間"
+            };
+        }
 
         private static TodayMetricsResult GetTodayMetrics(
             DateTime todayStart,

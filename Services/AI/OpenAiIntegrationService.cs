@@ -17,7 +17,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v11";
+        private const string PromptVersion = "health-dashboard-v12";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -33,7 +33,7 @@ namespace SeasonsCare.Api.Services.AI
         public async Task<AiGeneratedInsightDto> GenerateHealthInsightAsync(HealthInsightPromptInput input)
         {
             var apiKey = _options.Value.ApiKey;
-            var model = string.IsNullOrWhiteSpace(_options.Value.Model) ? "gpt-4o-mini" : _options.Value.Model;
+            var model = string.IsNullOrWhiteSpace(_options.Value.Model) ? "gpt-4.1" : _options.Value.Model;
 
             if (string.IsNullOrWhiteSpace(apiKey))
             {
@@ -61,19 +61,19 @@ namespace SeasonsCare.Api.Services.AI
             var alerts = DeserializeList<HealthDashboardAlertDto>(root, "alerts");
 
             var legacyOverallSummary = FirstNonEmpty(
-                root.GetProperty("overallSummary").GetString(),
+                GetOptionalString(root, "overallSummary"),
                 heroReport.Headline,
                 heroReport.Body);
             var legacyTodaySummary = FirstNonEmpty(
-                root.GetProperty("todaySummary").GetString(),
+                GetOptionalString(root, "todaySummary"),
                 todayCards.FirstOrDefault()?.Summary,
                 heroReport.Body);
             var legacyKeyInsights = FirstNonEmpty(
-                root.GetProperty("keyInsights").GetString(),
+                GetOptionalString(root, "keyInsights"),
                 keyInsightSection.Body,
                 heroReport.Body);
             var legacyRecommendations = FirstNonEmpty(
-                root.GetProperty("recommendations").GetString(),
+                GetOptionalString(root, "recommendations"),
                 actionSuggestionSection.Body);
 
             return new AiGeneratedInsightDto
@@ -104,6 +104,11 @@ namespace SeasonsCare.Api.Services.AI
                     from = input.DateFrom.ToString("yyyy-MM-dd"),
                     to = input.DateTo.ToString("yyyy-MM-dd")
                 },
+                todaySummary = input.TodaySummary,
+                clinicalSummary = input.ClinicalSummary,
+                narrativeDirective = input.NarrativeDirective,
+                fewShotScenarios = input.FewShotScenarios,
+                priorityFindings = input.PriorityFindings,
                 metrics = new Dictionary<string, string>
                 {
                     ["bloodPressure"] = input.BloodPressureSummary,
@@ -111,117 +116,78 @@ namespace SeasonsCare.Api.Services.AI
                     ["weight"] = input.WeightSummary,
                     ["temperature"] = input.TemperatureSummary,
                     ["bloodOxygen"] = input.BloodOxygenSummary
-                },
-                _meta = new
-                {
-                    note = "以下欄位僅供判斷 confidence 使用，嚴禁在任何輸出文字中提及紀錄筆數。",
-                    totalRecordCount = input.TotalRecordCount,
-                    todayRecordCount = input.TodayRecordCount
                 }
             };
 
             var prompt = $"""
-你是一位有多年臨床經驗、充滿溫度的家庭專屬護理師，正在為長輩的家人撰寫健康儀表板報告。
-這份報告會顯示在手機 App 首頁，閱讀者是長輩的家人。
-請用溫暖、貼心、高共情且專業的口吻說話——就像一位值得信賴的護理師坐在家屬身邊，面對面地聊健康。
+你是一位有臨床判讀能力的家庭照護助理，正在為長輩家屬撰寫 7 天健康儀表板報告。
+請全部使用繁體中文，語氣溫暖、具體、像家庭護理師在對家人說話。
 
-只能使用下方 Facts 區提供的數據，不可虛構診斷、病史或任何未提供的數值。
-全部以繁體中文輸出。
+你現在的第一優先不是報數字，而是根據 Facts 中已整理好的 priorityFindings 做判讀。
+如果 priorityFindings 有內容：
+- heroReport 必須先講第一個 finding
+- keyInsight 必須聚焦最重要的異常或變化
+- actionSuggestion 必須對應同一個 finding，給出下一步
+- 不要把紀錄筆數當主句
 
-## 你的核心任務：專業解讀 ＋ 溫暖陪伴
-你的工作是「解讀數據的意義」，而不是「把數字念一遍」。
-請永遠先判讀數值落在健康區間中的哪個位置，比較與前一期的趨勢方向，
-然後用「非常具體、生活化」的行動建議來收尾（例如減少澱粉、傍晚少喝咖啡、飯後散步 15 分鐘等）。
+如果 priorityFindings 沒有高風險異常，才改寫成穩定、持續觀察、逐步累積的敘事。
 
-鐵律：
-- 絕對不要回報「今天新增了 X 筆紀錄」或「共 X 筆資料」——這非常生硬、像系統通知。
-- 就算只有一筆資料，也要針對那一筆的數值直接給出具體的衛教關懷與建議。
-- 不要在不同欄位重複貼相同或高度相似的句子。
+只能使用下方 Facts 區提供的資料，不可虛構診斷、病史或額外數值。
 
-每段 body 必須包含以下至少兩項：
-  (a) 數值落在哪個健康區間（理想／正常／偏高／需留意／異常）
-  (b) 與前一期間相比的方向（穩定／上升／下降／波動）
-  (c) 多項指標之間可能的關聯
-  (d) 對家屬可採取的具體下一步建議
+參考區間：
+- 血壓：理想 < 120/80；正常 120-129/80-84；偏高 130-139/85-89；高血壓一期 140-159/90-99；高血壓二期 >= 160/100
+- 空腹血糖：正常 70-99 mg/dL；糖尿病前期 100-125；糖尿病 >= 126
+- 飯後血糖：正常 < 140；偏高 140-199；高 >= 200
+- 血氧：正常 >= 95%；偏低 90-94%；需就醫 < 90%
+- 體溫：正常 36-37.2°C；低燒 37.3-38°C；中燒 38.1-39°C；高燒 > 39°C
+- 體重變化：一週內 ±1 kg 屬正常；一週 > 2 kg 需留意
 
-## 健康指標參考區間（用來判讀，不要直接念出來）
-- 血壓：理想 < 120/80；正常 120-129/80-84；偏高 130-139/85-89；
-  高血壓一期 140-159/90-99；高血壓二期 ≥ 160/100。
-- 空腹血糖：正常 70-99 mg/dL；糖尿病前期 100-125；糖尿病 ≥ 126。
-- 飯後血糖：正常 < 140；偏高 140-199；高 ≥ 200。
-- 血氧：正常 ≥ 95%；偏低 90-94%；需就醫 < 90%。
-- 體溫：正常 36-37.2°C；低燒 37.3-38°C；中燒 38.1-39°C；高燒 > 39°C。
-- 體重變化：一週內 ±1 kg 屬正常；一週 > 2 kg 需留意。
+嚴格規則：
+- 禁止把「近 7 天有幾筆紀錄」當成 body 的主體
+- 禁止只重述數值或平均值
+- 每段 body 至少要包含：區間判讀、趨勢或關聯、下一步建議 其中兩項
+- 有異常時先講異常，再補溫和建議
+- 有正向變化時先肯定，再補維持方式
+- 當資料少時，不要說「資料不足」，改用「累積中」或更溫和的說法
 
-## 語氣與用字
-- 像在跟家人聊天，不是寫醫療報告。多用「您」「您的家人」「我們」。
-- 可以使用輕柔的驚嘆號（！）或波浪號（～）來增添溫度，例如：「再加油一點點！」「這個禮拜做得很好喔～」。
-- 有正向變化時先肯定：「血壓已完全進入理想區間，做得很棒！」
-- 有警訊時用「我們一起面對」的口吻：「想請您留意…我們可以試試看…」。
-- 避免使用 emoji、誇張詞（如「絕對」「立刻」）。
+few-shot 風格示範：
 
-## 寫作黃金示範（請全力模仿這個語調與結構）
+示範 A：多指標異常
+- heroReport.headline: 這週血壓與飯後血糖都偏高，建議我們一起多留意
+- heroReport.body: 這週最值得注意的是血壓已落在偏高區間，飯後血糖也有偏高情況，表示身體代謝與循環都在提醒我們要更留心。建議先從晚餐內容、飯後活動和固定時段量測開始整理，若接下來幾天仍維持偏高，再安排回診討論會更安心。
+- keyInsight.body: 本週的血壓與飯後血糖同時偏高，不像單一數值波動，更適合先觀察飲食與作息是否一起影響。
+- actionSuggestion.body: 建議這幾天把晚餐澱粉份量稍微減少，飯後陪家人散步 10 到 15 分鐘，並在相近時段補量血壓與血糖，會更容易看出變化。
 
-### 示範 A：多筆資料、整體向好
-heroReport.headline：「爸爸的健康狀況在過去 7 天內呈現正面趨勢，血壓已完全進入理想區間，體重管理效果顯著。」
-keyInsight.body：「血糖水平在飯後有輕微波動（+8%），主要集中在週三及週五。」
-actionSuggestion.body：「為維持穩定血糖，建議將澱粉攝取量減少 15%，並持續目前的低鈉飲食以保護已趨穩定的血壓指標。」
-todayCards[0].summary：「下午已完成血壓測量，數值偏高，建議傍晚減少咖啡因攝取。今日健康任務達成 80%，再加油一點點！」
+示範 B：只有 1 筆但可判讀
+- heroReport.headline: 今天先有一筆血壓紀錄，我們已經能看出一些方向
+- heroReport.body: 今天這筆血壓 135/85 mmHg 已接近偏高區間，先不用太緊張，但值得我們多留意一下。建議下次量測時維持相近時段並在休息後再量一次，累積幾天後會更容易看出是不是穩定偏高。
+- keyInsight.body: 這筆血壓已比理想區間高一些，雖然還不是趨勢，但足以提醒我們先留意休息與量測時機。
+- actionSuggestion.body: 建議今天稍晚休息 10 到 15 分鐘後再量一次，並順手記下量測時間，之後就能更清楚比較變化。
 
-### 示範 B：僅 1 筆資料
-heroReport.headline：「今天為奶奶記下了第一筆血壓，數值落在正常偏高的邊緣，我們一起來留意。」
-keyInsight.body：「血壓 135/85 已接近偏高區間的邊緣，目前還無法看出趨勢方向，但這個起點讓我們有了觀察的基礎。」
-actionSuggestion.body：「建議維持固定時段量測，並把飲食或作息變化也一起記下來，這樣我能更貼近地幫您解讀每次數值背後的意義。」
-todayCards[0].summary：「今天的血壓量測已完成，數值稍微偏高一點點，建議晚餐少鹽、飯後散步 10 分鐘，明天我們再一起看看變化！」
+輸出要求：
+- overallSummary：15-30 字，與 heroReport.headline 同方向
+- todaySummary：30-50 字，與 todayCards[0].summary 同方向
+- keyInsights：25-40 字，對應 keyInsight.body 的第一重點
+- recommendations：對應 actionSuggestion.body
 
-## 各欄位格式要求
+- heroReport.headline：15-30 字，一句話講本週最重要的判讀
+- heroReport.body：80-120 字，先說判讀，再說趨勢或關聯，最後給下一步
+- heroReport.tone：supportive / neutral / watchful
+- heroReport.confidence：high / medium / low
 
-### heroReport（首屏分析報告，最重要）
-- headline: 一句話點出本週整體健康狀態與關懷感，15-30 字。
-- body: 2-3 句完整段落（80-120 字），先判讀→趨勢→建議→溫暖收尾。
-- tone: supportive（整體向好）／ neutral（持平）／ watchful（需要關注）。
-- confidence: high / medium / low。
+- keyInsight.label：固定為「關鍵數據洞察」
+- keyInsight.body：50-80 字，聚焦第一優先 finding
+- keyInsight.metricType：blood_pressure / blood_sugar / weight / temperature / blood_oxygen / general
+- keyInsight.severity：low / medium / high
 
-### keyInsight（關鍵數據洞察）
-- label: 固定為「關鍵數據洞察」。
-- body: 1-2 句（50-80 字），解讀最值得注意的變化模式。
-- metricType: blood_pressure / blood_sugar / weight / temperature / blood_oxygen / general。
-- severity: low / medium / high。
+- actionSuggestion.label：固定為「健康行動建議」
+- actionSuggestion.body：50-80 字，必須對應 keyInsight 的 finding
+- actionSuggestion.priority：low / medium / high
+- actionSuggestion.timeframe：today / this_week
 
-### actionSuggestion（健康行動建議）
-- label: 固定為「健康行動建議」。
-- body: 1-2 句具體可執行的建議（50-80 字），必須包含飲食、作息或量測習慣的明確行動，語氣要有陪伴感。
-- priority: low / medium / high。
-- timeframe: today / this_week。
-
-### todayCards（1-3 張卡片）
-- title: 例「今日健康摘要」「AI 今日新建議」「量測小提醒」。
-- summary: 今日狀態的貼心回饋（30-50 字），有量測就先肯定再給建議，沒量測就溫和邀請。
-- progressNote: 例「今日健康任務達成 80%，再加油一點點！」。
-- iconType: insight / progress / reminder。
-- tone: supportive / neutral。
-
-### 舊版相容欄位
-- todaySummary: 30-50 字今日回饋，語氣與 todayCards[0].summary 一致。
-- overallSummary: 與 heroReport.headline 一致即可，15-30 字。
-- keyInsights: 與 keyInsight.body 第一句重點一致，25-40 字。
-- recommendations: 與 actionSuggestion.body 內容一致。
-
-### alerts
-- 偵測到異常或資料缺口時產生；沒有就回空陣列。
-- type: data_gap / reminder / observation。
-- message: 20-40 字，溫和提醒。
-- severity: low / medium / high。
-
-### trendLabels
-- 每項指標一個 2-4 字標籤：穩定、維持良好、逐步改善、需觀察、需留意、建議觀察、趨於穩定、累積中。
-- 資料 < 3 筆時用「累積中」。判斷依據是上面的健康區間。
-
-## 資料較少時的處理
-- 0 筆：用歡迎、邀請的口吻，不要說「資料不足」。
-- 1-2 筆：先肯定有量測，針對數值做溫和判讀並給出具體衛教建議，用陪伴語氣邀請累積更多紀錄。
-- 3 筆以上：正常分析。
-- confidence 欄位：0 筆 = low；1-2 筆 = low；3-5 筆 = medium；6+ 筆 = high。
+- todayCards：1-3 張
+- alerts：沒有提醒就回空陣列
+- trendLabels：2-4 字標籤，資料少時用「累積中」
 
 Facts:
 {JsonSerializer.Serialize(facts, JsonOptions)}
@@ -230,7 +196,7 @@ Facts:
             return new
             {
                 model,
-                instructions = "你是一位有多年臨床經驗、充滿溫度的家庭專屬護理師，正在為長輩的家人撰寫健康儀表板報告。必須使用繁體中文，口吻要溫暖、高共情、像信賴的護理師坐在家屬身邊聊天。你的核心任務是『專業解讀數據的意義』而不是『把數字念一遍』：永遠先判讀數值落在健康區間的位置、比較趨勢方向，再以貼心的語氣給出具體生活化建議。可以適度使用輕柔的驚嘆號（！）或波浪號（～）來增添溫度。正向變化先肯定，警訊用陪伴口吻提醒。絕對不要回報紀錄筆數。",
+                instructions = "你是具臨床判讀能力的家庭照護助理。你必須優先根據 priorityFindings 進行分析，不可只複述 metrics，也不可把紀錄筆數當主句。請使用繁體中文，口吻溫暖、具體、可信。",
                 input = new object[]
                 {
                     new
@@ -262,69 +228,65 @@ Facts:
                                 overallSummary = new
                                 {
                                     type = "string",
-                                    description = "舊版相容欄位。與 heroReport.headline 內容一致，15-30 字繁體中文。"
+                                    description = "舊版相容欄位。與 heroReport.headline 同方向，15-30 字繁體中文。"
                                 },
                                 todaySummary = new
                                 {
                                     type = "string",
-                                    description = "舊版相容欄位。今日簡短回饋，30-50 字繁體中文。有量測時給具體肯定，無量測時提醒新增。"
+                                    description = "舊版相容欄位。今日簡短回饋，30-50 字繁體中文。"
                                 },
                                 keyInsights = new
                                 {
                                     type = "string",
-                                    description = "舊版相容欄位。與 keyInsight.body 第一句重點一致，25-40 字繁體中文。"
+                                    description = "舊版相容欄位。對應 keyInsight.body 第一重點，25-40 字。"
                                 },
                                 recommendations = new
                                 {
                                     type = "string",
-                                    description = "舊版相容欄位。與 actionSuggestion.body 內容一致。"
+                                    description = "舊版相容欄位。與 actionSuggestion.body 保持一致。"
                                 },
                                 heroReport = new
                                 {
                                     type = "object",
-                                    description = "首屏 AI 分析報告，是整份報告最重要的區塊。",
                                     additionalProperties = false,
                                     properties = new
                                     {
-                                        headline = new { type = "string", description = "一句話點出本週整體健康狀態與關懷感，15-30 字，口吻溫暖親切。例：「爸爸的血壓已完全進入理想區間，體重管理效果也很顯著！」。" },
-                                        body = new { type = "string", description = "2-3 句完整段落（80-120 字）。先判讀數值落在健康區間的位置、趨勢方向，再給出家屬可採取的具體生活化建議，用溫暖陪伴的口吻收尾。可適度使用！或～增添溫度。" },
-                                        tone = new { type = "string", description = "supportive / neutral / watchful" },
-                                        confidence = new { type = "string", description = "high / medium / low，依資料充足程度決定。" }
+                                        headline = new { type = "string" },
+                                        body = new { type = "string" },
+                                        tone = new { type = "string" },
+                                        confidence = new { type = "string" }
                                     },
                                     required = new[] { "headline", "body", "tone", "confidence" }
                                 },
                                 keyInsight = new
                                 {
                                     type = "object",
-                                    description = "關鍵數據洞察區塊，指出最值得注意的變化。",
                                     additionalProperties = false,
                                     properties = new
                                     {
-                                        label = new { type = "string", description = "固定為「關鍵數據洞察」。" },
-                                        body = new { type = "string", description = "1-2 句（50-80 字）。以解讀方式點出最值得注意的模式或關聯，說明數值落在哪個健康區間、可能原因，不得只報數字。" },
-                                        metricType = new { type = "string", description = "對應指標代碼：blood_pressure / blood_sugar / weight / temperature / blood_oxygen / general。" },
-                                        severity = new { type = "string", description = "low / medium / high。" }
+                                        label = new { type = "string" },
+                                        body = new { type = "string" },
+                                        metricType = new { type = "string" },
+                                        severity = new { type = "string" }
                                     },
                                     required = new[] { "label", "body", "metricType", "severity" }
                                 },
                                 actionSuggestion = new
                                 {
                                     type = "object",
-                                    description = "健康行動建議區塊，提供具體可執行的下一步。",
                                     additionalProperties = false,
                                     properties = new
                                     {
-                                        label = new { type = "string", description = "固定為「健康行動建議」。" },
-                                        body = new { type = "string", description = "1-2 句具體建議（50-80 字），以陪伴口吻提出（例：建議陪長輩…、可以嘗試…）。包含飲食、作息或量測習慣的明確行動，要與本週關鍵洞察有連動，不寫空話。" },
-                                        priority = new { type = "string", description = "low / medium / high。" },
-                                        timeframe = new { type = "string", description = "today / this_week。" }
+                                        label = new { type = "string" },
+                                        body = new { type = "string" },
+                                        priority = new { type = "string" },
+                                        timeframe = new { type = "string" }
                                     },
                                     required = new[] { "label", "body", "priority", "timeframe" }
                                 },
                                 todayCards = new
                                 {
                                     type = "array",
-                                    description = "今日健康摘要卡片，1-3 張。",
                                     minItems = 1,
                                     maxItems = 3,
                                     items = new
@@ -333,11 +295,11 @@ Facts:
                                         additionalProperties = false,
                                         properties = new
                                         {
-                                            title = new { type = "string", description = "卡片標題，例如「今日健康摘要」「AI 今日新建議」「量測小提醒」。" },
-                                            summary = new { type = "string", description = "今日狀態的貼心回饋，30-50 字。有量測先肯定再給具體建議，沒量測就溫和邀請。可用！或～增添溫度。" },
-                                            progressNote = new { type = "string", description = "進度說明，例如「今日健康任務達成 80%，再加油一點點！」。" },
-                                            iconType = new { type = "string", description = "insight / progress / reminder。" },
-                                            tone = new { type = "string", description = "supportive / neutral。" }
+                                            title = new { type = "string" },
+                                            summary = new { type = "string" },
+                                            progressNote = new { type = "string" },
+                                            iconType = new { type = "string" },
+                                            tone = new { type = "string" }
                                         },
                                         required = new[] { "title", "summary", "progressNote", "iconType", "tone" }
                                     }
@@ -345,16 +307,15 @@ Facts:
                                 alerts = new
                                 {
                                     type = "array",
-                                    description = "提醒或資料缺口警示。沒有需要提醒時回傳空陣列。",
                                     items = new
                                     {
                                         type = "object",
                                         additionalProperties = false,
                                         properties = new
                                         {
-                                            type = new { type = "string", description = "data_gap / reminder / observation。" },
-                                            message = new { type = "string", description = "提醒內容，20-40 字繁體中文。" },
-                                            severity = new { type = "string", description = "low / medium / high。" }
+                                            type = new { type = "string" },
+                                            message = new { type = "string" },
+                                            severity = new { type = "string" }
                                         },
                                         required = new[] { "type", "message", "severity" }
                                     }
@@ -362,15 +323,14 @@ Facts:
                                 trendLabels = new
                                 {
                                     type = "object",
-                                    description = "各健康指標的趨勢狀態標籤，2-4 字。可用：穩定、維持良好、逐步改善、需觀察、需留意、建議觀察、趨於穩定、累積中。",
                                     additionalProperties = false,
                                     properties = new
                                     {
-                                        bloodPressure = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、維持良好、逐步改善、需觀察、需留意、趨於穩定、累積中。資料 < 3 筆時用「累積中」。" },
-                                        bloodOxygen = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、維持良好、逐步改善、需觀察、需留意、趨於穩定、累積中。資料 < 3 筆時用「累積中」。" },
-                                        bloodSugar = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、維持良好、逐步改善、需觀察、需留意、趨於穩定、累積中。資料 < 3 筆時用「累積中」。" },
-                                        temperature = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、維持良好、逐步改善、需觀察、需留意、趨於穩定、累積中。資料 < 3 筆時用「累積中」。" },
-                                        weight = new { type = "string", description = "2-4 字趨勢標籤，例如：穩定、維持良好、逐步改善、需觀察、需留意、趨於穩定、累積中。資料 < 3 筆時用「累積中」。" }
+                                        bloodPressure = new { type = "string" },
+                                        bloodOxygen = new { type = "string" },
+                                        bloodSugar = new { type = "string" },
+                                        temperature = new { type = "string" },
+                                        weight = new { type = "string" }
                                     },
                                     required = new[] { "bloodPressure", "bloodOxygen", "bloodSugar", "temperature", "weight" }
                                 }
@@ -495,6 +455,13 @@ Facts:
             }
 
             return JsonSerializer.Deserialize<List<T>>(section.GetRawText(), JsonOptions) ?? new List<T>();
+        }
+
+        private static string GetOptionalString(JsonElement root, string propertyName)
+        {
+            return root.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
+                ? property.GetString() ?? string.Empty
+                : string.Empty;
         }
 
         private static string FirstNonEmpty(params string?[] candidates)

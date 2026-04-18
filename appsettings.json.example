@@ -25,6 +25,6 @@
   },
   "OpenAI": {
     "ApiKey": "<YOUR_OPENAI_API_KEY>",
-    "Model": "gpt-4o-mini"
+    "Model": "gpt-4.1"
   }
 }

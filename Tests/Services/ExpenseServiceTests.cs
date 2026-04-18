@@ -211,8 +211,6 @@ public class ExpenseServiceTests
         Assert.Equal(2, result.SelectedExpenses.Count);
         Assert.Equal(3, result.SplitDetails.Count);
 
-        var share = 1200m / 3m; // 400
-
         var p1 = result.SplitDetails.First(x => x.UserId == payerId);
         Assert.True(p1.IsPayer);
         Assert.Equal(1000m - 400m, p1.ReceivableAmount); // 600
