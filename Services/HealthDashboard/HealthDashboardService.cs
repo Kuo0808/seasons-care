@@ -22,6 +22,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
     {
         private const string DashboardReportType = "health_dashboard_7d";
         private const string RulesVersion = "health-report-v1";
+        private const string CurrentPromptVersion = "health-dashboard-v10";
         private const string EmptyTodayInsight = "今天尚無健康紀錄，新增量測後會顯示摘要。";
         private const string LabelKeyInsight = "關鍵數據洞察";
         private const string LabelActionSuggestion = "健康行動建議";
@@ -269,9 +270,16 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         {
             var cached = await _aiHealthInsightRepository.GetByUniqueKeyAsync(
                 careGroupId, DashboardReportType, dateFrom, dateTo);
-            if (cached != null)
+            if (cached != null && cached.PromptVersion == CurrentPromptVersion)
             {
                 return (MapInsight(cached), true, false);
+            }
+
+            if (cached != null)
+            {
+                _logger.LogInformation(
+                    "快取的 Prompt 版本 {OldVersion} 與目前版本 {NewVersion} 不同，將重新產生 AI 分析。careGroupId={CareGroupId}",
+                    cached.PromptVersion, CurrentPromptVersion, careGroupId);
             }
 
             try
