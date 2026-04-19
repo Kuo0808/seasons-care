@@ -11,7 +11,9 @@
       "Bash(curl -sS -X POST https://api.openai.com/v1/responses -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -d @/tmp/test_payload.json)",
       "Bash(python -c \"import json; print\\(json.load\\(open\\('/c/Users/家偉/desktop/seasons-care/appsettings.Development.json'\\)\\)['OpenAI']['ApiKey']\\)\")",
       "Bash(cp \"/c/Users/家偉/desktop/seasons-care/appsettings.Development.json\" /tmp/dev.json)",
-      "Bash(python -c \"import json; print\\(json.load\\(open\\('/tmp/dev.json'\\)\\)['OpenAI']['ApiKey']\\)\")"
+      "Bash(python -c \"import json; print\\(json.load\\(open\\('/tmp/dev.json'\\)\\)['OpenAI']['ApiKey']\\)\")",
+      "Bash(git fetch *)",
+      "Bash(git pull *)"
     ]
   }
 }
