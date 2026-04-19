@@ -210,6 +210,45 @@ public class EventOccurrenceServiceTests
     }
 
     [Fact]
+    public async Task GetOccurrencesAsync_WeeklyOnMonday_UsesTaiwanDayOfWeek_WhenStartIsTaiwanMidnight()
+    {
+        // 前端送 startsAt = 2026-04-20 00:00 (+08:00, 週一)，落地後為 2026-04-19 16:00 UTC。
+        // 即使 UTC 為週日，後端也必須以台灣時間視為週一來推算後續每週一的事件。
+        var careGroupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var seriesRepository = new FakeEventSeriesRepository(
+            new EventSeries
+            {
+                Id = Guid.NewGuid(),
+                CareGroupId = careGroupId,
+                Title = "Weekly Taiwan Monday",
+                StartsAt = new DateTime(2026, 4, 19, 16, 0, 0, DateTimeKind.Utc),
+                RepeatPattern = EventRepeatPattern.Weekly,
+                RepeatInterval = 1,
+                DaysOfWeekMask = 1 << (int)DayOfWeek.Monday,
+                EndType = EventSeriesEndType.Never,
+                Participants = new[] { userId.ToString() },
+                CreatedBy = userId.ToString()
+            });
+        var occurrenceRepository = new FakeEventOccurrenceRepository();
+        var service = new EventOccurrenceService(seriesRepository, occurrenceRepository, groupRepository);
+
+        var items = await service.GetOccurrencesAsync(
+            userId,
+            careGroupId,
+            new DateTime(2026, 4, 19, 0, 0, 0, DateTimeKind.Utc),
+            new DateTime(2026, 5, 10, 23, 59, 59, DateTimeKind.Utc));
+
+        Assert.Equal(4, items.Count);
+        Assert.All(items, item => Assert.Equal(DayOfWeek.Monday, item.ScheduledStartAt.DayOfWeek));
+        Assert.Equal(new DateTime(2026, 4, 19, 16, 0, 0, DateTimeKind.Utc), items[0].ScheduledStartAt.UtcDateTime);
+        Assert.Equal(new DateTime(2026, 4, 26, 16, 0, 0, DateTimeKind.Utc), items[1].ScheduledStartAt.UtcDateTime);
+        Assert.Equal(new DateTime(2026, 5, 3, 16, 0, 0, DateTimeKind.Utc), items[2].ScheduledStartAt.UtcDateTime);
+        Assert.Equal(new DateTime(2026, 5, 10, 16, 0, 0, DateTimeKind.Utc), items[3].ScheduledStartAt.UtcDateTime);
+    }
+
+    [Fact]
     public async Task GetOccurrencesAsync_ExpandsDailySeriesWithinRange()
     {
         var careGroupId = Guid.NewGuid();

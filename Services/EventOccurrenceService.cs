@@ -392,30 +392,38 @@ namespace SeasonsCare.Api.Services
                 yield break;
             }
 
+            // DaysOfWeek is authored in Taiwan local time from the client, so we iterate the
+            // calendar in Taiwan time and convert each matched date back to UTC.
+            var taiwanStart = TimeHelper.ToTaiwanTime(start);
+            var taiwanEnd = TimeHelper.ToTaiwanTime(effectiveEnd);
+
             var allowedDays = ParseDaysOfWeekMask(series.DaysOfWeekMask);
             if (allowedDays.Count == 0)
             {
-                allowedDays.Add(start.DayOfWeek);
+                allowedDays.Add(taiwanStart.DayOfWeek);
             }
 
-            var currentDate = start.Date;
-            while (currentDate <= effectiveEnd.Date)
+            var currentDate = taiwanStart.Date;
+            while (currentDate <= taiwanEnd.Date)
             {
-                var occurrenceStart = new DateTime(
+                var taiwanOccurrence = new DateTime(
                     currentDate.Year,
                     currentDate.Month,
                     currentDate.Day,
-                    start.Hour,
-                    start.Minute,
-                    start.Second,
-                    start.Millisecond,
-                    DateTimeKind.Utc);
+                    taiwanStart.Hour,
+                    taiwanStart.Minute,
+                    taiwanStart.Second,
+                    taiwanStart.Millisecond,
+                    DateTimeKind.Unspecified);
 
-                if (occurrenceStart >= start &&
-                    allowedDays.Contains(occurrenceStart.DayOfWeek) &&
-                    IsMatchingWeeklyInterval(start, occurrenceStart, series.RepeatInterval))
+                if (allowedDays.Contains(taiwanOccurrence.DayOfWeek) &&
+                    IsMatchingWeeklyInterval(taiwanStart, taiwanOccurrence, series.RepeatInterval))
                 {
-                    yield return occurrenceStart;
+                    var occurrenceStart = NormalizeTimestamp(TimeHelper.TaiwanToUtc(taiwanOccurrence));
+                    if (occurrenceStart >= start && occurrenceStart <= effectiveEnd)
+                    {
+                        yield return occurrenceStart;
+                    }
                 }
 
                 currentDate = currentDate.AddDays(1);
