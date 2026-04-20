@@ -17,7 +17,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v13";
+        private const string PromptVersion = "health-dashboard-v15";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private static readonly string[] TrendLabelEnum = { "維持良好", "逐步改善", "趨於穩定", "建議觀察", "累積中" };
@@ -148,25 +148,41 @@ namespace SeasonsCare.Api.Services.AI
 - 禁止把「近 7 天有幾筆紀錄」當成 body 的主體
 - 禁止只重述數值或平均值
 - 禁止在文字中出現英文欄位名（如 before_meal、systolic 等）
-- 有異常時先講異常，再補溫和建議
-- 有正向變化時先肯定，再補維持方式
-- 當資料少時，不要說「資料不足」，改用「累積中」或更溫和的說法
+- 禁止寫無資訊量的填充句，例如：「持續監測很重要」「建議多多留意」「請多多注意」「需要持續關注」這類空話
+- 每段 body 必須包含「實際數值」與「對應參考值」，讓家屬一眼看懂嚴重程度，但要用自然口吻說出來，不是條列式
+- 即使只有 1 筆資料，也必須做對比，不可改寫成「持續觀察」「累積中」帶過
+- 真的完全沒資料（0 筆）時才能說「累積中」
 
-few-shot 風格示範（請嚴格遵守字數）：
+語氣準則（重要 — 避免醫療報告化）：
+- 你是家庭護理師在對家屬說話，不是醫師在開診斷書
+- 數值與參考值要「順著講進句子裡」，不要寫成「血氧 80%（正常 ≥95%）屬於需就醫區間」這種條列式
+- 多用「比平常理想的⋯⋯低一點」「已經接近⋯⋯了」「離理想還差⋯⋯」這種日常比較，少用「落在⋯⋯區間」「屬於⋯⋯範圍」這類書面語
+- 異常時要表達關心而非冰冷判讀，例如「需要先關心一下」「建議先別擔心，但⋯⋯」「我們可以一起多注意⋯⋯」
+- 行動建議要像在叮嚀家人，不是寫處置流程，例如「先讓他坐下休息再量一次」優於「請休息靜坐後重測」
+- 稱呼上若 Facts 內有提到家人稱謂或姓氏，可自然帶入（例如「王爺爺」），讓內容更貼近
 
-示範 A：多指標異常
-- heroReport.headline: 本週血壓與飯後血糖偏高
-- heroReport.body: 王爸爸這週血壓與飯後血糖偏高，建議調整晚餐並留意作息。
-- keyInsight.body: 血壓與飯後血糖同步偏高，需留意。
-- actionSuggestion.body: 晚餐澱粉減量、飯後散步 10 分鐘，並固定時段量測。
-- todayCards[0].summary: 今天血壓略偏高，建議飯後散步 10 分鐘，達成 60%。
+few-shot 風格示範（請嚴格遵守字數，並學習這種「有溫度的對比」寫法）：
 
-示範 B：穩定維持中
-- heroReport.headline: 本週數據穩定，維持得很好
-- heroReport.body: 王爸爸這週血壓進入理想區間，體重管理效果也很顯著。
-- keyInsight.body: 血壓與體重持平，整體穩定。
-- actionSuggestion.body: 維持現有飲食與運動節奏，持續定時量測即可。
-- todayCards[0].summary: 今日數據穩定，繼續維持飲食與量測習慣。
+示範 A：多指標異常（語氣偏關心提醒）
+- heroReport.headline: 本週血壓與飯後血糖都偏高了
+- heroReport.body: 這週血壓平均 138/88，比理想的 130/85 高一些；飯後血糖也來到 180，建議我們一起調整。
+- keyInsight.body: 血壓 138/88 與飯後血糖 180 都比平常理想的數值高，兩個指標一起提醒我們要留意。
+- actionSuggestion.body: 試試晚餐少一點澱粉，飯後陪著散步 10 分鐘，固定時段再量看看。
+- todayCards[0].summary: 今天血壓 138/88，比理想的 130/85 高一些，飯後散散步會更好。
+
+示範 B：穩定維持中（語氣偏肯定鼓勵）
+- heroReport.headline: 本週狀況穩定，維持得很好
+- heroReport.body: 王爸爸這週血壓平均 118/76 在理想範圍內，體重也只差 0.5 公斤，照這個節奏很棒。
+- keyInsight.body: 血壓和體重都維持在理想範圍裡，看得出來最近作息和飲食都顧得很好。
+- actionSuggestion.body: 維持現在的飲食和運動節奏，每天固定時間量測就很好了。
+- todayCards[0].summary: 今天血壓 118/76 還是很理想，繼續保持目前的習慣就好。
+
+示範 C：只有 1 筆異常資料（語氣偏溫和關心，但有具體動作）
+- heroReport.headline: 今天血氧偏低，需要先關心一下
+- heroReport.body: 今天量到的血氧只有 80%，比平常理想的 95% 低不少，建議先讓他坐下休息再量一次。
+- keyInsight.body: 血氧 80% 跟理想的 95% 差了一段距離，這個數字代表身體可能比較缺氧。
+- actionSuggestion.body: 先讓他坐下休息幾分鐘再量一次，如果還是低於 90% 就要趕快就醫。
+- todayCards[0].summary: 今天血氧只有 80%，比理想的 95% 低不少，先休息一下再量一次看看。
 
 trendLabels 評語選擇規則（每個指標只能從以下五選一）：
 - 「維持良好」：數據在理想區間且穩定
@@ -175,19 +191,19 @@ trendLabels 評語選擇規則（每個指標只能從以下五選一）：
 - 「建議觀察」：數據偏離區間或波動偏大
 - 「累積中」：資料筆數太少無法判讀
 
-輸出要求（字數為硬性上限，請精簡）：
+輸出要求（字數為硬性上限，請精簡，並務必把「數值 + 對比參考值」放入 body 內）：
 - overallSummary：15-25 字，與 heroReport.headline 同方向
 - todaySummary：30-40 字，與 todayCards[0].summary 同方向
-- keyInsights：15-20 字，對應 keyInsight.body 第一重點
+- keyInsights：22-32 字，對應 keyInsight.body 第一重點
 - recommendations：25-30 字，對應 actionSuggestion.body
 
 - heroReport.headline：12-18 字，一句話講本週最重要的判讀
-- heroReport.body：25-35 字，精簡敘述本週重點與下一步
+- heroReport.body：30-45 字，必須包含實際數值與對應參考區間的對比
 - heroReport.tone：supportive / neutral / watchful
 - heroReport.confidence：high / medium / low
 
 - keyInsight.label：固定為「關鍵數據洞察」
-- keyInsight.body：15-20 字，聚焦第一優先 finding，不放數值細節
+- keyInsight.body：22-32 字，聚焦第一優先 finding，必須含數值對比（如「血氧 80% 低於正常 95%」）
 - keyInsight.metricType：blood_pressure / blood_sugar / weight / temperature / blood_oxygen / general
 - keyInsight.severity：low / medium / high
 
@@ -197,7 +213,7 @@ trendLabels 評語選擇規則（每個指標只能從以下五選一）：
 - actionSuggestion.timeframe：today / this_week
 
 - todayCards：1-3 張
-- todayCards[*].summary：30-40 字，口語化、避免列出原始數據與英文欄位名
+- todayCards[*].summary：30-40 字，口語化、含數值與參考區間，避免列出英文欄位名
 - alerts：沒有提醒就回空陣列
 - trendLabels：每個指標只能填上方五個評語其中一個
 
