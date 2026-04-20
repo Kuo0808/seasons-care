@@ -32,8 +32,8 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         private const string TitleBloodSugar = "血糖";
         private const string TitleTemperature = "體溫";
         private const string TitleWeight = "體重";
-        private const string StatusStable = "穩定";
-        private const string StatusWatch = "需觀察";
+        private const string StatusStable = "維持良好";
+        private const string StatusWatch = "建議觀察";
         private const string StatusInsufficient = "累積中";
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -944,28 +944,31 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static string BuildTodayNarrative(TodayMetricsResult today)
         {
+            // 卡片字數上限 40 字，超過會被裁切
+            const int MaxLength = 40;
+
             if (today.Interpretations.Count == 0)
             {
-                return BuildTodayRecordSummary(today.RecordCount, today.LatestMetrics);
+                return TruncateNarrative(BuildTodayRecordSummary(today.RecordCount, today.LatestMetrics), MaxLength);
             }
 
             var top = today.Interpretations
                 .OrderByDescending(x => x.Priority)
                 .ThenBy(x => x.Title)
-                .Take(2)
-                .ToList();
+                .First();
 
-            if (today.RecordCount == 1)
+            // 只取最重要的一筆，避免拼接造成超長
+            return TruncateNarrative(top.Summary, MaxLength);
+        }
+
+        private static string TruncateNarrative(string text, int maxLength)
+        {
+            if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
             {
-                return top[0].Summary;
+                return text;
             }
-
-            if (top.Count == 1)
-            {
-                return $"今天共新增 {today.RecordCount} 筆健康紀錄，先看到的是：{top[0].Summary}";
-            }
-
-            return $"今天共新增 {today.RecordCount} 筆健康紀錄，目前最值得注意的是：{top[0].Summary} 另外，{top[1].Summary}";
+            // 保留 maxLength-1 個字並補上句號，避免句子被硬切
+            return text.Substring(0, maxLength - 1).TrimEnd('，', '、', '；', ' ') + "。";
         }
 
         private static string BuildTodayProgressNarrative(TodayMetricsResult today, int progressPercent)
@@ -1281,22 +1284,23 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static HealthDashboardHeroReportDto BuildFallbackHeroReport(WeeklyContext context)
         {
+            // 新格式：headline 12-18 字、body 25-35 字
             string headline;
             string body;
             if (context.TotalRecordCount == 0)
             {
-                headline = "我們一起從今天開始為家人累積健康紀錄吧";
-                body = "現在還沒有量測紀錄，第一筆就會是我們認識家人健康狀況的起點。每天固定時間量測，下週就能為您整理出更貼近的觀察。";
+                headline = "一起從今天累積健康紀錄";
+                body = "目前還沒有量測，固定時段記錄即可逐步看出趨勢。";
             }
             else if (context.TotalRecordCount < 3)
             {
-                headline = "已經為家人留下健康足跡，請繼續陪我們累積";
-                body = $"近 7 天目前有 {context.TotalRecordCount} 筆紀錄，已經是很好的開始。再多陪我們記下幾筆，就能看到更立體的健康樣貌，也更容易發現需要留意的變化。";
+                headline = "已留下健康足跡，請繼續累積";
+                body = $"近 7 天有 {context.TotalRecordCount} 筆紀錄，再多累積幾天會更清楚。";
             }
             else
             {
-                headline = $"本週已為家人累積 {context.TotalRecordCount} 筆紀錄，持續陪伴中";
-                body = BuildTodayRecordSummary(context.TodayRecordCount, context.LatestTodayMetrics);
+                headline = "本週持續陪伴累積中";
+                body = $"近 7 天已有 {context.TotalRecordCount} 筆紀錄，維持節奏即可看出變化。";
             }
 
             return new HealthDashboardHeroReportDto
@@ -1310,22 +1314,23 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static HealthDashboardInsightSectionDto BuildFallbackKeyInsightSection(WeeklyContext context)
         {
+            // 新格式：body 15-20 字
             string body;
             if (context.TotalRecordCount == 0)
             {
-                body = "目前還沒有量測資料可以分析，第一筆紀錄會是我們陪伴的起點。";
+                body = "尚無量測資料可分析。";
             }
             else if (context.TotalRecordCount < 3)
             {
-                body = $"目前累積到 {context.TotalRecordCount} 筆紀錄，已能看到家人量測的努力。再多陪我們累積幾天，就能畫出趨勢，也更容易抓到需要留意的變化。";
+                body = "資料量較少，趨勢累積中。";
             }
             else if (context.TodayRecordCount > 0)
             {
-                body = $"今天新增了 {context.TodayRecordCount} 筆紀錄，謝謝您持續為家人留心，我們會把它與近 7 天的趨勢一起觀察。";
+                body = "今日已量測，持續觀察中。";
             }
             else
             {
-                body = $"近 7 天已累積 {context.TotalRecordCount} 筆紀錄，今日尚未量測，若方便為家人補上一筆，我們能更貼近他的當下狀況。";
+                body = "今日尚未量測，建議補上一筆。";
             }
 
             return new HealthDashboardInsightSectionDto
@@ -1340,18 +1345,19 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static HealthDashboardActionSectionDto BuildFallbackActionSuggestionSection(WeeklyContext context)
         {
+            // 新格式：body 25-30 字
             string body;
             if (context.TotalRecordCount == 0)
             {
-                body = "建議與家人約定一個固定的量測時段（例如早餐前），三天後我們就能一起看出初步的變化趨勢。";
+                body = "建議約定固定量測時段，三天後就能看出趨勢。";
             }
             else if (context.TotalRecordCount < 3)
             {
-                body = "維持目前的量測節奏，若能在量測時順手記下飯前飯後或當下狀況，下次分析會更精準地陪您看見細節。";
+                body = "維持量測節奏，並順手記下飯前飯後狀況會更精準。";
             }
             else
             {
-                body = "建議維持固定時段量測，並把飲食或作息變化也一起記下來，會讓我能更貼近地解讀數值的意義。";
+                body = "建議固定時段量測，把飲食作息一起記下會更好解讀。";
             }
 
             return new HealthDashboardActionSectionDto

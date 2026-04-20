@@ -17,9 +17,10 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v12";
+        private const string PromptVersion = "health-dashboard-v13";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+        private static readonly string[] TrendLabelEnum = { "維持良好", "逐步改善", "趨於穩定", "建議觀察", "累積中" };
 
         private readonly HttpClient _httpClient;
         private readonly IOptions<OpenAiOptions> _options;
@@ -143,51 +144,62 @@ namespace SeasonsCare.Api.Services.AI
 - 體重變化：一週內 ±1 kg 屬正常；一週 > 2 kg 需留意
 
 嚴格規則：
+- 所有字數限制都是「硬性上限」，超過會被裁切，請務必精簡
 - 禁止把「近 7 天有幾筆紀錄」當成 body 的主體
 - 禁止只重述數值或平均值
-- 每段 body 至少要包含：區間判讀、趨勢或關聯、下一步建議 其中兩項
+- 禁止在文字中出現英文欄位名（如 before_meal、systolic 等）
 - 有異常時先講異常，再補溫和建議
 - 有正向變化時先肯定，再補維持方式
 - 當資料少時，不要說「資料不足」，改用「累積中」或更溫和的說法
 
-few-shot 風格示範：
+few-shot 風格示範（請嚴格遵守字數）：
 
 示範 A：多指標異常
-- heroReport.headline: 這週血壓與飯後血糖都偏高，建議我們一起多留意
-- heroReport.body: 這週最值得注意的是血壓已落在偏高區間，飯後血糖也有偏高情況，表示身體代謝與循環都在提醒我們要更留心。建議先從晚餐內容、飯後活動和固定時段量測開始整理，若接下來幾天仍維持偏高，再安排回診討論會更安心。
-- keyInsight.body: 本週的血壓與飯後血糖同時偏高，不像單一數值波動，更適合先觀察飲食與作息是否一起影響。
-- actionSuggestion.body: 建議這幾天把晚餐澱粉份量稍微減少，飯後陪家人散步 10 到 15 分鐘，並在相近時段補量血壓與血糖，會更容易看出變化。
+- heroReport.headline: 本週血壓與飯後血糖偏高
+- heroReport.body: 王爸爸這週血壓與飯後血糖偏高，建議調整晚餐並留意作息。
+- keyInsight.body: 血壓與飯後血糖同步偏高，需留意。
+- actionSuggestion.body: 晚餐澱粉減量、飯後散步 10 分鐘，並固定時段量測。
+- todayCards[0].summary: 今天血壓略偏高，建議飯後散步 10 分鐘，達成 60%。
 
-示範 B：只有 1 筆但可判讀
-- heroReport.headline: 今天先有一筆血壓紀錄，我們已經能看出一些方向
-- heroReport.body: 今天這筆血壓 135/85 mmHg 已接近偏高區間，先不用太緊張，但值得我們多留意一下。建議下次量測時維持相近時段並在休息後再量一次，累積幾天後會更容易看出是不是穩定偏高。
-- keyInsight.body: 這筆血壓已比理想區間高一些，雖然還不是趨勢，但足以提醒我們先留意休息與量測時機。
-- actionSuggestion.body: 建議今天稍晚休息 10 到 15 分鐘後再量一次，並順手記下量測時間，之後就能更清楚比較變化。
+示範 B：穩定維持中
+- heroReport.headline: 本週數據穩定，維持得很好
+- heroReport.body: 王爸爸這週血壓進入理想區間，體重管理效果也很顯著。
+- keyInsight.body: 血壓與體重持平，整體穩定。
+- actionSuggestion.body: 維持現有飲食與運動節奏，持續定時量測即可。
+- todayCards[0].summary: 今日數據穩定，繼續維持飲食與量測習慣。
 
-輸出要求：
-- overallSummary：15-30 字，與 heroReport.headline 同方向
-- todaySummary：30-50 字，與 todayCards[0].summary 同方向
-- keyInsights：25-40 字，對應 keyInsight.body 的第一重點
-- recommendations：對應 actionSuggestion.body
+trendLabels 評語選擇規則（每個指標只能從以下五選一）：
+- 「維持良好」：數據在理想區間且穩定
+- 「逐步改善」：趨勢正在往好的方向走
+- 「趨於穩定」：略偏離區間但持平、無惡化
+- 「建議觀察」：數據偏離區間或波動偏大
+- 「累積中」：資料筆數太少無法判讀
 
-- heroReport.headline：15-30 字，一句話講本週最重要的判讀
-- heroReport.body：80-120 字，先說判讀，再說趨勢或關聯，最後給下一步
+輸出要求（字數為硬性上限，請精簡）：
+- overallSummary：15-25 字，與 heroReport.headline 同方向
+- todaySummary：30-40 字，與 todayCards[0].summary 同方向
+- keyInsights：15-20 字，對應 keyInsight.body 第一重點
+- recommendations：25-30 字，對應 actionSuggestion.body
+
+- heroReport.headline：12-18 字，一句話講本週最重要的判讀
+- heroReport.body：25-35 字，精簡敘述本週重點與下一步
 - heroReport.tone：supportive / neutral / watchful
 - heroReport.confidence：high / medium / low
 
 - keyInsight.label：固定為「關鍵數據洞察」
-- keyInsight.body：50-80 字，聚焦第一優先 finding
+- keyInsight.body：15-20 字，聚焦第一優先 finding，不放數值細節
 - keyInsight.metricType：blood_pressure / blood_sugar / weight / temperature / blood_oxygen / general
 - keyInsight.severity：low / medium / high
 
 - actionSuggestion.label：固定為「健康行動建議」
-- actionSuggestion.body：50-80 字，必須對應 keyInsight 的 finding
+- actionSuggestion.body：25-30 字，必須對應 keyInsight，給出可執行動作
 - actionSuggestion.priority：low / medium / high
 - actionSuggestion.timeframe：today / this_week
 
 - todayCards：1-3 張
+- todayCards[*].summary：30-40 字，口語化、避免列出原始數據與英文欄位名
 - alerts：沒有提醒就回空陣列
-- trendLabels：2-4 字標籤，資料少時用「累積中」
+- trendLabels：每個指標只能填上方五個評語其中一個
 
 Facts:
 {JsonSerializer.Serialize(facts, JsonOptions)}
@@ -326,11 +338,11 @@ Facts:
                                     additionalProperties = false,
                                     properties = new
                                     {
-                                        bloodPressure = new { type = "string" },
-                                        bloodOxygen = new { type = "string" },
-                                        bloodSugar = new { type = "string" },
-                                        temperature = new { type = "string" },
-                                        weight = new { type = "string" }
+                                        bloodPressure = new { type = "string", @enum = TrendLabelEnum, description = "血壓評語，只能從五個固定詞彙擇一" },
+                                        bloodOxygen = new { type = "string", @enum = TrendLabelEnum, description = "血氧評語，只能從五個固定詞彙擇一" },
+                                        bloodSugar = new { type = "string", @enum = TrendLabelEnum, description = "血糖評語，只能從五個固定詞彙擇一" },
+                                        temperature = new { type = "string", @enum = TrendLabelEnum, description = "體溫評語，只能從五個固定詞彙擇一" },
+                                        weight = new { type = "string", @enum = TrendLabelEnum, description = "體重評語，只能從五個固定詞彙擇一" }
                                     },
                                     required = new[] { "bloodPressure", "bloodOxygen", "bloodSugar", "temperature", "weight" }
                                 }
