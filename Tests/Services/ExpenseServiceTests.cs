@@ -228,6 +228,69 @@ public class ExpenseServiceTests
     }
 
     [Fact]
+    public async Task GetSplitPreviewAsync_UsesActiveCareGroupMembers_AsParticipants()
+    {
+        var careGroupId = Guid.NewGuid();
+        var payerId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+
+        var expenses = new[]
+        {
+            new ExpenseRecord
+            {
+                Id = Guid.NewGuid(),
+                CareGroupId = careGroupId,
+                Title = "回診費",
+                Amount = 1200m,
+                SplitStatus = ExpenseSplitStatus.Pending,
+                CreatedBy = payerId.ToString(),
+                ExpenseDate = DateTime.UtcNow
+            }
+        };
+
+        var users = new[]
+        {
+            new User { Id = payerId, Username = "王希銘", AvatarKey = "payer.png" },
+            new User { Id = memberId, Username = "王小美", AvatarKey = "member.png" }
+        };
+
+        var careGroupRepository = new FakeCareGroupRepository(isMember: true)
+        {
+            Members = new List<CareGroupMember>
+            {
+                new CareGroupMember { CareGroupId = careGroupId, UserId = payerId, User = users[0] },
+                new CareGroupMember { CareGroupId = careGroupId, UserId = memberId, User = users[1] }
+            }
+        };
+
+        var repository = new FakeExpenseRepository(expenses);
+        var userRepository = new FakeUserRepository(users);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, careGroupRepository, userRepository, splitRepository);
+
+        var result = await service.GetSplitPreviewAsync(payerId, careGroupId, new SplitPreviewQueryRequest
+        {
+            SplitMode = "custom",
+            ExpenseIds = new List<Guid> { expenses[0].Id }
+        });
+
+        Assert.Equal(1, result.ExpenseCount);
+        Assert.Equal(1200m, result.TotalAmount);
+        Assert.Single(result.SelectedExpenses);
+        Assert.Equal(2, result.SplitDetails.Count);
+
+        var payer = result.SplitDetails.First(x => x.UserId == payerId);
+        Assert.True(payer.IsPayer);
+        Assert.Equal(600m, payer.ReceivableAmount);
+        Assert.Equal(0m, payer.PayableAmount);
+
+        var member = result.SplitDetails.First(x => x.UserId == memberId);
+        Assert.False(member.IsPayer);
+        Assert.Equal(0m, member.ReceivableAmount);
+        Assert.Equal(600m, member.PayableAmount);
+    }
+
+    [Fact]
     public async Task GetMemberExpenseTotalsAsync_AggregatesByPayer_AndIncludesNonPayingMembers()
     {
         var careGroupId = Guid.NewGuid();

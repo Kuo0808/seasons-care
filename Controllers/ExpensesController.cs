@@ -10,12 +10,6 @@ using SeasonsCare.Api.Services;
 
 namespace SeasonsCare.Api.Controllers
 {
-    // [架構導覽] 展示層 (Presentation Layer) - Controller
-    // 職責：負責路由定義 (Routing)、接收 HTTP 請求、驗證輸入資料 (透過 Filter) 並回傳統一格式結果。本身不處理實質的商業規則。
-    /// <summary>
-    /// 帳目費用 API。
-    /// 管理各照護群組下的帳目與支出紀錄。
-    /// </summary>
     [Authorize]
     [ApiController]
     [Route("api/care-groups/{careGroupId}/expenses")]
@@ -34,15 +28,15 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<IEnumerable<ExpenseResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("取得支出紀錄列表")]
-        [EndpointDescription("取得指定照護群組底下的支出紀錄列表。前端需在 path 帶入 careGroupId，通常來自照護群組列表或目前選取中的群組；可另外用 query string 傳入 page、pageSize、sort。")]
+        [EndpointSummary("取得支出列表")]
+        [EndpointDescription("取得指定照護群組的支出列表。")]
         public async Task<IActionResult> GetExpenses(Guid careGroupId, [FromQuery] DateRangePaginationRequest paginationRequest)
         {
             var currentUserId = _currentUserService.UserId;
             var pagedResult = await _expenseService.GetExpensesAsync(currentUserId, careGroupId, paginationRequest);
             var response = new ApiResponse<IEnumerable<ExpenseResponse>>(
                 pagedResult.Items,
-                "取得支出紀錄列表成功",
+                "取得支出列表成功",
                 HttpContext.TraceIdentifier,
                 pagedResult.Pagination);
             return Ok(response);
@@ -53,8 +47,8 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [EndpointSummary("依照 expenseId 取得單筆支出紀錄")]
-        [EndpointDescription("依照 path 參數 careGroupId 與 expenseId 取得單筆支出紀錄。前端通常會先呼叫支出列表 API，再把回傳資料中的 id 當作 expenseId 帶入；若該資料不屬於目前 careGroupId，會回傳 404。")]
+        [EndpointSummary("取得單筆支出")]
+        [EndpointDescription("依照 expenseId 取得單筆支出紀錄。")]
         public async Task<IActionResult> GetExpenseById(Guid careGroupId, Guid expenseId)
         {
             var currentUserId = _currentUserService.UserId;
@@ -68,15 +62,12 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("建立支出紀錄")]
-        [EndpointDescription("在指定照護群組底下建立新的支出紀錄。前端需在 path 帶入 careGroupId，並在 request body 提供 title、amount、category、expenseDate；notes 與 splitStatus 為選填。category 支援 medical、food、traffic、other；splitStatus 若省略，後端會預設為 none，且僅接受 pending、settled、none 這三種字串值。")]
+        [EndpointSummary("建立支出")]
+        [EndpointDescription("在指定照護群組底下建立新的支出紀錄。")]
         public async Task<IActionResult> CreateExpense(Guid careGroupId, [FromBody] CreateExpenseRequest request)
         {
-            // 步驟 1：解析請求上下文 (取得目前登入使用者 ID)
             var currentUserId = _currentUserService.UserId;
-            // 步驟 2：將請求參數轉交給 Service 層 (大腦) 處理實質的商業邏輯
             var result = await _expenseService.CreateExpenseAsync(currentUserId, careGroupId, request);
-            // 步驟 3：包裝為專案統一標準的 ApiResponse 並回傳對應的 HTTP 狀態碼
             var response = new ApiResponse<ExpenseResponse>(result, "建立支出紀錄成功", HttpContext.TraceIdentifier);
             return StatusCode(201, response);
         }
@@ -88,8 +79,8 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
-        [EndpointSummary("更新支出紀錄")]
-        [EndpointDescription("更新指定的支出紀錄。前端需在 path 帶入 careGroupId 與 expenseId，並在 request body 提供 title、amount、category、expenseDate、updatedAt；notes 與 splitStatus 為選填。updatedAt 應來自先前查詢單筆或列表 API 回傳的資料，用於樂觀鎖檢查。category 支援 medical、food、traffic、other；splitStatus 若省略，後端會預設為 none，且僅接受 pending、settled、none 這三種字串值。")]
+        [EndpointSummary("更新支出")]
+        [EndpointDescription("更新指定的支出紀錄。")]
         public async Task<IActionResult> UpdateExpense(Guid careGroupId, Guid expenseId, [FromBody] UpdateExpenseRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -104,8 +95,8 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]
-        [EndpointSummary("刪除支出紀錄")]
-        [EndpointDescription("刪除指定的支出紀錄。前端需在 path 帶入 careGroupId 與 expenseId；這兩個值通常來自支出列表或單筆查詢結果。此操作為 soft delete，不會物理刪除資料。")]
+        [EndpointSummary("刪除支出")]
+        [EndpointDescription("刪除指定的支出紀錄。")]
         public async Task<IActionResult> DeleteExpense(Guid careGroupId, Guid expenseId)
         {
             var currentUserId = _currentUserService.UserId;
@@ -118,13 +109,28 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(typeof(ApiResponse<MemberExpenseTotalsResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [EndpointSummary("取得各成員累積花費")]
-        [EndpointDescription("回傳指定照護群組內每位成員的累積金額，用於前端「各成員累積花費」卡片。即使該成員金額為 0 也會列入，方便前端一次繪出全部頭像。\n\n單一回應同時包含兩種視角，前端依畫面情境取用即可，不需要切換參數：\n- payerTotal / payerCount：依付款人（ExpenseRecord.CreatedBy）累積「待分帳（Pending）」的金額與筆數。分帳前的卡片取這組數字。\n- shareTotal / shareCount：依分攤對象（ExpenseSplit.UserId）累積已結算的 ShareAmount 與筆數。分帳後的卡片取這組數字。\n\nQuery 參數：\n- scope：daily / monthly / all（預設 monthly）。\n- targetDate：ISO 日期（台灣時區），僅 daily / monthly 模式生效；不傳則 daily=今天、monthly=本月。\n\n排序：payerTotal + shareTotal 由高到低，金額相同者依名稱排序。")]
+        [EndpointSummary("取得成員累積花費")]
+        [EndpointDescription("回傳指定照護群組內每位成員的累積金額。")]
         public async Task<IActionResult> GetMemberTotals(Guid careGroupId, [FromQuery] MemberExpenseTotalsRequest request)
         {
             var currentUserId = _currentUserService.UserId;
             var result = await _expenseService.GetMemberExpenseTotalsAsync(currentUserId, careGroupId, request);
             var response = new ApiResponse<MemberExpenseTotalsResponse>(result, "取得各成員累積花費成功", HttpContext.TraceIdentifier);
+            return Ok(response);
+        }
+
+        [HttpGet("split-preview")]
+        [ProducesResponseType(typeof(ApiResponse<ExpenseSplitPreviewResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [EndpointSummary("取得分帳預覽畫面資料")]
+        [EndpointDescription("提供 GET 版分帳預覽資料，回傳畫面需要的帳目明細、總額、筆數與每位成員的預覽分帳結果。會自動以照護群組目前有效成員作為分帳對象。支援 daily、monthly、custom 三種 splitMode；daily / monthly 可搭配 targetDate，custom 則以 query string 中的 expenseIds 指定帳目。")]
+        public async Task<IActionResult> GetSplitPreview(Guid careGroupId, [FromQuery] SplitPreviewQueryRequest request)
+        {
+            var currentUserId = _currentUserService.UserId;
+            var result = await _expenseService.GetSplitPreviewAsync(currentUserId, careGroupId, request);
+            var response = new ApiResponse<ExpenseSplitPreviewResponse>(result, "取得分帳預覽資料成功", HttpContext.TraceIdentifier);
             return Ok(response);
         }
 
@@ -134,7 +140,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("預覽一鍵分帳結果")]
-        [EndpointDescription("支援三種分帳模式：daily（指定日待分帳費用）、monthly（指定月待分帳費用）、custom（自選 ExpenseIds）。後端即時計算各成員的應收與應付金額並回傳，不會更動資料庫狀態。所有模式都「只會抓取 Pending（待分帳）的費用」，自動排除 None（無需分帳）與 Settled（已結算）。daily / monthly 可帶 targetDate（ISO 日期，台灣時區）指定其他日期或月份；不傳則預設為今天 / 本月。")]
+        [EndpointDescription("支援 daily、monthly、custom 三種分帳模式，回傳即時計算後的分帳預覽，不會更動資料庫狀態。")]
         public async Task<IActionResult> PreviewSplit(Guid careGroupId, [FromBody] SplitPreviewRequest request)
         {
             var currentUserId = _currentUserService.UserId;
@@ -149,7 +155,7 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("確認一鍵分帳")]
-        [EndpointDescription("支援三種分帳模式：daily（指定日）、monthly（指定月）、custom（自選 ExpenseIds）。所有模式都「只會結算 Pending（待分帳）的費用」，自動排除 None（無需分帳）與 Settled（已結算），結算後狀態變更為 Settled。daily / monthly 可帶 targetDate（ISO 日期，台灣時區）指定其他日期或月份；不傳則預設為今天 / 本月。請在呼叫此 API 前，先藉由預覽 API 確認分帳結果。")]
+        [EndpointDescription("確認分帳後會將待分帳支出結算並寫入分帳明細。")]
         public async Task<IActionResult> ConfirmSplit(Guid careGroupId, [FromBody] SplitConfirmRequest request)
         {
             var currentUserId = _currentUserService.UserId;

@@ -1,5 +1,9 @@
+using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http.Json;
+using System.Threading.Tasks;
+using SeasonsCare.Api.DTOs.Common;
 using SeasonsCare.Api.DTOs.Expenses;
 using SeasonsCare.Api.Exceptions;
 using SeasonsCare.Api.Models.Enums;
@@ -150,12 +154,31 @@ public class ExpensesControllerIntegrationTests
         Assert.Equal("VALIDATION_FAILED", payload.RootElement.GetProperty("errorCode").GetString());
     }
 
+    [Fact]
+    public async Task GetSplitPreview_ReturnsSuccess_WhenServiceProvidesPreviewData()
+    {
+        using var factory = new StubApiFactory<IExpenseService>(new StubExpenseService());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/expenses/split-preview?splitMode=daily&targetDate=2026-04-21");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        var data = payload.RootElement.GetProperty("data");
+
+        Assert.Equal(1, data.GetProperty("expenseCount").GetInt32());
+        Assert.Equal(1200m, data.GetProperty("totalAmount").GetDecimal());
+        Assert.Equal(1, data.GetProperty("selectedExpenses").GetArrayLength());
+        Assert.Equal(2, data.GetProperty("splitDetails").GetArrayLength());
+    }
+
     private sealed class StubExpenseService : IExpenseService
     {
         public Exception? GetExpenseByIdException { get; init; }
         public Exception? UpdateException { get; init; }
 
-        public Task<SeasonsCare.Api.DTOs.Common.PagedResponse<ExpenseResponse>> GetExpensesAsync(Guid currentUserId, Guid careGroupId, SeasonsCare.Api.DTOs.Common.PaginationRequest pagination)
+        public Task<PagedResponse<ExpenseResponse>> GetExpensesAsync(Guid currentUserId, Guid careGroupId, PaginationRequest pagination)
         {
             throw new NotImplementedException();
         }
@@ -224,6 +247,43 @@ public class ExpensesControllerIntegrationTests
         public Task DeleteExpenseAsync(Guid currentUserId, Guid careGroupId, Guid expenseId)
         {
             return Task.CompletedTask;
+        }
+
+        public Task<ExpenseSplitPreviewResponse> GetSplitPreviewAsync(Guid currentUserId, Guid careGroupId, SplitPreviewQueryRequest request)
+        {
+            return Task.FromResult(new ExpenseSplitPreviewResponse
+            {
+                ExpenseCount = 1,
+                TotalAmount = 1200m,
+                SelectedExpenses = new List<ExpenseItemSummary>
+                {
+                    new ExpenseItemSummary
+                    {
+                        Id = Guid.NewGuid(),
+                        Title = "回診費",
+                        Amount = 1200m
+                    }
+                },
+                SplitDetails = new List<SplitUserDetail>
+                {
+                    new SplitUserDetail
+                    {
+                        UserId = Guid.NewGuid(),
+                        Name = "王希銘",
+                        IsPayer = true,
+                        ReceivableAmount = 600m,
+                        PayableAmount = 0m
+                    },
+                    new SplitUserDetail
+                    {
+                        UserId = Guid.NewGuid(),
+                        Name = "王小美",
+                        IsPayer = false,
+                        ReceivableAmount = 0m,
+                        PayableAmount = 600m
+                    }
+                }
+            });
         }
 
         public Task<ExpenseSplitPreviewResponse> PreviewSplitAsync(Guid currentUserId, Guid careGroupId, SplitPreviewRequest request)
