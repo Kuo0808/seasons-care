@@ -944,8 +944,8 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static string BuildTodayNarrative(TodayMetricsResult today)
         {
-            // 卡片字數上限 40 字，超過會被裁切
-            const int MaxLength = 40;
+            // 卡片字數上限 50 字，超過會被裁切
+            const int MaxLength = 50;
 
             if (today.Interpretations.Count == 0)
             {
@@ -998,14 +998,14 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         private static TodayMetricInterpretation BuildBloodPressureTodayInterpretation(BloodPressureRecord record, int todayCount)
         {
             var category = ClassifyBloodPressure(record.Systolic, record.Diastolic);
-            var countHint = todayCount <= 1 ? "目前只有 1 筆，還不能直接當成趨勢。" : $"今天已有 {todayCount} 筆血壓紀錄，可一起觀察。";
+            var countHint = todayCount <= 1 ? "這是今天第 1 筆，單看還不能當成趨勢，我陪你繼續觀察、加油!。" : $"今天已有 {todayCount} 筆血壓紀錄，可一起觀察。";
 
             return new TodayMetricInterpretation
             {
                 Title = TitleBloodPressure,
                 Summary = category switch
                 {
-                    "high" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 明顯偏高，建議先安靜休息後再量一次。{countHint}",
+                    "high" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 明顯偏高，建議先放鬆休息後再量一次。{countHint}",
                     "elevated" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 比理想區間高一點，先不用太緊張。{countHint}",
                     _ => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 落在相對穩定的範圍，先把這次當作今天的基準值。"
                 },
@@ -1031,7 +1031,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var context = (record.MeasurementContext ?? string.Empty).Trim();
             var category = ClassifyBloodSugar(record.GlucoseLevel, context);
             var contextLabel = string.IsNullOrWhiteSpace(context) ? "未註明情境" : context;
-            var countHint = todayCount <= 1 ? "先把它當成提醒訊號，還需要後續紀錄幫忙判讀。" : $"今天已有 {todayCount} 筆血糖資料，可一起比較。";
+            var countHint = todayCount <= 1 ? "這是今天第 1 筆，先當成提醒訊號，之後多記幾筆我會陪你一起判讀。" : $"今天已有 {todayCount} 筆血糖資料，可一起比較。";
 
             return new TodayMetricInterpretation
             {
@@ -1437,9 +1437,9 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             {
                 return category switch
                 {
-                    "high" => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，偏高，建議在休息後補量 1 次再判斷是否持續。",
-                    "elevated" => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，略高於理想值，先持續追蹤即可。",
-                    _ => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，落在相對穩定範圍。"
+                    "high" => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，辛苦你記下來了。這筆超過 140/90 的理想範圍，可能是當下情緒、剛活動完或睡眠因素影響，先別太緊張；放鬆 10–15 分鐘後再量一次，累積幾筆我才更能陪你看出是不是持續偏高。",
+                    "elevated" => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，辛苦你記下來了。這筆略高於 120/80 的理想區間，多半仍在可接受範圍，先不用太緊張；記得固定時段再量一次，累積幾天的資料後我們再一起看變化。",
+                    _ => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，看起來落在相對穩定的範圍，辛苦你記錄了。先把這筆當成近期的基準，之後再量 1、2 次就能看出你的平常狀態，我陪你一起觀察。"
                 };
             }
 
@@ -1461,9 +1461,9 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             {
                 return category switch
                 {
-                    "low" => $"目前只有 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，偏低，建議優先留意當下狀況並補記後續資料。",
-                    "high" => $"目前只有 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，偏高，建議搭配飯前或飯後情境再追蹤。",
-                    _ => $"目前只有 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，可先作為最近狀態的參考。"
+                    "low" => $"目前只有 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，通常建議高於 70，這筆稍微偏低了。如果現在有頭暈、冒冷汗或手抖，先補充一點含糖食物再慢慢觀察；之後多記幾筆並註明飯前／飯後，我會更能陪你判斷是偶發還是常態。",
+                    "high" => $"目前只有 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，看起來偏高一些。血糖會跟飯前／飯後情境差很多，單看一筆還不夠判斷；之後記得補上量測時機（飯前、飯後、空腹），我會幫你一起留意是否持續偏高。",
+                    _ => $"目前只有 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，看起來落在可接受範圍，辛苦你記錄了。先把這筆當成近期的參考，之後再搭配飯前／飯後的幾筆，我們就能更穩地看出你的平常狀態。"
                 };
             }
 
