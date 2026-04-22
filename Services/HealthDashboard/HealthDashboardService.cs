@@ -942,14 +942,16 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             return cards;
         }
 
+        // 當日分析卡片字數上限（標點對齊截斷，實際長度可能小於此值）
+        private const int TodayNarrativeMaxLength = 80;
+        private static readonly char[] SentenceEndings = { '。', '！', '？' };
+        private static readonly char[] ClauseEndings = { '，', '、', '；' };
+
         private static string BuildTodayNarrative(TodayMetricsResult today)
         {
-            // 卡片字數上限 50 字，超過會被裁切
-            const int MaxLength = 50;
-
             if (today.Interpretations.Count == 0)
             {
-                return TruncateNarrative(BuildTodayRecordSummary(today.RecordCount, today.LatestMetrics), MaxLength);
+                return TruncateNarrative("今天還沒有太多數據，也別擔心，從一個小小的紀錄開始，就是送給自己的溫柔陪伴。", TodayNarrativeMaxLength);
             }
 
             var top = today.Interpretations
@@ -957,8 +959,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 .ThenBy(x => x.Title)
                 .First();
 
-            // 只取最重要的一筆，避免拼接造成超長
-            return TruncateNarrative(top.Summary, MaxLength);
+            return TruncateNarrative(top.Summary, TodayNarrativeMaxLength);
         }
 
         private static string TruncateNarrative(string text, int maxLength)
@@ -967,15 +968,32 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             {
                 return text;
             }
-            // 保留 maxLength-1 個字並補上句號，避免句子被硬切
-            return text.Substring(0, maxLength - 1).TrimEnd('，', '、', '；', ' ') + "。";
+
+            var window = text.Substring(0, maxLength);
+
+            // 優先在句尾（。！？）切，保留完整一句
+            var sentenceEnd = window.LastIndexOfAny(SentenceEndings);
+            if (sentenceEnd >= 0)
+            {
+                return text.Substring(0, sentenceEnd + 1);
+            }
+
+            // 退而求其次在子句標點（，、；）切，補句號避免感覺沒講完
+            var clauseEnd = window.LastIndexOfAny(ClauseEndings);
+            if (clauseEnd >= 0)
+            {
+                return text.Substring(0, clauseEnd) + "。";
+            }
+
+            // 完全沒有標點才做最後手段：硬切並以「…」收尾提示被省略
+            return text.Substring(0, maxLength - 1) + "…";
         }
 
         private static string BuildTodayProgressNarrative(TodayMetricsResult today, int progressPercent)
         {
             if (today.RecordCount == 0)
             {
-                return $"隞?亙熒隞餃??? {progressPercent}%";
+                return "今天還沒有紀錄也沒關係，隨時都可以從一個小小的量測開始，陪伴自己一步一步前進。";
             }
 
             var topPriority = today.Interpretations.Count == 0
@@ -984,36 +1002,35 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
             if (topPriority >= 4)
             {
-                return "今天有較需要留意的數值，建議優先回量並留意是否持續不舒服。";
+                return "今天有一些需要多留意的數值，建議先放慢腳步休息，等身體感到平穩後再量一次，別忘了好好照顧自己。";
             }
 
             if (topPriority >= 2)
             {
-                return "目前已有初步資料，再補 1 次同時段量測，判讀會更穩定。";
+                return "身體的節奏正在慢慢浮現，若方便的話再於相近時段補量一次，讀懂身體會更有把握。";
             }
 
-            return $"今天已完成 {today.MetricTypeCount} 項指標紀錄，持續同時段量測會更容易比較變化。";
+            return "今天你為自己留下了珍貴的紀錄，持續用同樣的節奏觀察，就能看見身體給你的回應。";
         }
 
         private static TodayMetricInterpretation BuildBloodPressureTodayInterpretation(BloodPressureRecord record, int todayCount)
         {
             var category = ClassifyBloodPressure(record.Systolic, record.Diastolic);
-            var countHint = todayCount <= 1 ? "這是今天第 1 筆，單看還不能當成趨勢，我陪你繼續觀察、加油!。" : $"今天已有 {todayCount} 筆血壓紀錄，可一起觀察。";
 
             return new TodayMetricInterpretation
             {
                 Title = TitleBloodPressure,
                 Summary = category switch
                 {
-                    "high" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 明顯偏高，建議先放鬆休息後再量一次。{countHint}",
-                    "elevated" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 比理想區間高一點，先不用太緊張。{countHint}",
-                    _ => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 落在相對穩定的範圍，先把這次當作今天的基準值。"
+                    "high" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 略偏高一些，先深呼吸、放鬆一下，等情緒與身體都平穩後再量一次。別太擔心，我會在這裡陪你一起觀察、慢慢照顧。",
+                    "elevated" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 比理想區間高一點點，不用太緊張。保持規律作息、適度休息，身體通常會慢慢回到舒服的節奏。",
+                    _ => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 落在相對穩定的範圍，看得出你有好好照顧自己。維持目前的生活節奏，繼續溫柔陪伴身體。"
                 },
                 ProgressNote = category switch
                 {
-                    "high" => "建議 10 到 15 分鐘後再量，若仍偏高可持續追蹤並留意不適。",
-                    "elevated" => "建議固定在相近時段補量 1 次，看看是否只是當下狀態影響。",
-                    _ => "維持固定時段量測，有助於後續觀察變化。"
+                    "high" => "建議 10 到 15 分鐘後再量，若仍偏高可持續追蹤並留意身體狀況，不舒服時記得尋求協助。",
+                    "elevated" => "建議在相近時段再量一次，看看是否只是當下狀態影響，讓自己的身體有被好好傾聽。",
+                    _ => "持續在固定時段量測，就能讓之後的觀察更有依據，你做得很好。"
                 },
                 IconType = category == "normal" ? "progress" : "insight",
                 Tone = category == "high" ? "neutral" : "supportive",
@@ -1031,22 +1048,21 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var context = (record.MeasurementContext ?? string.Empty).Trim();
             var category = ClassifyBloodSugar(record.GlucoseLevel, context);
             var contextLabel = string.IsNullOrWhiteSpace(context) ? "未註明情境" : context;
-            var countHint = todayCount <= 1 ? "這是今天第 1 筆，先當成提醒訊號，之後多記幾筆我會陪你一起判讀。" : $"今天已有 {todayCount} 筆血糖資料，可一起比較。";
 
             return new TodayMetricInterpretation
             {
                 Title = TitleBloodSugar,
                 Summary = category switch
                 {
-                    "high" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）偏高一些，{countHint}",
-                    "low" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）偏低，建議先留意身體狀況並補記後續數值。",
-                    _ => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）大致在可接受範圍，可持續觀察。"
+                    "high" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）比理想值高一點，記得多補水、注意飲食搭配，慢慢調整就好，我會陪你一起留意身體的反應。",
+                    "low" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）略偏低，請先留意有沒有頭暈或無力感，適時補充能量，照顧好自己是最重要的事。",
+                    _ => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）大致落在可接受範圍，維持現在的飲食與作息節奏，就是很溫柔的自我照顧。"
                 },
                 ProgressNote = category switch
                 {
-                    "high" => "建議下次補上飯前或飯後情境，系統會更容易判斷是否持續偏高。",
-                    "low" => "若有頭暈、冒冷汗等不適，請盡快處理並考慮尋求專業協助。",
-                    _ => "固定紀錄量測情境，之後的分析會更準。"
+                    "high" => "下次量測時記得補上飯前或飯後情境，讓之後的分析更貼近你真實的生活節奏。",
+                    "low" => "若出現頭暈、冒冷汗等不適，請盡快處理並在需要時尋求專業協助。",
+                    _ => "記錄量測情境能讓之後的觀察更細緻，你願意為自己多走這一步，很棒。"
                 },
                 IconType = category == "normal" ? "progress" : "insight",
                 Tone = category == "low" ? "neutral" : "supportive",
@@ -1064,10 +1080,8 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             return new TodayMetricInterpretation
             {
                 Title = TitleWeight,
-                Summary = todayCount <= 1
-                    ? $"今天體重 {record.Value:0.##} kg，先把這次當成近期比較的基準。"
-                    : $"今天最新體重 {record.Value:0.##} kg，已有 {todayCount} 筆資料可和前面紀錄一起比較。",
-                ProgressNote = "體重建議固定在相近時段量測，週趨勢通常比單筆更有判讀價值。",
+                Summary = $"今天體重 {record.Value:0.##} kg，身體的每一點變化都值得被溫柔看見。持續規律記錄，就能慢慢讀懂身體的節奏，謝謝你願意這樣照顧自己。",
+                ProgressNote = "建議固定在相近時段量測，觀察一週的趨勢會比單一數值更能看出身體的變化。",
                 IconType = "progress",
                 Tone = "supportive",
                 Priority = 1
@@ -1082,13 +1096,13 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 Title = TitleTemperature,
                 Summary = category switch
                 {
-                    "high" => $"今天體溫 {record.Value:0.##}°C 已偏高，建議留意精神狀態與後續變化。",
-                    "elevated" => $"今天體溫 {record.Value:0.##}°C 稍高，建議休息後再追一筆觀察。",
-                    _ => $"今天體溫 {record.Value:0.##}°C 大致穩定，可持續記錄。"
+                    "high" => $"今天體溫 {record.Value:0.##}°C 稍微偏高，記得多休息、多補充水分，也留意精神狀態。若有不舒服，記得讓自己慢下來，我會在這裡陪你。",
+                    "elevated" => $"今天體溫 {record.Value:0.##}°C 略高一些，先好好休息放鬆，等身體恢復平穩後再量一次看看，不用太擔心。",
+                    _ => $"今天體溫 {record.Value:0.##}°C 大致穩定，看得出你的身體節奏很不錯，持續溫柔照顧自己就好。"
                 },
                 ProgressNote = category == "normal"
-                    ? "若今天有不舒服，仍可晚一點再補量一次。"
-                    : "若後續持續升高或伴隨明顯不適，請提高警覺。",
+                    ? "若今天有不舒服的感覺，稍晚再補量一次也沒關係，照著自己的節奏走。"
+                    : "若後續持續升高或伴隨明顯不適，請記得提高警覺，並在需要時尋求協助。",
                 IconType = category == "normal" ? "progress" : "insight",
                 Tone = category == "high" ? "neutral" : "supportive",
                 Priority = category switch
@@ -1108,13 +1122,13 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 Title = TitleBloodOxygen,
                 Summary = category switch
                 {
-                    "low" => $"今天血氧 {record.SpO2:0.##}% 偏低，建議盡快再次確認量測狀況並留意不適。",
-                    "watch" => $"今天血氧 {record.SpO2:0.##}% 比理想值低一些，建議稍後再量一次確認。",
-                    _ => $"今天血氧 {record.SpO2:0.##}% 在一般可接受範圍內。"
+                    "low" => $"今天血氧 {record.SpO2:0.##}% 略偏低，建議先放鬆、深呼吸幾次，稍後再量一次確認。若有不適，記得多照顧自己，我會陪你觀察。",
+                    "watch" => $"今天血氧 {record.SpO2:0.##}% 比理想值低一些，先不用太擔心，休息一下後再量看看，身體的聲音值得被好好聆聽。",
+                    _ => $"今天血氧 {record.SpO2:0.##}% 在舒適的範圍內，你的身體正以自己的節奏好好運作著，謝謝你用心陪伴它。"
                 },
                 ProgressNote = category == "normal"
-                    ? "持續同時段記錄，較容易看出穩定度。"
-                    : "若重測仍偏低，請提高注意並視情況尋求協助。",
+                    ? "持續在相同時段記錄，能讓之後的觀察更貼近你的真實狀態。"
+                    : "若重測仍偏低，請提高注意並視情況尋求協助，健康永遠值得被優先照顧。",
                 IconType = category == "normal" ? "progress" : "insight",
                 Tone = category == "low" ? "neutral" : "supportive",
                 Priority = category switch

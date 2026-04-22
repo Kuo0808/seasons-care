@@ -13,7 +13,8 @@
       "Bash(cp \"/c/Users/家偉/desktop/seasons-care/appsettings.Development.json\" /tmp/dev.json)",
       "Bash(python -c \"import json; print\\(json.load\\(open\\('/tmp/dev.json'\\)\\)['OpenAI']['ApiKey']\\)\")",
       "Bash(git fetch *)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "Bash(xxd)"
     ]
   }
 }
