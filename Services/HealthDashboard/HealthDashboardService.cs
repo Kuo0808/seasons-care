@@ -947,11 +947,88 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         private static readonly char[] SentenceEndings = { '。', '！', '？' };
         private static readonly char[] ClauseEndings = { '，', '、', '；' };
 
+        // 關懷型詞池：用於偏高、偏低等需要多留意的情境
+        private static readonly string[] ConcernClosers =
+        {
+            "我會在這裡陪你，一起慢慢觀察、慢慢調整。",
+            "別擔心，我會陪你一起留意身體的變化。",
+            "有我在身邊陪伴，放心慢慢來就好。",
+            "我會一直在這裡，陪你一起聽身體的聲音。",
+            "你並不是一個人，我會陪你一起好好照顧自己。",
+            "慢下來深呼吸，身體會告訴你它需要什麼。",
+            "今天就多給自己一點溫柔，我會在這裡陪著你。",
+            "放心，讓我們一起把步調放慢，好好照顧身體。",
+            "身體有點累了，就讓它慢慢歇一歇。",
+            "記得多喝點溫水，讓自己暖起來。",
+            "今天就先把擔心放下，我會陪著你。",
+            "每一次的留意，都是對身體的疼惜。",
+            "若有不適也別勉強，先讓自己放鬆下來。",
+            "把節奏放慢，身體自然會找到回家的路。",
+            "身體的小訊號，值得我們好好傾聽。",
+            "讓身體先休息一下，我們慢慢走過今天。",
+            "心安即是歸處，先照顧好自己的感受。",
+            "靜能養氣，緩則生柔。"
+        };
+
+        // 肯定型詞池：用於穩定、正常等情境，混合口語肯定與略帶文言的祝福
+        private static readonly string[] AffirmingClosers =
+        {
+            "你正以自己的節奏好好照顧自己，很棒。",
+            "每一次用心記錄，都是送給自己的溫柔。",
+            "記得，你已經做得夠好了。",
+            "身體的每一次回應，都值得被好好珍惜。",
+            "願你今日如常，從容自在。",
+            "穩穩的節奏，就是最好的禮物。",
+            "今日平安，皆是溫柔的日常。",
+            "謝謝你願意這樣照顧自己。",
+            "用心生活，自有光芒。",
+            "你很努力，也請為自己喝采。",
+            "如此甚好，繼續保持。",
+            "溫柔相待，便是長久的陪伴。",
+            "身安心安，是為福氣。",
+            "一點一滴，皆是珍重之心。",
+            "寬心養氣，萬事皆順。",
+            "安之若素，靜待花開。",
+            "起居有常，身心自安。",
+            "持之以恆，便是長久之道。",
+            "日日安好，便是吉祥。",
+            "身心調和，歲月靜好。"
+        };
+
+        // 邀請型詞池：用於尚未有當日紀錄時，邀請使用者踏出一小步
+        private static readonly string[] InvitingClosers =
+        {
+            "今天就從一個小小的紀錄開始，慢慢陪自己走。",
+            "今天的第一筆紀錄，就是最好的開始。",
+            "隨時都可以開始，我會在這裡等你。",
+            "一步一步來，我會陪你一起踏出第一步。",
+            "願你今天擁有一段柔軟又安心的時光。",
+            "從現在開始，也永遠都不會太晚。",
+            "一筆一畫，都是為自己留下的印記。",
+            "願你今天被好好對待，也被自己善待。",
+            "有空的時候，記得回來陪自己一起觀察。",
+            "小小的開始，也是最溫柔的起點。",
+            "慢慢來，我在這裡等你。",
+            "心之所至，萬象皆新。",
+            "千里之行，始於足下。",
+            "今日若起筆，便是最好的時機。",
+            "一念起處，便是新的開始。"
+        };
+
+        private static string PickConcernCloser()
+            => ConcernClosers[Random.Shared.Next(ConcernClosers.Length)];
+
+        private static string PickAffirmingCloser()
+            => AffirmingClosers[Random.Shared.Next(AffirmingClosers.Length)];
+
+        private static string PickInvitingCloser()
+            => InvitingClosers[Random.Shared.Next(InvitingClosers.Length)];
+
         private static string BuildTodayNarrative(TodayMetricsResult today)
         {
             if (today.Interpretations.Count == 0)
             {
-                return TruncateNarrative("今天還沒有太多數據，也別擔心，從一個小小的紀錄開始，就是送給自己的溫柔陪伴。", TodayNarrativeMaxLength);
+                return TruncateNarrative($"今天還沒有太多數據，也別擔心。{PickInvitingCloser()}", TodayNarrativeMaxLength);
             }
 
             var top = today.Interpretations
@@ -993,7 +1070,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         {
             if (today.RecordCount == 0)
             {
-                return "今天還沒有紀錄也沒關係，隨時都可以從一個小小的量測開始，陪伴自己一步一步前進。";
+                return $"今天還沒有紀錄也沒關係。{PickInvitingCloser()}";
             }
 
             var topPriority = today.Interpretations.Count == 0
@@ -1002,15 +1079,15 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
             if (topPriority >= 4)
             {
-                return "今天有一些需要多留意的數值，建議先放慢腳步休息，等身體感到平穩後再量一次，別忘了好好照顧自己。";
+                return $"今天有一些需要多留意的數值，建議先放慢腳步休息。{PickConcernCloser()}";
             }
 
             if (topPriority >= 2)
             {
-                return "身體的節奏正在慢慢浮現，若方便的話再於相近時段補量一次，讀懂身體會更有把握。";
+                return $"身體的節奏正在慢慢浮現，若方便的話再於相近時段補量一次。{PickConcernCloser()}";
             }
 
-            return "今天你為自己留下了珍貴的紀錄，持續用同樣的節奏觀察，就能看見身體給你的回應。";
+            return $"今天你為自己留下了珍貴的紀錄，持續用同樣的節奏觀察。{PickAffirmingCloser()}";
         }
 
         private static TodayMetricInterpretation BuildBloodPressureTodayInterpretation(BloodPressureRecord record, int todayCount)
@@ -1022,9 +1099,9 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 Title = TitleBloodPressure,
                 Summary = category switch
                 {
-                    "high" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 略偏高一些，先深呼吸、放鬆一下，等情緒與身體都平穩後再量一次。別太擔心，我會在這裡陪你一起觀察、慢慢照顧。",
-                    "elevated" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 比理想區間高一點點，不用太緊張。保持規律作息、適度休息，身體通常會慢慢回到舒服的節奏。",
-                    _ => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 落在相對穩定的範圍，看得出你有好好照顧自己。維持目前的生活節奏，繼續溫柔陪伴身體。"
+                    "high" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 略偏高一些，先深呼吸、放鬆一下，等身體平穩後再量一次。{PickConcernCloser()}",
+                    "elevated" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 比理想區間高一點點，保持規律作息、適度休息即可。{PickConcernCloser()}",
+                    _ => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 落在相對穩定的範圍。{PickAffirmingCloser()}"
                 },
                 ProgressNote = category switch
                 {
@@ -1054,9 +1131,9 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 Title = TitleBloodSugar,
                 Summary = category switch
                 {
-                    "high" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）比理想值高一點，記得多補水、注意飲食搭配，慢慢調整就好，我會陪你一起留意身體的反應。",
-                    "low" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）略偏低，請先留意有沒有頭暈或無力感，適時補充能量，照顧好自己是最重要的事。",
-                    _ => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）大致落在可接受範圍，維持現在的飲食與作息節奏，就是很溫柔的自我照顧。"
+                    "high" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）比理想值高一點，記得多補水、注意飲食搭配。{PickConcernCloser()}",
+                    "low" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）略偏低，請先留意有沒有頭暈或無力感，適時補充能量。{PickConcernCloser()}",
+                    _ => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）大致落在可接受範圍。{PickAffirmingCloser()}"
                 },
                 ProgressNote = category switch
                 {
@@ -1080,7 +1157,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             return new TodayMetricInterpretation
             {
                 Title = TitleWeight,
-                Summary = $"今天體重 {record.Value:0.##} kg，身體的每一點變化都值得被溫柔看見。持續規律記錄，就能慢慢讀懂身體的節奏，謝謝你願意這樣照顧自己。",
+                Summary = $"今天體重 {record.Value:0.##} kg，持續規律記錄，就能慢慢讀懂身體的節奏。{PickAffirmingCloser()}",
                 ProgressNote = "建議固定在相近時段量測，觀察一週的趨勢會比單一數值更能看出身體的變化。",
                 IconType = "progress",
                 Tone = "supportive",
@@ -1096,9 +1173,9 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 Title = TitleTemperature,
                 Summary = category switch
                 {
-                    "high" => $"今天體溫 {record.Value:0.##}°C 稍微偏高，記得多休息、多補充水分，也留意精神狀態。若有不舒服，記得讓自己慢下來，我會在這裡陪你。",
-                    "elevated" => $"今天體溫 {record.Value:0.##}°C 略高一些，先好好休息放鬆，等身體恢復平穩後再量一次看看，不用太擔心。",
-                    _ => $"今天體溫 {record.Value:0.##}°C 大致穩定，看得出你的身體節奏很不錯，持續溫柔照顧自己就好。"
+                    "high" => $"今天體溫 {record.Value:0.##}°C 稍微偏高，記得多休息、多補充水分，也留意精神狀態。{PickConcernCloser()}",
+                    "elevated" => $"今天體溫 {record.Value:0.##}°C 略高一些，先好好休息放鬆，等身體恢復平穩後再量一次。{PickConcernCloser()}",
+                    _ => $"今天體溫 {record.Value:0.##}°C 大致穩定。{PickAffirmingCloser()}"
                 },
                 ProgressNote = category == "normal"
                     ? "若今天有不舒服的感覺，稍晚再補量一次也沒關係，照著自己的節奏走。"
@@ -1122,9 +1199,9 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 Title = TitleBloodOxygen,
                 Summary = category switch
                 {
-                    "low" => $"今天血氧 {record.SpO2:0.##}% 略偏低，建議先放鬆、深呼吸幾次，稍後再量一次確認。若有不適，記得多照顧自己，我會陪你觀察。",
-                    "watch" => $"今天血氧 {record.SpO2:0.##}% 比理想值低一些，先不用太擔心，休息一下後再量看看，身體的聲音值得被好好聆聽。",
-                    _ => $"今天血氧 {record.SpO2:0.##}% 在舒適的範圍內，你的身體正以自己的節奏好好運作著，謝謝你用心陪伴它。"
+                    "low" => $"今天血氧 {record.SpO2:0.##}% 略偏低，建議先放鬆、深呼吸幾次，稍後再量一次確認。{PickConcernCloser()}",
+                    "watch" => $"今天血氧 {record.SpO2:0.##}% 比理想值低一些，休息一下後再量看看。{PickConcernCloser()}",
+                    _ => $"今天血氧 {record.SpO2:0.##}% 在舒適的範圍內。{PickAffirmingCloser()}"
                 },
                 ProgressNote = category == "normal"
                     ? "持續在相同時段記錄，能讓之後的觀察更貼近你的真實狀態。"
