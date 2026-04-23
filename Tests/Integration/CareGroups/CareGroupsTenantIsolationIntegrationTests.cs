@@ -82,6 +82,7 @@ public class CareGroupsTenantIsolationIntegrationTests
 
         var response = await client.PostAsJsonAsync("/api/care-groups", new
         {
+            name = "Home Care",
             recipientName = "Dad",
             recipientGender = "Male",
             recipientBirthDate = "1950-01-02"
@@ -98,7 +99,8 @@ public class CareGroupsTenantIsolationIntegrationTests
         var membership = await dbContext.CareGroupMembers.FirstOrDefaultAsync(x => x.CareGroupId == createdId && x.UserId == TestUsers.DefaultUserId);
 
         Assert.NotNull(savedGroup);
-        Assert.Equal("Dad", savedGroup!.Name);
+        Assert.Equal("Home Care", savedGroup!.Name);
+        Assert.Equal("Dad", savedGroup.RecipientName);
         Assert.Equal("Male", savedGroup.RecipientGender);
         Assert.NotNull(membership);
         Assert.Equal(CareGroupRole.Admin, membership!.Role);

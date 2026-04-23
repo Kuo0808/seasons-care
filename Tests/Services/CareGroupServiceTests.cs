@@ -18,16 +18,20 @@ public class CareGroupServiceTests
 
         var result = await service.CreateAsync(userId, new CreateCareGroupRequest
         {
+            Name = "Home Care",
             RecipientName = "Dad",
             RecipientGender = "Male",
             RecipientBirthDate = new DateOnly(1950, 1, 2)
         });
 
-        Assert.Equal("Dad", result.Name);
+        Assert.Equal("Home Care", result.Name);
+        Assert.Equal("Dad", result.RecipientName);
         Assert.Equal("Male", result.RecipientGender);
         Assert.Equal(new DateOnly(1950, 1, 2), result.RecipientBirthDate);
         Assert.Equal(1, result.MemberCount);
         Assert.Single(repository.Groups);
+        Assert.Equal("Home Care", repository.Groups[0].Name);
+        Assert.Equal("Dad", repository.Groups[0].RecipientName);
         Assert.Single(repository.Members);
         Assert.Equal(userId, repository.Members[0].UserId);
         Assert.Equal(CareGroupRole.Admin, repository.Members[0].Role);

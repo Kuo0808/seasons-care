@@ -6,6 +6,11 @@ namespace SeasonsCare.Api.DTOs.CareGroups
     public class CreateCareGroupRequest
     {
         /// <summary>
+        /// Care group display name. Maximum length is 100.
+        /// </summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>
         /// Care recipient name. Maximum length is 100.
         /// </summary>
         public string RecipientName { get; set; } = string.Empty;

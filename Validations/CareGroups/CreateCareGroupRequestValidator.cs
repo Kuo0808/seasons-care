@@ -8,6 +8,10 @@ namespace SeasonsCare.Api.Validations.CareGroups
     {
         public CreateCareGroupRequestValidator()
         {
+            RuleFor(x => x.Name)
+                .NotEmpty().WithMessage("群組名稱為必填")
+                .MaximumLength(100).WithMessage("群組名稱長度不可超過 100 字元");
+
             RuleFor(x => x.RecipientName)
                 .NotEmpty().WithMessage("被照護者名稱為必填")
                 .MaximumLength(100).WithMessage("被照護者名稱長度不可超過 100 字元");

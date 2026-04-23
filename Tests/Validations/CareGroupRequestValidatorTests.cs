@@ -11,6 +11,7 @@ public class CareGroupRequestValidatorTests
         var validator = new CreateCareGroupRequestValidator();
         var result = validator.Validate(new CreateCareGroupRequest
         {
+            Name = "Home Care",
             RecipientName = "Dad",
             RecipientGender = string.Empty,
             RecipientBirthDate = new DateOnly(1950, 1, 2)
@@ -18,6 +19,22 @@ public class CareGroupRequestValidatorTests
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Errors, x => x.PropertyName == nameof(CreateCareGroupRequest.RecipientGender));
+    }
+
+    [Fact]
+    public void CreateValidator_ReturnsError_WhenNameIsMissing()
+    {
+        var validator = new CreateCareGroupRequestValidator();
+        var result = validator.Validate(new CreateCareGroupRequest
+        {
+            Name = string.Empty,
+            RecipientName = "Dad",
+            RecipientGender = "Male",
+            RecipientBirthDate = new DateOnly(1950, 1, 2)
+        });
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, x => x.PropertyName == nameof(CreateCareGroupRequest.Name));
     }
 
     [Fact]

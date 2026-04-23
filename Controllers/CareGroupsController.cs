@@ -30,13 +30,13 @@ namespace SeasonsCare.Api.Controllers
         /// <summary>
         /// 建立照護群組。
         /// </summary>
-        /// <param name="request">建立群組資料，需提供 recipientName、recipientGender、recipientBirthDate。</param>
+        /// <param name="request">建立群組資料，需提供 name、recipientName、recipientGender、recipientBirthDate。</param>
         [HttpPost]
         [ProducesResponseType(typeof(ApiResponse<CareGroupResponse>), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [EndpointSummary("建立照護群組")]
-        [EndpointDescription("建立新的照護群組，並自動把目前登入使用者加入成為管理者。成功後會回傳 careGroupId 與 inviteCode。")]
+        [EndpointDescription("建立新的照護群組，並自動把目前登入使用者加入成為管理者。name 是群組顯示名稱，recipientName 是被照護者姓名；成功後會回傳 careGroupId 與 inviteCode。")]
         public async Task<IActionResult> CreateCareGroup([FromBody] CreateCareGroupRequest request)
         {
             var currentUserId = _currentUserService.UserId;

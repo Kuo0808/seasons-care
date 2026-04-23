@@ -18,6 +18,7 @@ public class CareGroupsControllerIntegrationTests
 
         var response = await client.PostAsJsonAsync("/api/care-groups", new
         {
+            name = "Home Care",
             recipientName = "Dad",
             recipientGender = "",
             recipientBirthDate = "1950-01-02"
@@ -97,7 +98,7 @@ public class CareGroupsControllerIntegrationTests
             return Task.FromResult(new CareGroupResponse
             {
                 Id = Guid.NewGuid(),
-                Name = request.RecipientName,
+                Name = request.Name,
                 RecipientName = request.RecipientName,
                 RecipientGender = request.RecipientGender,
                 RecipientBirthDate = request.RecipientBirthDate,

@@ -28,7 +28,7 @@ namespace SeasonsCare.Api.Services
             // 步驟 1：依據傳入的 DTO 初始化核心的領域實體 (Entity)，並設定基礎屬性 (自動產生邀請碼)
             var careGroup = new CareGroup
             {
-                Name = request.RecipientName,
+                Name = request.Name,
                 RecipientName = request.RecipientName,
                 RecipientGender = request.RecipientGender,
                 RecipientBirthDate = request.RecipientBirthDate,
