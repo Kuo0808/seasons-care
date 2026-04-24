@@ -515,23 +515,61 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var latestCategory = ClassifyBloodPressure(latest.Systolic, latest.Diastolic);
             var averageCategory = ClassifyBloodPressure(averageSystolic, averageDiastolic);
 
+            var isCriticalHigh = latest.Systolic >= 180 || latest.Diastolic >= 110;
+            var isCriticalLow = latest.Systolic < 90;
+
+            string severity;
+            string title;
+            string assessment;
+            string suggestedFocus;
+
+            if (isCriticalHigh)
+            {
+                severity = "critical";
+                title = $"血壓 {latest.Systolic}/{latest.Diastolic} mmHg 已達高血壓急症需立即就醫";
+                assessment = $"最新血壓 {latest.Systolic}/{latest.Diastolic} mmHg 已落入高血壓急症範圍，可能引發中風、心臟或腎臟急性傷害，必須立即就醫或撥打 119。";
+                suggestedFocus = "直接告訴家屬這屬於醫療急症：先讓長輩坐下或平躺並立刻就醫，不可在家繼續觀察或自行服藥。";
+            }
+            else if (isCriticalLow)
+            {
+                severity = "critical";
+                title = $"血壓 {latest.Systolic}/{latest.Diastolic} mmHg 過低有休克風險需立即就醫";
+                assessment = $"最新血壓 {latest.Systolic}/{latest.Diastolic} mmHg 過低，可能出現頭暈、冒冷汗、意識模糊甚至休克，請立即就醫。";
+                suggestedFocus = "直接提醒家屬先讓長輩平躺避免跌倒，並盡速就醫或撥打 119，不建議僅在家重測。";
+            }
+            else if (latestCategory == "high")
+            {
+                severity = "high";
+                title = "血壓偏高需要先留意";
+                assessment = $"最新血壓已落在偏高區間，平均也接近 {MapBloodPressureCategory(averageCategory)}。";
+                suggestedFocus = "先提醒休息後補量一次，再引導觀察接下來幾天是否持續偏高。";
+            }
+            else if (latestCategory == "elevated")
+            {
+                severity = "medium";
+                title = "血壓略高值得觀察";
+                assessment = $"最新血壓比理想區間高一些，整體接近 {MapBloodPressureCategory(averageCategory)}。";
+                suggestedFocus = "先提醒休息後補量一次，再引導觀察接下來幾天是否持續偏高。";
+            }
+            else
+            {
+                severity = "low";
+                title = "血壓大致穩定";
+                assessment = "目前血壓仍在可接受範圍，重點是維持量測節奏。";
+                suggestedFocus = "先肯定目前穩定，再提醒固定時段量測。";
+            }
+
             return new HealthPriorityFindingPromptDto
             {
                 MetricType = "blood_pressure",
-                Severity = latestCategory == "high" ? "high" : (latestCategory == "elevated" ? "medium" : "low"),
+                Severity = severity,
                 Confidence = ResolveFindingConfidence(ordered.Count),
-                Title = latestCategory == "high" ? "血壓偏高需要先留意" : (latestCategory == "elevated" ? "血壓略高值得觀察" : "血壓大致穩定"),
+                Title = title,
                 Evidence = ordered.Count == 1
                     ? $"近 7 天 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg。"
                     : $"近 7 天 {ordered.Count} 筆血壓，最新 {latest.Systolic}/{latest.Diastolic} mmHg，平均 {averageSystolic}/{averageDiastolic} mmHg。",
-                Assessment = latestCategory == "high"
-                    ? $"最新血壓已落在偏高區間，平均也接近 {MapBloodPressureCategory(averageCategory)}。"
-                    : (latestCategory == "elevated"
-                        ? $"最新血壓比理想區間高一些，整體接近 {MapBloodPressureCategory(averageCategory)}。"
-                        : "目前血壓仍在可接受範圍，重點是維持量測節奏。"),
-                SuggestedFocus = latestCategory == "normal"
-                    ? "先肯定目前穩定，再提醒固定時段量測。"
-                    : "先提醒休息後補量一次，再引導觀察接下來幾天是否持續偏高。"
+                Assessment = assessment,
+                SuggestedFocus = suggestedFocus
             };
         }
 
@@ -545,29 +583,61 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var latestCategory = ClassifyBloodSugar(latest.GlucoseLevel, measurementContext);
             var average = ordered.Average(x => x.GlucoseLevel);
 
+            var isCriticalLow = latest.GlucoseLevel < 54m;
+            var isCriticalHigh = latest.GlucoseLevel >= 250m;
+
+            string severity;
+            string title;
+            string assessment;
+            string suggestedFocus;
+
+            if (isCriticalLow)
+            {
+                severity = "critical";
+                title = $"血糖 {latest.GlucoseLevel:0.##} mg/dL 已達嚴重低血糖需立即處置";
+                assessment = $"最新血糖 {latest.GlucoseLevel:0.##} mg/dL 已屬嚴重低血糖，可能出現冒冷汗、意識模糊、抽搐甚至昏迷，請立即補充含糖食物並送醫。";
+                suggestedFocus = "直接提醒家屬先讓長輩吃／喝含糖食物（糖水、果汁、糖包），然後立即就醫或撥打 119。";
+            }
+            else if (isCriticalHigh)
+            {
+                severity = "critical";
+                title = $"血糖 {latest.GlucoseLevel:0.##} mg/dL 已達嚴重高血糖需立即就醫";
+                assessment = $"最新血糖 {latest.GlucoseLevel:0.##} mg/dL 已屬嚴重高血糖，可能引發酮酸中毒或高滲透壓急症，若伴隨口渴、呼吸急促、意識改變請立刻撥打 119。";
+                suggestedFocus = "直接提醒家屬盡速就醫，並在途中多補水、觀察意識與呼吸狀態。";
+            }
+            else if (latestCategory == "high")
+            {
+                severity = "high";
+                title = "血糖偏高需要控制飲食與量測節奏";
+                assessment = "這筆血糖已高於理想區間，值得先觀察飲食時間與飯後活動。";
+                suggestedFocus = "聚焦飲食、量測時機與是否需要補量確認。";
+            }
+            else if (latestCategory == "low")
+            {
+                severity = "high";
+                title = "血糖偏低需要先留意身體狀態";
+                assessment = "這筆血糖偏低，表達上要溫和提醒補充與觀察不適。";
+                suggestedFocus = "聚焦飲食、量測時機與是否需要補量確認。";
+            }
+            else
+            {
+                severity = "low";
+                title = "血糖目前大致穩定";
+                assessment = "血糖暫時沒有明顯警訊，可用肯定語氣帶出持續追蹤。";
+                suggestedFocus = "先肯定，再提醒記錄飯前或飯後情境。";
+            }
+
             return new HealthPriorityFindingPromptDto
             {
                 MetricType = "blood_sugar",
-                Severity = latestCategory == "high" || latestCategory == "low" ? "high" : "low",
+                Severity = severity,
                 Confidence = ResolveFindingConfidence(ordered.Count),
-                Title = latestCategory switch
-                {
-                    "high" => "血糖偏高需要控制飲食與量測節奏",
-                    "low" => "血糖偏低需要先留意身體狀態",
-                    _ => "血糖目前大致穩定"
-                },
+                Title = title,
                 Evidence = ordered.Count == 1
                     ? $"近 7 天 1 筆血糖 {latest.GlucoseLevel:0.##} mg/dL，情境為 {NormalizeMeasurementContext(measurementContext)}。"
                     : $"近 7 天 {ordered.Count} 筆血糖，最新 {latest.GlucoseLevel:0.##} mg/dL，平均 {average:0.##} mg/dL。",
-                Assessment = latestCategory switch
-                {
-                    "high" => "這筆血糖已高於理想區間，值得先觀察飲食時間與飯後活動。",
-                    "low" => "這筆血糖偏低，表達上要溫和提醒補充與觀察不適。",
-                    _ => "血糖暫時沒有明顯警訊，可用肯定語氣帶出持續追蹤。"
-                },
-                SuggestedFocus = latestCategory == "normal"
-                    ? "先肯定，再提醒記錄飯前或飯後情境。"
-                    : "聚焦飲食、量測時機與是否需要補量確認。"
+                Assessment = assessment,
+                SuggestedFocus = suggestedFocus
             };
         }
 
@@ -577,25 +647,62 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
             var ordered = records.OrderBy(x => x.RecordDate).ToList();
             var latest = ordered[^1];
-            var severity = latest.Value > 39m ? "high" : (latest.Value >= 37.3m ? "medium" : "low");
+
+            var isCriticalHigh = latest.Value >= 39m;
+            var isCriticalLow = latest.Value <= 35m;
+
+            string severity;
+            string title;
+            string assessment;
+            string suggestedFocus;
+
+            if (isCriticalHigh)
+            {
+                severity = "critical";
+                title = $"體溫 {latest.Value:0.##}°C 已達危險高燒需立即就醫";
+                assessment = $"最新體溫 {latest.Value:0.##}°C 已屬高燒範圍，常伴隨倦怠、肌肉痠痛、意識混亂等發燒症狀，若持續高燒可能造成熱痙攣或器官負擔，請立即就醫評估。";
+                suggestedFocus = "直接告訴家屬這是就醫警訊：先協助散熱、補水，並盡速送醫或撥打 119，不建議只在家退燒觀察。";
+            }
+            else if (isCriticalLow)
+            {
+                severity = "critical";
+                title = $"體溫 {latest.Value:0.##}°C 已達失溫程度需立即就醫";
+                assessment = $"最新體溫 {latest.Value:0.##}°C 已落入失溫範圍，可能出現意識模糊、心律不整等急症，請立即保暖並送醫。";
+                suggestedFocus = "提醒家屬先移到溫暖環境、加蓋保暖衣物，並盡速就醫。";
+            }
+            else if (latest.Value >= 38m)
+            {
+                severity = "high";
+                title = "體溫已達發燒需密切觀察";
+                assessment = $"最新體溫 {latest.Value:0.##}°C 已屬發燒，敘事要提醒補水、休息並觀察是否升高至 39°C 以上。";
+                suggestedFocus = "提醒充分休息、補水，並在體溫續升或出現不適時立即就醫。";
+            }
+            else if (latest.Value >= 37.3m)
+            {
+                severity = "medium";
+                title = "體溫略高建議持續觀察";
+                assessment = "這筆體溫略高，適合提醒補水、休息與再次量測。";
+                suggestedFocus = "提醒休息、補水與留意是否持續升高。";
+            }
+            else
+            {
+                severity = "low";
+                title = "體溫暫時穩定";
+                assessment = "體溫目前沒有明顯異常。";
+                suggestedFocus = "用肯定口吻提醒繼續觀察。";
+            }
 
             return new HealthPriorityFindingPromptDto
             {
                 MetricType = "temperature",
                 Severity = severity,
                 Confidence = ResolveFindingConfidence(ordered.Count),
-                Title = severity == "high" ? "體溫偏高要留意是否持續發燒" : (severity == "medium" ? "體溫略高建議持續觀察" : "體溫暫時穩定"),
+                Title = title,
                 Evidence = ordered.Count == 1
                     ? $"近 7 天 1 筆體溫 {latest.Value:0.##}°C。"
                     : $"近 7 天 {ordered.Count} 筆體溫，最新 {latest.Value:0.##}°C，平均 {ordered.Average(x => x.Value):0.##}°C。",
-                Assessment = severity == "high"
-                    ? "目前體溫已高於一般理想範圍，敘事要先聚焦持續觀察與不適症狀。"
-                    : (severity == "medium"
-                        ? "這筆體溫略高，適合提醒補水、休息與再次量測。"
-                        : "體溫目前沒有明顯異常。"),
-                SuggestedFocus = severity == "low"
-                    ? "用肯定口吻提醒繼續觀察。"
-                    : "提醒休息、補水與留意是否持續升高。"
+                Assessment = assessment,
+                SuggestedFocus = suggestedFocus
             };
         }
 
@@ -605,25 +712,52 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
             var ordered = records.OrderBy(x => x.RecordDate).ToList();
             var latest = ordered[^1];
-            var severity = latest.SpO2 < 90m ? "high" : (latest.SpO2 < 95m ? "medium" : "low");
+
+            string severity;
+            string title;
+            string assessment;
+            string suggestedFocus;
+
+            if (latest.SpO2 < 90m)
+            {
+                severity = "critical";
+                title = $"血氧 {latest.SpO2:0.##}% 已達嚴重缺氧需立即就醫";
+                assessment = $"最新血氧 {latest.SpO2:0.##}% 已低於 90%，屬於嚴重缺氧急症，可能出現喘、胸悶、意識模糊，請立即就醫或撥打 119。";
+                suggestedFocus = "直接告訴家屬這是緊急狀況：先停下活動、坐下穩定呼吸，並立刻送醫或撥打 119，不要只在家重測。";
+            }
+            else if (latest.SpO2 < 94m)
+            {
+                severity = "high";
+                title = "血氧明顯偏低要盡快就醫評估";
+                assessment = $"血氧 {latest.SpO2:0.##}% 已明顯低於正常 95%，建議儘快就醫檢查，並留意呼吸或活動後是否惡化。";
+                suggestedFocus = "提醒盡快就醫並觀察呼吸與活動後變化。";
+            }
+            else if (latest.SpO2 < 95m)
+            {
+                severity = "medium";
+                title = "血氧略低建議持續留意";
+                assessment = "血氧略低於理想值，適合提醒再次量測與留意呼吸狀況。";
+                suggestedFocus = "提醒再次量測並留意呼吸不適或活動後變化。";
+            }
+            else
+            {
+                severity = "low";
+                title = "血氧大致穩定";
+                assessment = "血氧目前沒有明顯警訊。";
+                suggestedFocus = "以穩定表現描述即可。";
+            }
 
             return new HealthPriorityFindingPromptDto
             {
                 MetricType = "blood_oxygen",
                 Severity = severity,
                 Confidence = ResolveFindingConfidence(ordered.Count),
-                Title = severity == "high" ? "血氧偏低要優先注意" : (severity == "medium" ? "血氧略低建議持續留意" : "血氧大致穩定"),
+                Title = title,
                 Evidence = ordered.Count == 1
                     ? $"近 7 天 1 筆血氧 {latest.SpO2:0.##}%。"
                     : $"近 7 天 {ordered.Count} 筆血氧，最新 {latest.SpO2:0.##}%，平均 {ordered.Average(x => x.SpO2):0.##}%。",
-                Assessment = severity == "high"
-                    ? "這筆血氧已低於一般理想區間，敘事要先講風險，再提醒觀察身體狀況。"
-                    : (severity == "medium"
-                        ? "血氧略低於理想值，適合提醒再次量測與留意呼吸狀況。"
-                        : "血氧目前沒有明顯警訊。"),
-                SuggestedFocus = severity == "low"
-                    ? "以穩定表現描述即可。"
-                    : "提醒再次量測並留意呼吸不適或活動後變化。"
+                Assessment = assessment,
+                SuggestedFocus = suggestedFocus
             };
         }
 
@@ -659,15 +793,20 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var bloodSugar = findings.FirstOrDefault(x => x.MetricType == "blood_sugar");
             if (HasMediumOrHigher(bloodPressure) && HasMediumOrHigher(bloodSugar))
             {
+                var combinedSeverity = CombineSeverity(bloodPressure!.Severity, bloodSugar!.Severity);
                 return new HealthPriorityFindingPromptDto
                 {
                     MetricType = "general",
-                    Severity = bloodPressure!.Severity == "high" || bloodSugar!.Severity == "high" ? "high" : "medium",
+                    Severity = combinedSeverity,
                     Confidence = MergeConfidence(bloodPressure!.Confidence, bloodSugar!.Confidence),
-                    Title = "血壓與血糖都值得一起留意",
+                    Title = combinedSeverity == "critical" ? "血壓與血糖同時出現危險值需立即就醫" : "血壓與血糖都值得一起留意",
                     Evidence = $"{bloodPressure.Evidence} {bloodSugar.Evidence}",
-                    Assessment = "這不是單一指標波動，建議敘事優先聚焦多指標一起偏高的提醒。",
-                    SuggestedFocus = "先講最主要異常，再把飲食、作息與補量安排串成同一段建議。",
+                    Assessment = combinedSeverity == "critical"
+                        ? "血壓與血糖同時落在危險範圍，屬於醫療急症，敘事要直接建議立即就醫。"
+                        : "這不是單一指標波動，建議敘事優先聚焦多指標一起偏高的提醒。",
+                    SuggestedFocus = combinedSeverity == "critical"
+                        ? "直接告訴家屬兩項同時出現危險值，請立即送醫，不可在家處理。"
+                        : "先講最主要異常，再把飲食、作息與補量安排串成同一段建議。",
                     IsMultiMetric = true
                 };
             }
@@ -676,20 +815,32 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var oxygen = findings.FirstOrDefault(x => x.MetricType == "blood_oxygen");
             if (HasMediumOrHigher(temperature) && HasMediumOrHigher(oxygen))
             {
+                var combinedSeverity = CombineSeverity(temperature!.Severity, oxygen!.Severity);
                 return new HealthPriorityFindingPromptDto
                 {
                     MetricType = "general",
-                    Severity = temperature!.Severity == "high" || oxygen!.Severity == "high" ? "high" : "medium",
+                    Severity = combinedSeverity,
                     Confidence = MergeConfidence(temperature!.Confidence, oxygen!.Confidence),
-                    Title = "體溫與血氧需要一起觀察",
+                    Title = combinedSeverity == "critical" ? "體溫與血氧同時出現危險值需立即就醫" : "體溫與血氧需要一起觀察",
                     Evidence = $"{temperature.Evidence} {oxygen.Evidence}",
-                    Assessment = "體溫與血氧同時偏離理想值時，文案要更聚焦身體狀態與持續觀察。",
-                    SuggestedFocus = "提醒補量、留意不適與必要時尋求醫療協助。",
+                    Assessment = combinedSeverity == "critical"
+                        ? "體溫與血氧同時落在危險範圍，可能伴隨全身性感染或呼吸衰竭風險，請立即就醫。"
+                        : "體溫與血氧同時偏離理想值時，文案要更聚焦身體狀態與持續觀察。",
+                    SuggestedFocus = combinedSeverity == "critical"
+                        ? "直接提醒家屬這是急症警訊：立即送醫或撥打 119，不建議在家繼續觀察。"
+                        : "提醒補量、留意不適與必要時尋求醫療協助。",
                     IsMultiMetric = true
                 };
             }
 
             return null;
+        }
+
+        private static string CombineSeverity(string left, string right)
+        {
+            if (left == "critical" || right == "critical") return "critical";
+            if (left == "high" || right == "high") return "high";
+            return "medium";
         }
 
         private static string BuildClinicalSummary(IReadOnlyList<HealthPriorityFindingPromptDto> findings)
@@ -782,6 +933,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         {
             return severity switch
             {
+                "critical" => 4,
                 "high" => 3,
                 "medium" => 2,
                 _ => 1
@@ -802,6 +954,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         {
             return category switch
             {
+                "critical" => "高血壓急症範圍",
                 "high" => "偏高區間",
                 "elevated" => "略高區間",
                 _ => "理想區間"
@@ -1092,27 +1245,35 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static TodayMetricInterpretation BuildBloodPressureTodayInterpretation(BloodPressureRecord record, int todayCount)
         {
+            var isCriticalHigh = record.Systolic >= 180 || record.Diastolic >= 110;
+            var isCriticalLow = record.Systolic < 90;
             var category = ClassifyBloodPressure(record.Systolic, record.Diastolic);
+            var effective = isCriticalHigh ? "critical_high" : (isCriticalLow ? "critical_low" : category);
 
             return new TodayMetricInterpretation
             {
                 Title = TitleBloodPressure,
-                Summary = category switch
+                Summary = effective switch
                 {
+                    "critical_high" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 已達高血壓急症，請立即就醫，不要在家繼續觀察。",
+                    "critical_low" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 過低有休克風險，請先平躺並立即送醫。",
                     "high" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 略偏高一些，先深呼吸、放鬆一下，等身體平穩後再量一次。{PickConcernCloser()}",
                     "elevated" => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 比理想區間高一點點，保持規律作息、適度休息即可。{PickConcernCloser()}",
                     _ => $"今天血壓 {record.Systolic}/{record.Diastolic} mmHg 落在相對穩定的範圍。{PickAffirmingCloser()}"
                 },
-                ProgressNote = category switch
+                ProgressNote = effective switch
                 {
+                    "critical_high" => "這個數值屬於高血壓急症範圍，可能引發中風或心臟急症，請立即就醫或撥打 119，不建議只重測或等待。",
+                    "critical_low" => "請先平躺避免跌倒，並盡速就醫；若出現冒冷汗、意識改變，直接撥打 119。",
                     "high" => "建議 10 到 15 分鐘後再量，若仍偏高可持續追蹤並留意身體狀況，不舒服時記得尋求協助。",
                     "elevated" => "建議在相近時段再量一次，看看是否只是當下狀態影響，讓自己的身體有被好好傾聽。",
                     _ => "持續在固定時段量測，就能讓之後的觀察更有依據，你做得很好。"
                 },
-                IconType = category == "normal" ? "progress" : "insight",
-                Tone = category == "high" ? "neutral" : "supportive",
-                Priority = category switch
+                IconType = effective == "normal" ? "progress" : "insight",
+                Tone = effective is "critical_high" or "critical_low" ? "watchful" : (effective == "high" ? "neutral" : "supportive"),
+                Priority = effective switch
                 {
+                    "critical_high" or "critical_low" => 5,
                     "high" => 4,
                     "elevated" => 2,
                     _ => 1
@@ -1125,26 +1286,34 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var context = (record.MeasurementContext ?? string.Empty).Trim();
             var category = ClassifyBloodSugar(record.GlucoseLevel, context);
             var contextLabel = string.IsNullOrWhiteSpace(context) ? "未註明情境" : context;
+            var isCriticalLow = record.GlucoseLevel < 54m;
+            var isCriticalHigh = record.GlucoseLevel >= 250m;
+            var effective = isCriticalLow ? "critical_low" : (isCriticalHigh ? "critical_high" : category);
 
             return new TodayMetricInterpretation
             {
                 Title = TitleBloodSugar,
-                Summary = category switch
+                Summary = effective switch
                 {
+                    "critical_low" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）已達嚴重低血糖，請立即補充含糖食物並送醫，不要拖延觀察。",
+                    "critical_high" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）已達嚴重高血糖，可能引發急症，建議立即就醫。",
                     "high" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）比理想值高一點，記得多補水、注意飲食搭配。{PickConcernCloser()}",
                     "low" => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）略偏低，請先留意有沒有頭暈或無力感，適時補充能量。{PickConcernCloser()}",
                     _ => $"今天血糖 {record.GlucoseLevel:0.##} mg/dL（{contextLabel}）大致落在可接受範圍。{PickAffirmingCloser()}"
                 },
-                ProgressNote = category switch
+                ProgressNote = effective switch
                 {
+                    "critical_low" => "這個數值可能伴隨意識模糊、抽搐，請先讓長輩吃／喝含糖食物，再立即就醫或撥打 119。",
+                    "critical_high" => "若同時有口渴、呼吸急促、意識改變，可能是酮酸中毒或高滲透壓急症，請立刻撥打 119。",
                     "high" => "下次量測時記得補上飯前或飯後情境，讓之後的分析更貼近你真實的生活節奏。",
                     "low" => "若出現頭暈、冒冷汗等不適，請盡快處理並在需要時尋求專業協助。",
                     _ => "記錄量測情境能讓之後的觀察更細緻，你願意為自己多走這一步，很棒。"
                 },
-                IconType = category == "normal" ? "progress" : "insight",
-                Tone = category == "low" ? "neutral" : "supportive",
-                Priority = category switch
+                IconType = effective == "normal" ? "progress" : "insight",
+                Tone = effective is "critical_low" or "critical_high" ? "watchful" : (effective == "low" ? "neutral" : "supportive"),
+                Priority = effective switch
                 {
+                    "critical_low" or "critical_high" => 5,
                     "high" => 3,
                     "low" => 4,
                     _ => 1
@@ -1167,23 +1336,37 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static TodayMetricInterpretation BuildTemperatureTodayInterpretation(TemperatureRecord record, int todayCount)
         {
-            var category = record.Value >= 38m ? "high" : (record.Value >= 37.3m ? "elevated" : "normal");
+            string category;
+            if (record.Value >= 39m) category = "critical_high";
+            else if (record.Value <= 35m) category = "critical_low";
+            else if (record.Value >= 38m) category = "high";
+            else if (record.Value >= 37.3m) category = "elevated";
+            else category = "normal";
+
             return new TodayMetricInterpretation
             {
                 Title = TitleTemperature,
                 Summary = category switch
                 {
-                    "high" => $"今天體溫 {record.Value:0.##}°C 稍微偏高，記得多休息、多補充水分，也留意精神狀態。{PickConcernCloser()}",
+                    "critical_high" => $"今天體溫 {record.Value:0.##}°C 已達危險高燒，常伴隨倦怠、意識不清等發燒症狀，請盡速就醫或撥打 119。",
+                    "critical_low" => $"今天體溫 {record.Value:0.##}°C 已屬失溫，請先保暖並立即送醫評估。",
+                    "high" => $"今天體溫 {record.Value:0.##}°C 已達發燒程度，請好好休息、多補水，並留意是否繼續升高。{PickConcernCloser()}",
                     "elevated" => $"今天體溫 {record.Value:0.##}°C 略高一些，先好好休息放鬆，等身體恢復平穩後再量一次。{PickConcernCloser()}",
                     _ => $"今天體溫 {record.Value:0.##}°C 大致穩定。{PickAffirmingCloser()}"
                 },
-                ProgressNote = category == "normal"
-                    ? "若今天有不舒服的感覺，稍晚再補量一次也沒關係，照著自己的節奏走。"
-                    : "若後續持續升高或伴隨明顯不適，請記得提高警覺，並在需要時尋求協助。",
+                ProgressNote = category switch
+                {
+                    "critical_high" => "這個溫度已經是就醫警訊，若伴隨意識改變、抽搐、呼吸急促，請直接撥打 119，不要在家僅靠退燒藥處理。",
+                    "critical_low" => "失溫可能伴隨心律不整或意識下降，請加蓋衣物保暖並立即就醫。",
+                    "high" => "若體溫續升至 39°C 以上或出現不適（呼吸急促、意識改變），請立即就醫。",
+                    "elevated" => "若後續持續升高或伴隨明顯不適，請記得提高警覺，並在需要時尋求協助。",
+                    _ => "若今天有不舒服的感覺，稍晚再補量一次也沒關係，照著自己的節奏走。"
+                },
                 IconType = category == "normal" ? "progress" : "insight",
-                Tone = category == "high" ? "neutral" : "supportive",
+                Tone = category is "critical_high" or "critical_low" ? "watchful" : (category == "high" ? "neutral" : "supportive"),
                 Priority = category switch
                 {
+                    "critical_high" or "critical_low" => 5,
                     "high" => 4,
                     "elevated" => 2,
                     _ => 1
@@ -1193,23 +1376,34 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static TodayMetricInterpretation BuildBloodOxygenTodayInterpretation(BloodOxygenRecord record, int todayCount)
         {
-            var category = record.SpO2 < 92m ? "low" : (record.SpO2 < 95m ? "watch" : "normal");
+            string category;
+            if (record.SpO2 < 90m) category = "critical";
+            else if (record.SpO2 < 94m) category = "low";
+            else if (record.SpO2 < 95m) category = "watch";
+            else category = "normal";
+
             return new TodayMetricInterpretation
             {
                 Title = TitleBloodOxygen,
                 Summary = category switch
                 {
-                    "low" => $"今天血氧 {record.SpO2:0.##}% 略偏低，建議先放鬆、深呼吸幾次，稍後再量一次確認。{PickConcernCloser()}",
+                    "critical" => $"今天血氧 {record.SpO2:0.##}% 已低於 90%，屬嚴重缺氧，請先停下活動並立即就醫或撥打 119。",
+                    "low" => $"今天血氧 {record.SpO2:0.##}% 明顯低於正常，建議盡快就醫評估。{PickConcernCloser()}",
                     "watch" => $"今天血氧 {record.SpO2:0.##}% 比理想值低一些，休息一下後再量看看。{PickConcernCloser()}",
                     _ => $"今天血氧 {record.SpO2:0.##}% 在舒適的範圍內。{PickAffirmingCloser()}"
                 },
-                ProgressNote = category == "normal"
-                    ? "持續在相同時段記錄，能讓之後的觀察更貼近你的真實狀態。"
-                    : "若重測仍偏低，請提高注意並視情況尋求協助，健康永遠值得被優先照顧。",
+                ProgressNote = category switch
+                {
+                    "critical" => "這個數值屬急症警訊，若出現喘、胸悶或意識改變，請直接撥打 119，不要只在家重測觀察。",
+                    "low" => "若量測無誤，請盡快尋求醫療協助，不要只依賴在家觀察。",
+                    "watch" => "若重測仍偏低，請提高注意並視情況尋求協助，健康永遠值得被優先照顧。",
+                    _ => "持續在相同時段記錄，能讓之後的觀察更貼近你的真實狀態。"
+                },
                 IconType = category == "normal" ? "progress" : "insight",
-                Tone = category == "low" ? "neutral" : "supportive",
+                Tone = category == "critical" ? "watchful" : (category == "low" ? "neutral" : "supportive"),
                 Priority = category switch
                 {
+                    "critical" => 5,
                     "low" => 4,
                     "watch" => 3,
                     _ => 1
@@ -1219,6 +1413,8 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static string ClassifyBloodPressure(int systolic, int diastolic)
         {
+            if (systolic >= 180 || diastolic >= 110) return "critical";
+            if (systolic < 90) return "critical";
             if (systolic >= 140 || diastolic >= 90) return "high";
             if (systolic >= 120 || diastolic >= 80) return "elevated";
             return "normal";
@@ -1226,6 +1422,9 @@ namespace SeasonsCare.Api.Services.HealthDashboard
 
         private static string ClassifyBloodSugar(decimal value, string context)
         {
+            if (value < 54m) return "critical";
+            if (value >= 250m) return "critical";
+
             var normalized = context.ToLowerInvariant();
             var isPostMeal = normalized.Contains("飯後") || normalized.Contains("餐後") || normalized.Contains("after");
             var isFasting = normalized.Contains("飯前") || normalized.Contains("空腹") || normalized.Contains("fast");
@@ -1524,6 +1723,23 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var avgDia = records.Average(x => x.Diastolic);
             var category = ClassifyBloodPressure((int)Math.Round(avgSys), (int)Math.Round(avgDia));
 
+            var isCriticalHigh = latest.Systolic >= 180 || latest.Diastolic >= 110;
+            var isCriticalLow = latest.Systolic < 90;
+
+            if (isCriticalHigh)
+            {
+                return records.Count == 1
+                    ? $"最新血壓 {latest.Systolic}/{latest.Diastolic} mmHg 已達高血壓急症範圍，請立即就醫，不要在家繼續觀察。"
+                    : $"最新血壓 {latest.Systolic}/{latest.Diastolic} mmHg 已達高血壓急症範圍，請立即就醫；近 7 天平均約 {avgSys:0.#}/{avgDia:0.#} mmHg。";
+            }
+
+            if (isCriticalLow)
+            {
+                return records.Count == 1
+                    ? $"最新血壓 {latest.Systolic}/{latest.Diastolic} mmHg 過低可能有休克風險，請先平躺並立即就醫。"
+                    : $"最新血壓 {latest.Systolic}/{latest.Diastolic} mmHg 過低可能有休克風險，請先平躺並立即就醫；近 7 天平均約 {avgSys:0.#}/{avgDia:0.#} mmHg。";
+            }
+
             if (records.Count == 1)
             {
                 return category switch
@@ -1547,6 +1763,16 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var latest = records[^1];
             var latestContext = (latest.MeasurementContext ?? string.Empty).Trim();
             var category = ClassifyBloodSugar(latest.GlucoseLevel, latestContext);
+
+            if (latest.GlucoseLevel < 54m)
+            {
+                return $"最新血糖 {latest.GlucoseLevel:0.##} mg/dL 已屬嚴重低血糖，請立即補充含糖食物並送醫，不要拖延觀察。";
+            }
+
+            if (latest.GlucoseLevel >= 250m)
+            {
+                return $"最新血糖 {latest.GlucoseLevel:0.##} mg/dL 已屬嚴重高血糖，可能引發急症，請立即就醫評估。";
+            }
 
             if (records.Count == 1)
             {

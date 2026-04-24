@@ -17,7 +17,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v15";
+        private const string PromptVersion = "health-dashboard-v16";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private static readonly string[] TrendLabelEnum = { "維持良好", "逐步改善", "趨於穩定", "建議觀察", "累積中" };
@@ -136,12 +136,24 @@ namespace SeasonsCare.Api.Services.AI
 只能使用下方 Facts 區提供的資料，不可虛構診斷、病史或額外數值。
 
 參考區間：
-- 血壓：理想 < 120/80；正常 120-129/80-84；偏高 130-139/85-89；高血壓一期 140-159/90-99；高血壓二期 >= 160/100
-- 空腹血糖：正常 70-99 mg/dL；糖尿病前期 100-125；糖尿病 >= 126
-- 飯後血糖：正常 < 140；偏高 140-199；高 >= 200
-- 血氧：正常 >= 95%；偏低 90-94%；需就醫 < 90%
-- 體溫：正常 36-37.2°C；低燒 37.3-38°C；中燒 38.1-39°C；高燒 > 39°C
+- 血壓：理想 < 120/80；正常 120-129/80-84；偏高 130-139/85-89；高血壓一期 140-159/90-99；高血壓二期 >= 160/100；【危險 critical】收縮 >= 180 或 舒張 >= 110 屬高血壓急症，需立即就醫或撥打 119；【危險 critical】收縮 < 90 屬低血壓休克風險，需立即就醫
+- 空腹血糖：正常 70-99 mg/dL；糖尿病前期 100-125；糖尿病 >= 126；【危險 critical】>= 250 或 < 54 需立即就醫
+- 飯後血糖：正常 < 140；偏高 140-199；高 >= 200；【危險 critical】>= 250 需立即就醫；【危險 critical】< 54 屬嚴重低血糖，需立即補糖並就醫
+- 血氧：正常 >= 95%；略低 94%；明顯偏低 90-93%（需就醫評估）；【危險 critical】< 90% 屬嚴重缺氧急症，必須直接建議立即就醫或撥打 119
+- 體溫：正常 36-37.2°C；低燒 37.3-37.9°C；中燒 38-38.9°C；【危險 critical】>= 39°C 屬高燒，常伴隨倦怠、肌肉痠痛、意識混亂、脫水等發燒症狀，需立即就醫評估；【危險 critical】<= 35°C 為失溫急症，需保暖並立即就醫
 - 體重變化：一週內 ±1 kg 屬正常；一週 > 2 kg 需留意
+
+危險值（critical）處置規則【最高優先】：
+- 遇到 priorityFindings 含 severity = "critical" 的項目時，不可使用「偏高」「略高」「多注意」「建議觀察」這類輕描淡寫的語氣
+- heroReport.headline 必須直接指出數值已達危險範圍並要求就醫，例如：「血氧 85% 已嚴重缺氧，建議立即就醫」、「體溫 43°C 已達危險高燒，請立即就醫」
+- heroReport.body 必須出現明確就醫動作語句（「立即就醫」「盡速送醫」「撥打 119」擇一），不可只說「多注意」「持續觀察」
+- heroReport.tone 必須設為 "watchful"；confidence 設為 "high"
+- keyInsight.severity 必須設為 "critical"（不可寫成 "high"）
+- keyInsight.body 必須清楚指出這是危險範圍、具體身體風險（例如中風、休克、意識改變、呼吸衰竭）
+- actionSuggestion.priority 必須為 "high"，timeframe 必須為 "today"
+- actionSuggestion.body 必須是可立即執行的就醫／求救動作，禁止只寫「再量一次」「多注意飲食」
+- alerts 陣列必須包含至少一個項目，其中 type = "health_alert"、severity = "critical"，message 必須直接提醒就醫並附上實際數值
+- 若同時出現多個 critical，heroReport 與 keyInsight 先講最危險的那個，其他在 alerts 中補齊
 
 嚴格規則：
 - 所有字數限制都是「硬性上限」，超過會被裁切，請務必精簡
@@ -177,12 +189,28 @@ few-shot 風格示範（請嚴格遵守字數，並學習這種「有溫度的�
 - actionSuggestion.body: 維持現在的飲食和運動節奏，每天固定時間量測就很好了。
 - todayCards[0].summary: 今天血壓 118/76 還是很理想，繼續保持目前的習慣就好。
 
-示範 C：只有 1 筆異常資料（語氣偏溫和關心，但有具體動作）
+示範 C：只有 1 筆偏低資料（語氣偏溫和關心，但有具體動作）
 - heroReport.headline: 今天血氧偏低，需要先關心一下
-- heroReport.body: 今天量到的血氧只有 80%，比平常理想的 95% 低不少，建議先讓他坐下休息再量一次。
-- keyInsight.body: 血氧 80% 跟理想的 95% 差了一段距離，這個數字代表身體可能比較缺氧。
-- actionSuggestion.body: 先讓他坐下休息幾分鐘再量一次，如果還是低於 90% 就要趕快就醫。
-- todayCards[0].summary: 今天血氧只有 80%，比理想的 95% 低不少，先休息一下再量一次看看。
+- heroReport.body: 今天量到的血氧只有 94%，比理想的 95% 低一些，建議先讓他坐下休息再量一次。
+- keyInsight.body: 血氧 94% 跟理想的 95% 差一點點，先觀察一下有沒有呼吸不適。
+- actionSuggestion.body: 先讓他坐下休息幾分鐘再量一次，若持續偏低或不舒服就要就醫。
+- todayCards[0].summary: 今天血氧 94%，比理想的 95% 低一點，先休息一下再量一次看看。
+
+示範 D：危險值 critical（語氣直接、明確指引就醫，禁止用「偏高／多注意」）
+- heroReport.headline: 體溫 43°C 已達危險高燒，建議立即就醫
+- heroReport.body: 今天量到 43°C 已遠超 39°C 的發燒警戒，可能伴隨意識模糊、脫水等高燒症狀，請立即就醫或撥打 119，不要在家僅靠退燒藥處理。
+- keyInsight.label: 關鍵數據洞察
+- keyInsight.body: 體溫 43°C 遠高於 37°C，屬醫療急症，持續高燒恐傷器官，必須立即處置。
+- keyInsight.metricType: temperature
+- keyInsight.severity: critical
+- actionSuggestion.label: 健康行動建議
+- actionSuggestion.body: 先協助散熱與補水，立即就醫或撥打 119，不建議在家觀察退燒。
+- actionSuggestion.priority: high
+- actionSuggestion.timeframe: today
+- todayCards[0].summary: 今天體溫 43°C 已達危險高燒，請立即就醫，不要再等觀察。
+- alerts[0].type: "health_alert"
+- alerts[0].severity: "critical"
+- alerts[0].message: 體溫 43°C 已達急症範圍，請立即就醫或撥打 119。
 
 trendLabels 評語選擇規則（每個指標只能從以下五選一）：
 - 「維持良好」：數據在理想區間且穩定
@@ -205,16 +233,17 @@ trendLabels 評語選擇規則（每個指標只能從以下五選一）：
 - keyInsight.label：固定為「關鍵數據洞察」
 - keyInsight.body：22-32 字，聚焦第一優先 finding，必須含數值對比（如「血氧 80% 低於正常 95%」）
 - keyInsight.metricType：blood_pressure / blood_sugar / weight / temperature / blood_oxygen / general
-- keyInsight.severity：low / medium / high
+- keyInsight.severity：low / medium / high / critical（critical 僅用於達到急症門檻的情境，見上方「危險值處置規則」）
 
 - actionSuggestion.label：固定為「健康行動建議」
-- actionSuggestion.body：25-30 字，必須對應 keyInsight，給出可執行動作
-- actionSuggestion.priority：low / medium / high
-- actionSuggestion.timeframe：today / this_week
+- actionSuggestion.body：25-30 字，必須對應 keyInsight，給出可執行動作；critical 情境必須給出就醫指引
+- actionSuggestion.priority：low / medium / high（critical 情境固定為 high）
+- actionSuggestion.timeframe：today / this_week（critical 情境固定為 today）
 
 - todayCards：1-3 張
-- todayCards[*].summary：30-40 字，口語化、含數值與參考區間，避免列出英文欄位名
-- alerts：沒有提醒就回空陣列
+- todayCards[*].summary：30-40 字，口語化、含數值與參考區間，避免列出英文欄位名；critical 情境必須直接指出危險與就醫
+- alerts：沒有提醒就回空陣列；critical 情境必須至少一筆 severity = "critical"、type = "health_alert" 的提醒
+- alerts[*].severity：low / medium / high / critical
 - trendLabels：每個指標只能填上方五個評語其中一個
 
 Facts:

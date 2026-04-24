@@ -14,7 +14,10 @@
       "Bash(python -c \"import json; print\\(json.load\\(open\\('/tmp/dev.json'\\)\\)['OpenAI']['ApiKey']\\)\")",
       "Bash(git fetch *)",
       "Bash(git pull *)",
-      "Bash(xxd)"
+      "Bash(xxd)",
+      "Bash(gh run *)",
+      "PowerShell(gh run *)",
+      "Bash(git stash *)"
     ]
   }
 }
