@@ -17,7 +17,8 @@
       "Bash(xxd)",
       "Bash(gh run *)",
       "PowerShell(gh run *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(dotnet *)"
     ]
   }
 }

@@ -124,13 +124,15 @@ namespace SeasonsCare.Api.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         [EndpointSummary("取得分帳預覽畫面資料")]
-        [EndpointDescription("提供 GET 版分帳預覽資料，回傳畫面需要的帳目明細、總額、筆數與每位成員的預覽分帳結果。會自動以照護群組目前有效成員作為分帳對象。支援 daily、monthly、custom 三種 splitMode；daily / monthly 可搭配 targetDate，custom 則以 query string 中的 expenseIds 指定帳目。")]
+        [EndpointDescription("同時支援兩種情境：(1) 分帳前試算：傳 splitMode（+ targetDate / expenseIds），回傳目前 Pending 支出的試算結果；(2) 已分帳結果查詢（給通知彈窗用）：傳 splitBatchId，回傳該批次的歷史分帳結果，回傳 payload 會帶 executedBy / executedAt。傳 splitBatchId 時其他參數會被忽略；查無批次時回 404。")]
         public async Task<IActionResult> GetSplitPreview(Guid careGroupId, [FromQuery] SplitPreviewQueryRequest request)
         {
             var currentUserId = _currentUserService.UserId;
             var result = await _expenseService.GetSplitPreviewAsync(currentUserId, careGroupId, request);
-            var response = new ApiResponse<ExpenseSplitPreviewResponse>(result, "取得分帳預覽資料成功", HttpContext.TraceIdentifier);
+            var message = request.SplitBatchId.HasValue ? "取得分帳結果成功" : "取得分帳預覽資料成功";
+            var response = new ApiResponse<ExpenseSplitPreviewResponse>(result, message, HttpContext.TraceIdentifier);
             return Ok(response);
         }
 
@@ -150,17 +152,17 @@ namespace SeasonsCare.Api.Controllers
         }
 
         [HttpPost("split")]
-        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<SplitConfirmResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [EndpointSummary("確認一鍵分帳")]
-        [EndpointDescription("確認分帳後會將待分帳支出結算並寫入分帳明細。")]
+        [EndpointDescription("確認分帳後會將待分帳支出結算並寫入分帳明細，回傳 splitBatchId 供前端發通知；群組成員之後可用 GET /split-preview?splitBatchId={id} 查該批次的分帳結果。")]
         public async Task<IActionResult> ConfirmSplit(Guid careGroupId, [FromBody] SplitConfirmRequest request)
         {
             var currentUserId = _currentUserService.UserId;
-            await _expenseService.ConfirmSplitAsync(currentUserId, careGroupId, request);
-            var response = new ApiResponse<object>(null, "確認分帳成功", HttpContext.TraceIdentifier);
+            var result = await _expenseService.ConfirmSplitAsync(currentUserId, careGroupId, request);
+            var response = new ApiResponse<SplitConfirmResponse>(result, "確認分帳成功", HttpContext.TraceIdentifier);
             return Ok(response);
         }
     }

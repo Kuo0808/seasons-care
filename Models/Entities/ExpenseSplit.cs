@@ -52,6 +52,13 @@ namespace SeasonsCare.Api.Models.Entities
         [Required]
         public Guid CareGroupId { get; set; }
 
+        /// <summary>
+        /// 分帳批次 Id：同一次「確認分帳」操作寫入的所有 split row 共用同一個 batchId。
+        /// 用於前端通知點擊後查詢該批次的分帳結果。
+        /// 舊資料（migration 之前產生）為 null。
+        /// </summary>
+        public Guid? SplitBatchId { get; set; }
+
         public DateTime CreatedAt { get; set; } = TimeHelper.UtcNow;
 
         public DateTime? UpdatedAt { get; set; }

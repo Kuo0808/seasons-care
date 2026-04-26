@@ -42,6 +42,16 @@ namespace SeasonsCare.Api.Repositories
             return await query.ToListAsync();
         }
 
+        public async Task<List<ExpenseSplit>> GetByBatchIdAsync(Guid careGroupId, Guid splitBatchId)
+        {
+            return await _context.ExpenseSplits
+                .Include(s => s.Expense)
+                .Where(s => s.CareGroupId == careGroupId
+                            && s.SplitBatchId == splitBatchId
+                            && s.DeletedAt == null)
+                .ToListAsync();
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();

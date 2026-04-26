@@ -186,7 +186,7 @@ public class HealthDashboardIntegrationTests
         Assert.True(data.GetProperty("hasTodayRecords").GetBoolean());
         Assert.Equal(1, data.GetProperty("recordCount").GetInt32());
         Assert.True(cards.GetArrayLength() >= 2);
-        Assert.Contains("先不用太緊張", cards[0].GetProperty("summary").GetString());
+        Assert.Contains("保持規律作息", cards[0].GetProperty("summary").GetString());
         Assert.Contains("建議", cards[1].GetProperty("progressNote").GetString());
         Assert.Contains("血壓", cards[1].GetProperty("title").GetString());
         // 不應呼叫 AI
@@ -266,7 +266,7 @@ public class HealthDashboardIntegrationTests
 
         var bp = metrics.EnumerateArray().First(
             x => x.GetProperty("metricType").GetString() == "blood_pressure");
-        Assert.Equal("穩定", bp.GetProperty("statusLabel").GetString());
+        Assert.Equal("維持良好", bp.GetProperty("statusLabel").GetString());
 
         var oxygen = metrics.EnumerateArray().First(
             x => x.GetProperty("metricType").GetString() == "blood_oxygen");

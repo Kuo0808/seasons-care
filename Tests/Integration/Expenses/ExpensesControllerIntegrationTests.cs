@@ -173,10 +173,32 @@ public class ExpensesControllerIntegrationTests
         Assert.Equal(2, data.GetProperty("splitDetails").GetArrayLength());
     }
 
+    [Fact]
+    public async Task GetSplitPreview_PassesSplitBatchIdToService_AndReturnsExecutorPayload()
+    {
+        var batchId = Guid.NewGuid();
+        var stub = new StubExpenseService();
+        using var factory = new StubApiFactory<IExpenseService>(stub);
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/care-groups/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/expenses/split-preview?splitBatchId={batchId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(batchId, stub.LastRequest?.SplitBatchId);
+
+        var payload = await JsonResponseHelper.ReadJsonAsync(response);
+        Assert.Equal("取得分帳結果成功", payload.RootElement.GetProperty("message").GetString());
+
+        var data = payload.RootElement.GetProperty("data");
+        var executedBy = data.GetProperty("executedBy");
+        Assert.Equal("艾薇", executedBy.GetProperty("name").GetString());
+    }
+
     private sealed class StubExpenseService : IExpenseService
     {
         public Exception? GetExpenseByIdException { get; init; }
         public Exception? UpdateException { get; init; }
+        public SplitPreviewQueryRequest? LastRequest { get; private set; }
 
         public Task<PagedResponse<ExpenseResponse>> GetExpensesAsync(Guid currentUserId, Guid careGroupId, PaginationRequest pagination)
         {
@@ -251,7 +273,9 @@ public class ExpensesControllerIntegrationTests
 
         public Task<ExpenseSplitPreviewResponse> GetSplitPreviewAsync(Guid currentUserId, Guid careGroupId, SplitPreviewQueryRequest request)
         {
-            return Task.FromResult(new ExpenseSplitPreviewResponse
+            LastRequest = request;
+
+            var response = new ExpenseSplitPreviewResponse
             {
                 ExpenseCount = 1,
                 TotalAmount = 1200m,
@@ -283,7 +307,19 @@ public class ExpensesControllerIntegrationTests
                         PayableAmount = 600m
                     }
                 }
-            });
+            };
+
+            if (request.SplitBatchId.HasValue)
+            {
+                response.ExecutedBy = new SplitExecutor
+                {
+                    UserId = Guid.NewGuid(),
+                    Name = "艾薇"
+                };
+                response.ExecutedAt = new DateTime(2026, 4, 21, 5, 0, 0, DateTimeKind.Utc);
+            }
+
+            return Task.FromResult(response);
         }
 
         public Task<ExpenseSplitPreviewResponse> PreviewSplitAsync(Guid currentUserId, Guid careGroupId, SplitPreviewRequest request)
@@ -291,7 +327,7 @@ public class ExpensesControllerIntegrationTests
             throw new NotImplementedException();
         }
 
-        public Task ConfirmSplitAsync(Guid currentUserId, Guid careGroupId, SplitConfirmRequest request)
+        public Task<SplitConfirmResponse> ConfirmSplitAsync(Guid currentUserId, Guid careGroupId, SplitConfirmRequest request)
         {
             throw new NotImplementedException();
         }

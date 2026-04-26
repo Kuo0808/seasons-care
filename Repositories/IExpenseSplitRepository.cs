@@ -21,6 +21,12 @@ namespace SeasonsCare.Api.Repositories
         /// </summary>
         Task<List<ExpenseSplit>> GetByCareGroupAsync(Guid careGroupId, DateTime? dateFrom, DateTime? dateTo);
 
+        /// <summary>
+        /// 依 SplitBatchId 取得整批分帳明細（含對應 ExpenseRecord）。
+        /// 用於通知點擊後回傳「已分帳結果」彈窗資料。
+        /// </summary>
+        Task<List<ExpenseSplit>> GetByBatchIdAsync(Guid careGroupId, Guid splitBatchId);
+
         Task SaveChangesAsync();
     }
 }

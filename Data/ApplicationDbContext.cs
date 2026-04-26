@@ -187,6 +187,8 @@ namespace SeasonsCare.Api.Data
                 // 同一筆 expense 不允許對同一位 user 寫入兩列（避免重複結算重算造成翻倍）。
                 entity.HasIndex(e => new { e.ExpenseId, e.UserId }).IsUnique();
                 entity.HasIndex(e => new { e.CareGroupId, e.UserId });
+                // 通知點擊 → 依批次查整批分帳結果。
+                entity.HasIndex(e => new { e.CareGroupId, e.SplitBatchId });
             });
 
             modelBuilder.Entity<BloodPressureRecord>(entity =>

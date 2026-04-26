@@ -136,6 +136,11 @@ namespace SeasonsCare.Api.Services
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
+            if (request.SplitBatchId.HasValue)
+            {
+                return await BuildSettledSplitResultAsync(careGroupId, request.SplitBatchId.Value);
+            }
+
             var participants = (await _careGroupRepository.GetActiveMembersWithUserAsync(careGroupId))
                 .Where(member => member.User != null)
                 .GroupBy(member => member.UserId)
@@ -163,7 +168,7 @@ namespace SeasonsCare.Api.Services
             return await BuildSplitPreviewAsync(careGroupId, request.SplitMode, request.ExpenseIds, request.TargetDate, participants);
         }
 
-        public async Task ConfirmSplitAsync(Guid currentUserId, Guid careGroupId, SplitConfirmRequest request)
+        public async Task<SplitConfirmResponse> ConfirmSplitAsync(Guid currentUserId, Guid careGroupId, SplitConfirmRequest request)
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
@@ -181,6 +186,7 @@ namespace SeasonsCare.Api.Services
 
             var now = GetUtcNowRoundedToMilliseconds();
             var createdBy = currentUserId.ToString();
+            var batchId = Guid.NewGuid();
 
             foreach (var expense in validExpenses)
             {
@@ -189,12 +195,19 @@ namespace SeasonsCare.Api.Services
                 await _expenseRepository.UpdateAsync(expense);
 
                 Guid? payerId = Guid.TryParse(expense.CreatedBy, out var parsedPayer) ? parsedPayer : null;
-                var splits = BuildSplitsForExpense(expense, targetUserIds, payerId, createdBy, now);
+                var splits = BuildSplitsForExpense(expense, targetUserIds, payerId, createdBy, now, batchId);
                 await _expenseSplitRepository.AddRangeAsync(splits);
             }
 
             await _expenseRepository.SaveChangesAsync();
             await _expenseSplitRepository.SaveChangesAsync();
+
+            return new SplitConfirmResponse
+            {
+                SplitBatchId = batchId,
+                ExpenseCount = validExpenses.Count,
+                TotalAmount = validExpenses.Sum(expense => expense.Amount)
+            };
         }
 
         public async Task<MemberExpenseTotalsResponse> GetMemberExpenseTotalsAsync(Guid currentUserId, Guid careGroupId, MemberExpenseTotalsRequest request)
@@ -326,7 +339,8 @@ namespace SeasonsCare.Api.Services
             List<Guid> targetUserIds,
             Guid? payerId,
             string createdBy,
-            DateTime now)
+            DateTime now,
+            Guid splitBatchId)
         {
             var count = targetUserIds.Count;
             var baseShare = Math.Round(expense.Amount / count, 2, MidpointRounding.AwayFromZero);
@@ -342,10 +356,12 @@ namespace SeasonsCare.Api.Services
                 splits.Add(new ExpenseSplit
                 {
                     ExpenseId = expense.Id,
+                    Expense = expense,
                     UserId = userId,
                     ShareAmount = share,
                     IsPayer = payerId.HasValue && payerId.Value == userId,
                     CareGroupId = expense.CareGroupId,
+                    SplitBatchId = splitBatchId,
                     CreatedAt = now,
                     UpdatedAt = now,
                     CreatedBy = createdBy
@@ -353,6 +369,96 @@ namespace SeasonsCare.Api.Services
             }
 
             return splits;
+        }
+
+        private async Task<ExpenseSplitPreviewResponse> BuildSettledSplitResultAsync(Guid careGroupId, Guid splitBatchId)
+        {
+            var splits = await _expenseSplitRepository.GetByBatchIdAsync(careGroupId, splitBatchId);
+            if (splits.Count == 0)
+            {
+                throw new DomainException("查無此分帳批次", "NOT_FOUND", 404);
+            }
+
+            var expenseSummaries = splits
+                .Where(split => split.Expense != null)
+                .GroupBy(split => split.ExpenseId)
+                .Select(group =>
+                {
+                    var expense = group.First().Expense!;
+                    return new ExpenseItemSummary
+                    {
+                        Id = expense.Id,
+                        Title = expense.Title,
+                        Amount = expense.Amount
+                    };
+                })
+                .ToList();
+
+            // 一次分帳對所有 expense 的參與成員一致，取任一筆 expense 的 splits 即可推每人應分攤的金額。
+            var perUserShare = splits
+                .GroupBy(split => split.UserId)
+                .ToDictionary(group => group.Key, group => group.Sum(split => split.ShareAmount));
+
+            // 付款金額：以該批次內，每個 expense 的 CreatedBy 為付款人來累加。
+            var paidAmounts = new Dictionary<Guid, decimal>();
+            foreach (var summary in expenseSummaries)
+            {
+                var expense = splits.First(split => split.ExpenseId == summary.Id).Expense!;
+                if (Guid.TryParse(expense.CreatedBy, out var payerId))
+                {
+                    paidAmounts.TryGetValue(payerId, out var current);
+                    paidAmounts[payerId] = current + expense.Amount;
+                }
+            }
+
+            var participantIds = perUserShare.Keys.ToList();
+            var users = (await _userRepository.GetListByIdsAsync(participantIds))
+                .ToDictionary(user => user.Id);
+
+            var splitDetails = participantIds.Select(userId =>
+            {
+                users.TryGetValue(userId, out var user);
+                var paid = paidAmounts.GetValueOrDefault(userId, 0m);
+                var share = perUserShare[userId];
+                var balance = paid - share;
+
+                return new SplitUserDetail
+                {
+                    UserId = userId,
+                    Name = user?.Username ?? string.Empty,
+                    AvatarUrl = user?.AvatarKey,
+                    IsPayer = paid > 0,
+                    ReceivableAmount = balance > 0 ? balance : 0,
+                    PayableAmount = balance < 0 ? Math.Abs(balance) : 0
+                };
+            }).ToList();
+
+            // ExecutedBy / ExecutedAt 取自 splits 中任一筆（同批次共用）。
+            var anchor = splits[0];
+            SplitExecutor? executor = null;
+            if (Guid.TryParse(anchor.CreatedBy, out var executorId))
+            {
+                var executorUser = await _userRepository.GetByIdAsync(executorId);
+                if (executorUser != null)
+                {
+                    executor = new SplitExecutor
+                    {
+                        UserId = executorUser.Id,
+                        Name = executorUser.Username,
+                        AvatarUrl = executorUser.AvatarKey
+                    };
+                }
+            }
+
+            return new ExpenseSplitPreviewResponse
+            {
+                ExpenseCount = expenseSummaries.Count,
+                TotalAmount = expenseSummaries.Sum(item => item.Amount),
+                SelectedExpenses = expenseSummaries,
+                SplitDetails = splitDetails,
+                ExecutedBy = executor,
+                ExecutedAt = anchor.CreatedAt
+            };
         }
 
         private async Task<List<ExpenseRecord>> ResolveExpensesAsync(Guid careGroupId, string splitMode, List<Guid>? expenseIds, DateTime? targetDate)

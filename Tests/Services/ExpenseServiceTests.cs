@@ -379,7 +379,7 @@ public class ExpenseServiceTests
         var splitRepository = new FakeExpenseSplitRepository();
         var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
 
-        await service.ConfirmSplitAsync(payerId, careGroupId, new SplitConfirmRequest
+        var confirmResult = await service.ConfirmSplitAsync(payerId, careGroupId, new SplitConfirmRequest
         {
             SplitMode = "custom",
             ExpenseIds = new List<Guid> { existing.Id },
@@ -388,11 +388,17 @@ public class ExpenseServiceTests
 
         Assert.Equal(ExpenseSplitStatus.Settled, existing.SplitStatus);
 
+        Assert.NotEqual(Guid.Empty, confirmResult.SplitBatchId);
+        Assert.Equal(1, confirmResult.ExpenseCount);
+        Assert.Equal(999m, confirmResult.TotalAmount);
+
         Assert.Equal(3, splitRepository.Splits.Count);
         // 三人平均 999 → 333.00 / 333.00 / 333.00（999 / 3 剛好整除，但驗證加總 = 原金額）
         Assert.Equal(999m, splitRepository.Splits.Sum(s => s.ShareAmount));
         Assert.All(splitRepository.Splits, s => Assert.Equal(existing.Id, s.ExpenseId));
         Assert.All(splitRepository.Splits, s => Assert.Equal(careGroupId, s.CareGroupId));
+        // 同一次 confirm 寫入的所有 split 共用同一個 batchId，且等於回傳的 SplitBatchId
+        Assert.All(splitRepository.Splits, s => Assert.Equal(confirmResult.SplitBatchId, s.SplitBatchId));
 
         // 只有付款人會被標 IsPayer
         Assert.True(splitRepository.Splits.Single(s => s.UserId == payerId).IsPayer);
@@ -434,6 +440,90 @@ public class ExpenseServiceTests
 
         // sum 必須剛好等於原金額
         Assert.Equal(100m, splitRepository.Splits.Sum(s => s.ShareAmount));
+    }
+
+    [Fact]
+    public async Task GetSplitPreviewAsync_WithSplitBatchId_ReturnsSettledResult_WithExecutorAndPayables()
+    {
+        var careGroupId = Guid.NewGuid();
+        var ivy = new User { Id = Guid.NewGuid(), Username = "艾薇", AvatarKey = "avatar/ivy.png" };
+        var awei = new User { Id = Guid.NewGuid(), Username = "阿偉" };
+        var ahe = new User { Id = Guid.NewGuid(), Username = "阿和" };
+
+        var expense = new ExpenseRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            Title = "自費藥品",
+            Amount = 3000m,
+            SplitStatus = ExpenseSplitStatus.Pending,
+            CreatedBy = ivy.Id.ToString(),
+            ExpenseDate = DateTime.UtcNow
+        };
+
+        var repository = new FakeExpenseRepository(expense);
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var userRepository = new FakeUserRepository(ivy, awei, ahe);
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
+
+        var confirmResult = await service.ConfirmSplitAsync(ivy.Id, careGroupId, new SplitConfirmRequest
+        {
+            SplitMode = "custom",
+            ExpenseIds = new List<Guid> { expense.Id },
+            TargetUserIds = new List<Guid> { ivy.Id, awei.Id, ahe.Id }
+        });
+
+        var result = await service.GetSplitPreviewAsync(ivy.Id, careGroupId, new SplitPreviewQueryRequest
+        {
+            SplitBatchId = confirmResult.SplitBatchId
+        });
+
+        Assert.Equal(1, result.ExpenseCount);
+        Assert.Equal(3000m, result.TotalAmount);
+        Assert.Single(result.SelectedExpenses);
+        Assert.Equal("自費藥品", result.SelectedExpenses[0].Title);
+
+        Assert.NotNull(result.ExecutedBy);
+        Assert.Equal(ivy.Id, result.ExecutedBy!.UserId);
+        Assert.Equal("艾薇", result.ExecutedBy.Name);
+        Assert.NotNull(result.ExecutedAt);
+
+        var ivyDetail = result.SplitDetails.Single(d => d.UserId == ivy.Id);
+        var aweiDetail = result.SplitDetails.Single(d => d.UserId == awei.Id);
+        var aheDetail = result.SplitDetails.Single(d => d.UserId == ahe.Id);
+
+        Assert.True(ivyDetail.IsPayer);
+        Assert.Equal(2000m, ivyDetail.ReceivableAmount);
+        Assert.Equal(0m, ivyDetail.PayableAmount);
+
+        Assert.False(aweiDetail.IsPayer);
+        Assert.Equal(1000m, aweiDetail.PayableAmount);
+        Assert.Equal(0m, aweiDetail.ReceivableAmount);
+
+        Assert.False(aheDetail.IsPayer);
+        Assert.Equal(1000m, aheDetail.PayableAmount);
+        Assert.Equal(0m, aheDetail.ReceivableAmount);
+    }
+
+    [Fact]
+    public async Task GetSplitPreviewAsync_WithUnknownSplitBatchId_ThrowsNotFound()
+    {
+        var careGroupId = Guid.NewGuid();
+        var repository = new FakeExpenseRepository();
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var splitRepository = new FakeExpenseSplitRepository();
+        var userRepository = new FakeUserRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            service.GetSplitPreviewAsync(Guid.NewGuid(), careGroupId, new SplitPreviewQueryRequest
+            {
+                SplitBatchId = Guid.NewGuid()
+            }));
+
+        Assert.Equal(404, exception.StatusCode);
+        Assert.Equal("NOT_FOUND", exception.ErrorCode);
     }
 
     [Fact]
@@ -705,6 +795,15 @@ public class ExpenseServiceTests
         {
             // Fake 不模擬 Include(Expense)，因此忽略日期過濾，由呼叫端準備好資料即可。
             return Task.FromResult(Splits.Where(x => x.CareGroupId == careGroupId && x.DeletedAt == null).ToList());
+        }
+
+        public Task<List<ExpenseSplit>> GetByBatchIdAsync(Guid careGroupId, Guid splitBatchId)
+        {
+            return Task.FromResult(Splits
+                .Where(x => x.CareGroupId == careGroupId
+                            && x.SplitBatchId == splitBatchId
+                            && x.DeletedAt == null)
+                .ToList());
         }
 
         public Task SaveChangesAsync() => Task.CompletedTask;
