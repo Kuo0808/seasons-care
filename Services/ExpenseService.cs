@@ -37,7 +37,20 @@ namespace SeasonsCare.Api.Services
 
             var request = pagination.ToDateRangeRequest();
             var (data, totalCount) = await _expenseRepository.GetPagedByCareGroupIdAsync(careGroupId, request);
-            var items = data.Select(MapToResponse).ToList();
+
+            var settledIds = data
+                .Where(expense => expense.SplitStatus == ExpenseSplitStatus.Settled)
+                .Select(expense => expense.Id)
+                .ToList();
+            var batchIdMap = settledIds.Count == 0
+                ? new Dictionary<Guid, Guid>()
+                : await _expenseSplitRepository.GetBatchIdsByExpenseIdsAsync(careGroupId, settledIds);
+
+            var items = data
+                .Select(expense => MapToResponse(
+                    expense,
+                    batchIdMap.TryGetValue(expense.Id, out var batchId) ? batchId : (Guid?)null))
+                .ToList();
 
             return new PagedResponse<ExpenseResponse>(items, totalCount, request.Page, request.PageSize);
         }
@@ -52,7 +65,17 @@ namespace SeasonsCare.Api.Services
                 throw new DomainException("找不到支出紀錄", "NOT_FOUND", 404);
             }
 
-            return MapToResponse(expense);
+            Guid? splitBatchId = null;
+            if (expense.SplitStatus == ExpenseSplitStatus.Settled)
+            {
+                var batchIdMap = await _expenseSplitRepository.GetBatchIdsByExpenseIdsAsync(careGroupId, new[] { expense.Id });
+                if (batchIdMap.TryGetValue(expense.Id, out var batchId))
+                {
+                    splitBatchId = batchId;
+                }
+            }
+
+            return MapToResponse(expense, splitBatchId);
         }
 
         public async Task<ExpenseResponse> CreateExpenseAsync(Guid currentUserId, Guid careGroupId, CreateExpenseRequest request)
@@ -573,7 +596,7 @@ namespace SeasonsCare.Api.Services
             return value.Date;
         }
 
-        private static ExpenseResponse MapToResponse(ExpenseRecord expense)
+        private static ExpenseResponse MapToResponse(ExpenseRecord expense, Guid? splitBatchId = null)
         {
             return new ExpenseResponse
             {
@@ -587,7 +610,8 @@ namespace SeasonsCare.Api.Services
                 CareGroupId = expense.CareGroupId,
                 CreatedAt = TimeHelper.ToTaiwanOffset(expense.CreatedAt),
                 UpdatedAt = TimeHelper.ToTaiwanOffset(expense.UpdatedAt ?? expense.CreatedAt),
-                CreatedBy = expense.CreatedBy
+                CreatedBy = expense.CreatedBy,
+                SplitBatchId = splitBatchId
             };
         }
 

@@ -52,6 +52,26 @@ namespace SeasonsCare.Api.Repositories
                 .ToListAsync();
         }
 
+        public async Task<Dictionary<Guid, Guid>> GetBatchIdsByExpenseIdsAsync(Guid careGroupId, IEnumerable<Guid> expenseIds)
+        {
+            var ids = expenseIds.ToList();
+            if (ids.Count == 0)
+            {
+                return new Dictionary<Guid, Guid>();
+            }
+
+            var rows = await _context.ExpenseSplits
+                .Where(s => s.CareGroupId == careGroupId
+                            && ids.Contains(s.ExpenseId)
+                            && s.SplitBatchId != null
+                            && s.DeletedAt == null)
+                .Select(s => new { s.ExpenseId, s.SplitBatchId })
+                .Distinct()
+                .ToListAsync();
+
+            return rows.ToDictionary(row => row.ExpenseId, row => row.SplitBatchId!.Value);
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();

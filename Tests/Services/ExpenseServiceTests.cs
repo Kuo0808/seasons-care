@@ -228,6 +228,106 @@ public class ExpenseServiceTests
     }
 
     [Fact]
+    public async Task GetExpensesAsync_PopulatesSplitBatchId_ForSettledExpensesOnly()
+    {
+        var careGroupId = Guid.NewGuid();
+        var settledExpenseId = Guid.NewGuid();
+        var pendingExpenseId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var settled = new ExpenseRecord
+        {
+            Id = settledExpenseId,
+            CareGroupId = careGroupId,
+            Title = "已分帳",
+            Amount = 3000m,
+            SplitStatus = ExpenseSplitStatus.Settled,
+            CreatedBy = Guid.NewGuid().ToString(),
+            ExpenseDate = DateTime.UtcNow
+        };
+        var pending = new ExpenseRecord
+        {
+            Id = pendingExpenseId,
+            CareGroupId = careGroupId,
+            Title = "待分帳",
+            Amount = 500m,
+            SplitStatus = ExpenseSplitStatus.Pending,
+            CreatedBy = Guid.NewGuid().ToString(),
+            ExpenseDate = DateTime.UtcNow
+        };
+
+        var repository = new FakeExpenseRepository(settled, pending);
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var userRepository = new FakeUserRepository();
+        var splitRepository = new FakeExpenseSplitRepository();
+        // 模擬 settled expense 的分帳明細：不同成員的 row 都共用同一個 batchId
+        splitRepository.Splits.Add(new ExpenseSplit
+        {
+            CareGroupId = careGroupId,
+            ExpenseId = settledExpenseId,
+            SplitBatchId = batchId,
+            UserId = Guid.NewGuid(),
+            ShareAmount = 1500m
+        });
+        splitRepository.Splits.Add(new ExpenseSplit
+        {
+            CareGroupId = careGroupId,
+            ExpenseId = settledExpenseId,
+            SplitBatchId = batchId,
+            UserId = Guid.NewGuid(),
+            ShareAmount = 1500m
+        });
+
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
+
+        var result = await service.GetExpensesAsync(Guid.NewGuid(), careGroupId, new PaginationRequest());
+
+        var settledItem = result.Items.Single(x => x.Id == settledExpenseId);
+        var pendingItem = result.Items.Single(x => x.Id == pendingExpenseId);
+
+        Assert.Equal(batchId, settledItem.SplitBatchId);
+        Assert.Null(pendingItem.SplitBatchId);
+    }
+
+    [Fact]
+    public async Task GetExpenseByIdAsync_ReturnsSplitBatchId_WhenSettled()
+    {
+        var careGroupId = Guid.NewGuid();
+        var expenseId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+
+        var settled = new ExpenseRecord
+        {
+            Id = expenseId,
+            CareGroupId = careGroupId,
+            Title = "已分帳",
+            Amount = 3000m,
+            SplitStatus = ExpenseSplitStatus.Settled,
+            CreatedBy = Guid.NewGuid().ToString(),
+            ExpenseDate = DateTime.UtcNow
+        };
+
+        var repository = new FakeExpenseRepository(settled);
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var userRepository = new FakeUserRepository();
+        var splitRepository = new FakeExpenseSplitRepository();
+        splitRepository.Splits.Add(new ExpenseSplit
+        {
+            CareGroupId = careGroupId,
+            ExpenseId = expenseId,
+            SplitBatchId = batchId,
+            UserId = Guid.NewGuid(),
+            ShareAmount = 3000m
+        });
+
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository);
+
+        var result = await service.GetExpenseByIdAsync(Guid.NewGuid(), careGroupId, expenseId);
+
+        Assert.Equal(batchId, result.SplitBatchId);
+    }
+
+    [Fact]
     public async Task GetSplitPreviewAsync_UsesActiveCareGroupMembers_AsParticipants()
     {
         var careGroupId = Guid.NewGuid();
@@ -804,6 +904,19 @@ public class ExpenseServiceTests
                             && x.SplitBatchId == splitBatchId
                             && x.DeletedAt == null)
                 .ToList());
+        }
+
+        public Task<Dictionary<Guid, Guid>> GetBatchIdsByExpenseIdsAsync(Guid careGroupId, IEnumerable<Guid> expenseIds)
+        {
+            var idSet = expenseIds.ToHashSet();
+            var dict = Splits
+                .Where(x => x.CareGroupId == careGroupId
+                            && x.SplitBatchId.HasValue
+                            && x.DeletedAt == null
+                            && idSet.Contains(x.ExpenseId))
+                .GroupBy(x => x.ExpenseId)
+                .ToDictionary(g => g.Key, g => g.First().SplitBatchId!.Value);
+            return Task.FromResult(dict);
         }
 
         public Task SaveChangesAsync() => Task.CompletedTask;

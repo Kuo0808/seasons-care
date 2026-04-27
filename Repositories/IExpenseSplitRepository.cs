@@ -27,6 +27,13 @@ namespace SeasonsCare.Api.Repositories
         /// </summary>
         Task<List<ExpenseSplit>> GetByBatchIdAsync(Guid careGroupId, Guid splitBatchId);
 
+        /// <summary>
+        /// 一次取得多筆 expense 對應的 SplitBatchId，供 expense 列表/詳情顯示。
+        /// 回傳字典：expenseId → splitBatchId。
+        /// 沒有分帳明細或 splitBatchId 為 null 的 expense 不會出現在字典中。
+        /// </summary>
+        Task<Dictionary<Guid, Guid>> GetBatchIdsByExpenseIdsAsync(Guid careGroupId, IEnumerable<Guid> expenseIds);
+
         Task SaveChangesAsync();
     }
 }

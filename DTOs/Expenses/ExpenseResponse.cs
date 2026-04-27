@@ -62,5 +62,14 @@ namespace SeasonsCare.Api.DTOs.Expenses
         /// 建立者使用者 ID。
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 此支出所屬的分帳批次 Id。
+        /// 規則：
+        ///   - SplitStatus = Settled → 此欄位有值，前端可帶去 GET /split-preview?splitBatchId={id} 查分帳結果。
+        ///   - SplitStatus = Pending / None → 此欄位為 null。
+        ///   - 舊資料（migration 之前已 Settled 的支出）也會是 null，無法回查。
+        /// </summary>
+        public Guid? SplitBatchId { get; set; }
     }
 }
