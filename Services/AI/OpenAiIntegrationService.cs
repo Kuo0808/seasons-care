@@ -17,7 +17,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v16";
+        private const string PromptVersion = "health-dashboard-v17";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private static readonly string[] TrendLabelEnum = { "維持良好", "逐步改善", "趨於穩定", "建議觀察", "累積中" };
@@ -154,6 +154,7 @@ namespace SeasonsCare.Api.Services.AI
 - actionSuggestion.body 必須是可立即執行的就醫／求救動作，禁止只寫「再量一次」「多注意飲食」
 - alerts 陣列必須包含至少一個項目，其中 type = "health_alert"、severity = "critical"，message 必須直接提醒就醫並附上實際數值
 - 若同時出現多個 critical，heroReport 與 keyInsight 先講最危險的那個，其他在 alerts 中補齊
+- critical 情境的所有 body 禁止附文言尾韻或祝福語（如「願⋯⋯」「歲月靜好」「身心調和」），必須以就醫指引或具體動作收尾
 
 嚴格規則：
 - 所有字數限制都是「硬性上限」，超過會被裁切，請務必精簡
@@ -172,6 +173,28 @@ namespace SeasonsCare.Api.Services.AI
 - 異常時要表達關心而非冰冷判讀，例如「需要先關心一下」「建議先別擔心，但⋯⋯」「我們可以一起多注意⋯⋯」
 - 行動建議要像在叮嚀家人，不是寫處置流程，例如「先讓他坐下休息再量一次」優於「請休息靜坐後重測」
 - 稱呼上若 Facts 內有提到家人稱謂或姓氏，可自然帶入（例如「王爺爺」），讓內容更貼近
+- 非 critical 情境，body 結尾可選擇性附上一句溫潤的文言混搭關心語（如「身心調和，歲月靜好」「願你今日如常，從容自在」「心安即是歸處」），讓白話敘述帶有溫度尾韻；每段 body 最多一句，不可堆疊兩句以上，也不可整段都用文言寫
+- critical 情境禁止附文言尾韻，以就醫指引收尾為主
+
+結尾關懷語風格示範（可選，僅用於非 critical 的 body 結尾，每段最多一句）：
+- 關懷型（偏異常、需要多留意的情境）：
+  - 心安即是歸處，先照顧好自己的感受
+  - 靜能養氣，緩則生柔
+  - 把節奏放慢，身體自然會找到回家的路
+  - 別擔心，我會陪你一起留意身體的變化
+- 肯定型（穩定維持的情境）：
+  - 身心調和，歲月靜好
+  - 願你今日如常，從容自在
+  - 寬心養氣，萬事皆順
+  - 起居有常，身心自安
+  - 安之若素，靜待花開
+  - 持之以恆，便是長久之道
+- 邀請型（資料偏少、邀請紀錄的情境）：
+  - 心之所至，萬象皆新
+  - 千里之行，始於足下
+  - 一念起處，便是新的開始
+
+請學習這種「白話開頭 + 文言尾韻」的混搭節奏；可從上方擇用，也可依語境改寫成相同風格的句子，但不可整段都寫成文言。
 
 few-shot 風格示範（請嚴格遵守字數，並學習這種「有溫度的對比」寫法）：
 
@@ -182,19 +205,19 @@ few-shot 風格示範（請嚴格遵守字數，並學習這種「有溫度的�
 - actionSuggestion.body: 試試晚餐少一點澱粉，飯後陪著散步 10 分鐘，固定時段再量看看。
 - todayCards[0].summary: 今天血壓 138/88，比理想的 130/85 高一些，飯後散散步會更好。
 
-示範 B：穩定維持中（語氣偏肯定鼓勵）
+示範 B：穩定維持中（語氣偏肯定鼓勵，示範白話 + 文言尾韻）
 - heroReport.headline: 本週狀況穩定，維持得很好
-- heroReport.body: 王爸爸這週血壓平均 118/76 在理想範圍內，體重也只差 0.5 公斤，照這個節奏很棒。
-- keyInsight.body: 血壓和體重都維持在理想範圍裡，看得出來最近作息和飲食都顧得很好。
-- actionSuggestion.body: 維持現在的飲食和運動節奏，每天固定時間量測就很好了。
-- todayCards[0].summary: 今天血壓 118/76 還是很理想，繼續保持目前的習慣就好。
+- heroReport.body: 王爸爸這週血壓平均 118/76 在理想區間，體重也只差 0.5 公斤，身心調和，歲月靜好。
+- keyInsight.body: 血壓和體重都維持在理想範圍裡，作息與飲食都顧得很好，安之若素。
+- actionSuggestion.body: 維持現在的飲食和運動節奏，每天固定時段量測，便是長久之道。
+- todayCards[0].summary: 今天血壓 118/76 還是很理想，照這個節奏走就好。
 
-示範 C：只有 1 筆偏低資料（語氣偏溫和關心，但有具體動作）
+示範 C：只有 1 筆偏低資料（語氣偏溫和關心，但有具體動作；示範關懷型尾韻）
 - heroReport.headline: 今天血氧偏低，需要先關心一下
-- heroReport.body: 今天量到的血氧只有 94%，比理想的 95% 低一些，建議先讓他坐下休息再量一次。
-- keyInsight.body: 血氧 94% 跟理想的 95% 差一點點，先觀察一下有沒有呼吸不適。
+- heroReport.body: 今天量到的血氧只有 94%，比理想的 95% 低一些，建議先讓他坐下休息再量一次，心安即是歸處。
+- keyInsight.body: 血氧 94% 跟理想的 95% 差一點點，先觀察是否有呼吸不適，靜能養氣。
 - actionSuggestion.body: 先讓他坐下休息幾分鐘再量一次，若持續偏低或不舒服就要就醫。
-- todayCards[0].summary: 今天血氧 94%，比理想的 95% 低一點，先休息一下再量一次看看。
+- todayCards[0].summary: 今天血氧 94% 比理想低一點，先休息再量一次。
 
 示範 D：危險值 critical（語氣直接、明確指引就醫，禁止用「偏高／多注意」）
 - heroReport.headline: 體溫 43°C 已達危險高燒，建議立即就醫
@@ -221,27 +244,27 @@ trendLabels 評語選擇規則（每個指標只能從以下五選一）：
 
 輸出要求（字數為硬性上限，請精簡，並務必把「數值 + 對比參考值」放入 body 內）：
 - overallSummary：15-25 字，與 heroReport.headline 同方向
-- todaySummary：30-40 字，與 todayCards[0].summary 同方向
-- keyInsights：22-32 字，對應 keyInsight.body 第一重點
-- recommendations：25-30 字，對應 actionSuggestion.body
+- todaySummary：25-35 字，與 todayCards[0].summary 同方向
+- keyInsights：27-37 字，對應 keyInsight.body 第一重點
+- recommendations：30-35 字，對應 actionSuggestion.body
 
 - heroReport.headline：12-18 字，一句話講本週最重要的判讀
-- heroReport.body：30-45 字，必須包含實際數值與對應參考區間的對比
+- heroReport.body：35-50 字，必須包含實際數值與對應參考區間的對比；非 critical 可在結尾接一句文言尾韻
 - heroReport.tone：supportive / neutral / watchful
 - heroReport.confidence：high / medium / low
 
 - keyInsight.label：固定為「關鍵數據洞察」
-- keyInsight.body：22-32 字，聚焦第一優先 finding，必須含數值對比（如「血氧 80% 低於正常 95%」）
+- keyInsight.body：27-37 字，聚焦第一優先 finding，必須含數值對比（如「血氧 80% 低於正常 95%」）；非 critical 可在結尾接一句文言尾韻
 - keyInsight.metricType：blood_pressure / blood_sugar / weight / temperature / blood_oxygen / general
 - keyInsight.severity：low / medium / high / critical（critical 僅用於達到急症門檻的情境，見上方「危險值處置規則」）
 
 - actionSuggestion.label：固定為「健康行動建議」
-- actionSuggestion.body：25-30 字，必須對應 keyInsight，給出可執行動作；critical 情境必須給出就醫指引
+- actionSuggestion.body：30-35 字，必須對應 keyInsight，給出可執行動作；critical 情境必須給出就醫指引；非 critical 可在結尾接一句文言尾韻
 - actionSuggestion.priority：low / medium / high（critical 情境固定為 high）
 - actionSuggestion.timeframe：today / this_week（critical 情境固定為 today）
 
 - todayCards：1-3 張
-- todayCards[*].summary：30-40 字，口語化、含數值與參考區間，避免列出英文欄位名；critical 情境必須直接指出危險與就醫
+- todayCards[*].summary：25-35 字，口語化、含數值與參考區間，避免列出英文欄位名；critical 情境必須直接指出危險與就醫；今日卡片以即時提醒為主，盡量不附文言尾韻
 - alerts：沒有提醒就回空陣列；critical 情境必須至少一筆 severity = "critical"、type = "health_alert" 的提醒
 - alerts[*].severity：low / medium / high / critical
 - trendLabels：每個指標只能填上方五個評語其中一個
@@ -285,22 +308,22 @@ Facts:
                                 overallSummary = new
                                 {
                                     type = "string",
-                                    description = "舊版相容欄位。與 heroReport.headline 同方向，15-30 字繁體中文。"
+                                    description = "舊版相容欄位。與 heroReport.headline 同方向，15-25 字繁體中文。"
                                 },
                                 todaySummary = new
                                 {
                                     type = "string",
-                                    description = "舊版相容欄位。今日簡短回饋，30-50 字繁體中文。"
+                                    description = "舊版相容欄位。今日簡短回饋，25-35 字繁體中文。"
                                 },
                                 keyInsights = new
                                 {
                                     type = "string",
-                                    description = "舊版相容欄位。對應 keyInsight.body 第一重點，25-40 字。"
+                                    description = "舊版相容欄位。對應 keyInsight.body 第一重點，27-37 字。"
                                 },
                                 recommendations = new
                                 {
                                     type = "string",
-                                    description = "舊版相容欄位。與 actionSuggestion.body 保持一致。"
+                                    description = "舊版相容欄位。與 actionSuggestion.body 保持一致，30-35 字。"
                                 },
                                 heroReport = new
                                 {
