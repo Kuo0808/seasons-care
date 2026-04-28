@@ -677,12 +677,12 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 assessment = $"最新體溫 {latest.Value:0.##}°C 已屬發燒，敘事要提醒補水、休息並觀察是否升高至 39°C 以上。";
                 suggestedFocus = "提醒充分休息、補水，並在體溫續升或出現不適時立即就醫。";
             }
-            else if (latest.Value >= 37.3m)
+            else if (latest.Value >= 37.5m)
             {
                 severity = "medium";
-                title = "體溫略高建議持續觀察";
-                assessment = "這筆體溫略高，適合提醒補水、休息與再次量測。";
-                suggestedFocus = "提醒休息、補水與留意是否持續升高。";
+                title = "體溫微燒建議持續觀察";
+                assessment = "這筆體溫已達微燒（37.5-37.9°C），適合提醒補水、休息與再次量測；若持續升至 ≥ 38°C 即為發燒。";
+                suggestedFocus = "提醒休息、補水與留意是否持續升高至發燒門檻。";
             }
             else
             {
@@ -1334,13 +1334,14 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             };
         }
 
+        // 分級依據：衛福部疾管署「發燒之臨床診治」 — 中心體溫 ≥ 38°C 為發燒；37.5-37.9 為微燒；≥ 39 為高燒；≤ 35 為失溫急症
         private static TodayMetricInterpretation BuildTemperatureTodayInterpretation(TemperatureRecord record, int todayCount)
         {
             string category;
             if (record.Value >= 39m) category = "critical_high";
             else if (record.Value <= 35m) category = "critical_low";
             else if (record.Value >= 38m) category = "high";
-            else if (record.Value >= 37.3m) category = "elevated";
+            else if (record.Value >= 37.5m) category = "elevated";
             else category = "normal";
 
             return new TodayMetricInterpretation
@@ -1411,11 +1412,13 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             };
         }
 
+        // 分級依據：台灣高血壓學會 2022 高血壓臨床治療指引（居家血壓量測標準）、衛福部國民健康署 2023 成人高血壓防治手冊
+        // 居家高血壓門檻為 135/85（較診間 140/90 略低）；急症採 180/110 保守警示（學會公告 180/120 提前警示）
         private static string ClassifyBloodPressure(int systolic, int diastolic)
         {
             if (systolic >= 180 || diastolic >= 110) return "critical";
             if (systolic < 90) return "critical";
-            if (systolic >= 140 || diastolic >= 90) return "high";
+            if (systolic >= 135 || diastolic >= 85) return "high";
             if (systolic >= 120 || diastolic >= 80) return "elevated";
             return "normal";
         }
@@ -1744,7 +1747,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             {
                 return category switch
                 {
-                    "high" => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，辛苦你記下來了。這筆超過 140/90 的理想範圍，可能是當下情緒、剛活動完或睡眠因素影響，先別太緊張；放鬆 10–15 分鐘後再量一次，累積幾筆我才更能陪你看出是不是持續偏高。",
+                    "high" => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，辛苦你記下來了。這筆已超過居家標準 135/85，可能是當下情緒、剛活動完或睡眠因素影響，先別太緊張；放鬆 10–15 分鐘後再量一次，累積幾筆我才更能陪你看出是不是持續偏高。",
                     "elevated" => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，辛苦你記下來了。這筆略高於 120/80 的理想區間，多半仍在可接受範圍，先不用太緊張；記得固定時段再量一次，累積幾天的資料後我們再一起看變化。",
                     _ => $"目前只有 1 筆血壓 {latest.Systolic}/{latest.Diastolic} mmHg，看起來落在相對穩定的範圍，辛苦你記錄了。先把這筆當成近期的基準，之後再量 1、2 次就能看出你的平常狀態，我陪你一起觀察。"
                 };
