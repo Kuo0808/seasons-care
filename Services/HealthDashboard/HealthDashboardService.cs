@@ -22,7 +22,8 @@ namespace SeasonsCare.Api.Services.HealthDashboard
     {
         private const string DashboardReportType = "health_dashboard_7d";
         private const string RulesVersion = "health-report-v1";
-        private const string CurrentPromptVersion = "health-dashboard-v12";
+        // 必須與 OpenAiIntegrationService.PromptVersion 同步；不同步會導致快取永遠 miss、每次都重打 OpenAI
+        private const string CurrentPromptVersion = "health-dashboard-v20";
         private const string EmptyTodayInsight = "今天尚無健康紀錄，新增量測後會顯示摘要。";
         private const string LabelKeyInsight = "關鍵數據洞察";
         private const string LabelActionSuggestion = "健康行動建議";
@@ -220,6 +221,9 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         {
             await CheckMembershipAsync(careGroupId, currentUserId);
 
+            var careGroup = await _careGroupRepository.GetByIdAsync(careGroupId);
+            var recipientName = careGroup?.RecipientName?.Trim() ?? string.Empty;
+
             var todayStart = NormalizeTimestamp(TimeHelper.GetTaiwanDateStartUtc());
             var dateFrom = NormalizeTimestamp(todayStart.AddDays(-6));
             var dateTo = NormalizeTimestamp(todayStart.AddDays(1).AddMilliseconds(-1));
@@ -234,7 +238,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
             var total = bp.Count + sugar.Count + weight.Count + temp.Count + oxygen.Count;
 
             var (insight, isFromCache, isFallback, debugError) = await GetOrGenerateInsightAsync(
-                currentUserId, careGroupId, dateFrom, dateTo, total, today.RecordCount,
+                currentUserId, careGroupId, recipientName, dateFrom, dateTo, total, today.RecordCount,
                 BuildTodayRecordSummary(today.RecordCount, today.LatestMetrics),
                 bp, sugar, weight, temp, oxygen);
 
@@ -260,7 +264,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
         // ──────────────────────────────────────────────
 
         private async Task<(AiGeneratedInsightDto? Insight, bool IsFromCache, bool IsFallback, string? DebugError)> GetOrGenerateInsightAsync(
-            Guid currentUserId, Guid careGroupId,
+            Guid currentUserId, Guid careGroupId, string recipientName,
             DateTime dateFrom, DateTime dateTo,
             int totalRecordCount, int todayRecordCount, string todaySummary,
             IReadOnlyList<BloodPressureRecord> bp,
@@ -289,6 +293,7 @@ namespace SeasonsCare.Api.Services.HealthDashboard
                 var promptInput = new HealthInsightPromptInput
                 {
                     CareGroupId = careGroupId,
+                    RecipientName = recipientName,
                     DateFrom = dateFrom,
                     DateTo = dateTo,
                     TotalRecordCount = totalRecordCount,

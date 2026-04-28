@@ -17,7 +17,7 @@ namespace SeasonsCare.Api.Services.AI
 {
     public class OpenAiIntegrationService : IAiIntegrationService
     {
-        private const string PromptVersion = "health-dashboard-v18";
+        private const string PromptVersion = "health-dashboard-v20";
         private const int MaxRetryAttempts = 3;
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
         private static readonly string[] TrendLabelEnum = { "維持良好", "逐步改善", "趨於穩定", "建議觀察", "累積中" };
@@ -100,6 +100,7 @@ namespace SeasonsCare.Api.Services.AI
         {
             var facts = new
             {
+                recipientName = input.RecipientName,
                 dateRange = new
                 {
                     from = input.DateFrom.ToString("yyyy-MM-dd"),
@@ -192,7 +193,12 @@ namespace SeasonsCare.Api.Services.AI
 - 多用「比平常理想的⋯⋯低一點」「已經接近⋯⋯了」「離理想還差⋯⋯」這種日常比較，少用「落在⋯⋯區間」「屬於⋯⋯範圍」這類書面語
 - 異常時要表達關心而非冰冷判讀，例如「需要先關心一下」「建議先別擔心，但⋯⋯」「我們可以一起多注意⋯⋯」
 - 行動建議要像在叮嚀家人，不是寫處置流程，例如「先讓他坐下休息再量一次」優於「請休息靜坐後重測」
-- 稱呼上若 Facts 內有提到家人稱謂或姓氏，可自然帶入（例如「王爺爺」），讓內容更貼近
+- 稱呼規則【嚴格 — 前端已有固定稱呼欄位，不要讓稱呼重複出現】：
+  - **嚴格禁止**在任何 body、headline、summary、message 開頭或內容中加入被照顧人的稱呼（例如「李奶奶」「爸爸」「外婆」「王爺爺」「他/她」當主詞使用等），前端會在 AI 內容外另外渲染稱呼，AI 再帶就會重複
+  - 句子請以指標或事件直接開頭，例如「這週血壓⋯」「今天血氧⋯」「血壓和體重都⋯」
+  - **嚴格禁止自行編造姓氏**（如「王」「李」「陳」「林」），也不可在輸出中保留任何占位符字面（例如方括號或尖括號包起來的 recipientName）
+  - Facts.recipientName 提供僅作為內部判讀情境用，**輸出文字一律不可包含**
+  - 範例範本中若出現「王爸爸」「王爺爺」「<recipientName>」字樣，那是舊版示範遺留，**禁止照抄、禁止替換成實際名字輸出**
 - 非 critical 情境，body 結尾可選擇性附上一句溫潤的文言混搭關心語（如「身心調和，歲月靜好」「願你今日如常，從容自在」「心安即是歸處」），讓白話敘述帶有溫度尾韻；每段 body 最多一句，不可堆疊兩句以上，也不可整段都用文言寫
 - critical 情境禁止附文言尾韻，以就醫指引收尾為主
 
@@ -225,9 +231,9 @@ few-shot 風格示範（請嚴格遵守字數，並學習這種「有溫度的�
 - actionSuggestion.body: 試試晚餐少一點澱粉，飯後陪著散步 10 分鐘，固定時段再量看看。
 - todayCards[0].summary: 今天血壓 138/88，比居家標準 135/85 高一些，飯後散散步會更好。
 
-示範 B：穩定維持中（語氣偏肯定鼓勵，示範白話 + 文言尾韻）
+示範 B：穩定維持中（語氣偏肯定鼓勵，示範白話 + 文言尾韻；不含稱呼）
 - heroReport.headline: 本週狀況穩定，維持得很好
-- heroReport.body: 王爸爸這週血壓平均 118/76 在理想區間，體重也只差 0.5 公斤，身心調和，歲月靜好。
+- heroReport.body: 這週血壓平均 118/76 落在理想區間，體重也只差 0.5 公斤，身心調和，歲月靜好。
 - keyInsight.body: 血壓和體重都維持在理想範圍裡，作息與飲食都顧得很好，安之若素。
 - actionSuggestion.body: 維持現在的飲食和運動節奏，每天固定時段量測，便是長久之道。
 - todayCards[0].summary: 今天血壓 118/76 還是很理想，照這個節奏走就好。

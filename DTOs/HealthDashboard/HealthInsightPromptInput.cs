@@ -7,6 +7,10 @@ namespace SeasonsCare.Api.DTOs.HealthDashboard
     {
         public Guid CareGroupId { get; set; }
 
+        // 該照護群組登記的被照顧人姓名／稱呼（CareGroup.RecipientName）
+        // 用於 AI 文案中的稱呼，不可由 AI 自行編造姓氏
+        public string RecipientName { get; set; } = string.Empty;
+
         public DateTime DateFrom { get; set; }
 
         public DateTime DateTo { get; set; }
