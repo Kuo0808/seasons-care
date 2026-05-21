@@ -21,6 +21,7 @@ namespace SeasonsCare.Api.Data
         public DbSet<AiHealthInsight> AiHealthInsights { get; set; }
         public DbSet<ExpenseRecord> Expenses { get; set; }
         public DbSet<ExpenseSplit> ExpenseSplits { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
         public DbSet<BloodPressureRecord> BloodPressures { get; set; }
         public DbSet<BloodSugarRecord> BloodSugars { get; set; }
         public DbSet<WeightRecord> Weights { get; set; }
@@ -189,6 +190,27 @@ namespace SeasonsCare.Api.Data
                 entity.HasIndex(e => new { e.CareGroupId, e.UserId });
                 // 通知點擊 → 依批次查整批分帳結果。
                 entity.HasIndex(e => new { e.CareGroupId, e.SplitBatchId });
+            });
+
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(50);
+                entity.Property(e => e.Title).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Message).IsRequired().HasMaxLength(500);
+                entity.Property(e => e.PayloadJson).HasColumnType("text");
+                entity.HasIndex(e => new { e.CareGroupId, e.RecipientUserId, e.CreatedAt });
+                entity.HasIndex(e => new { e.CareGroupId, e.RecipientUserId, e.IsRead });
+
+                entity.HasOne(e => e.CareGroup)
+                      .WithMany()
+                      .HasForeignKey(e => e.CareGroupId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.RecipientUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.RecipientUserId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<BloodPressureRecord>(entity =>

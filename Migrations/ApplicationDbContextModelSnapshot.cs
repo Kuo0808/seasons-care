@@ -622,6 +622,84 @@ namespace SeasonsCare.Api.Migrations
                     b.ToTable("expense_splits", (string)null);
                 });
 
+            modelBuilder.Entity("SeasonsCare.Api.Models.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CareGroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("care_group_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_read");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("message");
+
+                    b.Property<string>("PayloadJson")
+                        .HasColumnType("text")
+                        .HasColumnName("payload_json");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recipient_user_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notifications");
+
+                    b.HasIndex("CareGroupId", "RecipientUserId", "CreatedAt")
+                        .HasDatabaseName("ix_notifications_care_group_id_recipient_user_id_created_at");
+
+                    b.HasIndex("CareGroupId", "RecipientUserId", "IsRead")
+                        .HasDatabaseName("ix_notifications_care_group_id_recipient_user_id_is_read");
+
+                    b.HasIndex("RecipientUserId")
+                        .HasDatabaseName("ix_notifications_recipient_user_id");
+
+                    b.ToTable("notifications", (string)null);
+                });
+
             modelBuilder.Entity("SeasonsCare.Api.Models.Entities.HealthRecords.BloodOxygenRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1052,6 +1130,27 @@ namespace SeasonsCare.Api.Migrations
                         .HasConstraintName("fk_expense_splits_expenses_expense_id");
 
                     b.Navigation("Expense");
+                });
+
+            modelBuilder.Entity("SeasonsCare.Api.Models.Entities.Notification", b =>
+                {
+                    b.HasOne("SeasonsCare.Api.Models.Entities.CareGroup", "CareGroup")
+                        .WithMany()
+                        .HasForeignKey("CareGroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_notifications_care_groups_care_group_id");
+
+                    b.HasOne("SeasonsCare.Api.Models.Entities.User", "RecipientUser")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notifications_users_recipient_user_id");
+
+                    b.Navigation("CareGroup");
+
+                    b.Navigation("RecipientUser");
                 });
 
             modelBuilder.Entity("SeasonsCare.Api.Models.Entities.HealthRecords.BloodOxygenRecord", b =>

@@ -1,37 +1,35 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.IO;
+using System.Security.Claims;
+using System.Text;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using SeasonsCare.Api.Config.DependencyInjection;
+using SeasonsCare.Api.Config.Json;
+using SeasonsCare.Api.Config.OpenAI;
+using SeasonsCare.Api.Data;
+using SeasonsCare.Api.Hubs;
 using SeasonsCare.Api.Middleware;
 using SeasonsCare.Api.Repositories;
 using SeasonsCare.Api.Services;
-using SeasonsCare.Api.Validations.Auth;
-using SeasonsCare.Api.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using System.IO;
-using Microsoft.OpenApi.Models;
-using SeasonsCare.Api.Config.Json;
-using SeasonsCare.Api.Config.OpenAI;
 using SeasonsCare.Api.Services.AI;
 using SeasonsCare.Api.Services.HealthDashboard;
+using SeasonsCare.Api.Validations.Auth;
 
-// [架構導覽] 階段一：應用程式建構與設定初始化 (Application Bootstrapping)
-// 載入 appsettings.json、環境變數，並準備註冊所需元件。
 var builder = WebApplication.CreateBuilder(args);
 var isSwaggerEnabled = builder.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Swagger:Enabled");
 const string JwtPlaceholderSecret = "<YOUR_JWT_SECRET_KEY_AT_LEAST_32_CHARS>";
 
-// [架構導覽] 階段二：服務註冊 (Service Registration)
-// 將 Controller、驗證規則等基礎服務註冊至相依性注入 (DI) 容器中。
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // 讓前端可直接傳遞 repeatPattern 字串，例如 none、daily、weeklyDay、monthly。
         options.JsonSerializerOptions.Converters.Add(new EventRepeatPatternJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new EventOccurrenceStatusJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new ExpenseSplitStatusJsonConverter());
@@ -46,8 +44,9 @@ builder.Services.AddControllers()
                     kvp => string.IsNullOrEmpty(kvp.Key) ? "body" : char.ToLowerInvariant(kvp.Key[0]) + kvp.Key.Substring(1),
                     kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
                 );
+
             throw new SeasonsCare.Api.Exceptions.DomainException(
-                "資料驗證失敗",
+                "Validation failed.",
                 "VALIDATION_FAILED",
                 400,
                 errors
@@ -55,17 +54,15 @@ builder.Services.AddControllers()
         };
     });
 
-// 了解更多關於 Swagger/OpenAPI 的設定：https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendCorsPolicy", policyBuilder =>
     {
-        // 開發階段的暫時設定。在上線正式環境前，請務必嚴格限制為明確的來源網域 (Origins)。
         policyBuilder.AllowAnyOrigin()
-                     .AllowAnyHeader()
-                     .AllowAnyMethod();
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
 
@@ -79,7 +76,6 @@ builder.Services.AddSwaggerGen(c =>
         c.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
     }
 
-    // 設定 Swagger 支援 JWT 授權
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -87,7 +83,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "請輸入 'Bearer' 加上空白後，再輸入您的 Token。\n例如: `Bearer eyJhbGci...`"
+        Description = "Use the Bearer scheme. Example: `Bearer eyJhbGci...`"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -106,20 +102,14 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// 註冊 FluentValidation 驗證工具
-builder.Services.AddFluentValidationAutoValidation();                                          //註冊 FluentValidation
+builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 
-// 註冊 DbContext 狀態與連線
-builder.Services.AddDbContext<ApplicationDbContext>(options =>                                     //註冊 DbContext
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
-           .UseSnakeCaseNamingConvention());
+        .UseSnakeCaseNamingConvention());
+builder.Services.AddScoped<DbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
 
-// 設定全域型別對應：當系統需要 DbContext 介面時，統一提供 ApplicationDbContext 這個具體實作
-builder.Services.AddScoped<DbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());              //註冊 DbContext
-
-// [架構導覽] 階段三：依賴注入 - 資料存取層 (Data Access Layer)
-// 註冊 Repository。當系統請求 IRepository 時，DI 容器將提供其實作類別。
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICareGroupRepository, CareGroupRepository>();
 builder.Services.AddScoped<ICareLogRepository, CareLogRepository>();
@@ -128,9 +118,8 @@ builder.Services.AddScoped<IEventOccurrenceRepository, EventOccurrenceRepository
 builder.Services.AddScoped<IExpenseRepository, ExpenseRepository>();
 builder.Services.AddScoped<IExpenseSplitRepository, ExpenseSplitRepository>();
 builder.Services.AddScoped<IAiHealthInsightRepository, AiHealthInsightRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
-// [架構導覽] 階段四：依賴注入 - 商業邏輯層 (Business Logic Layer)
-// 註冊 Service 服務。系統將從此處解析 Controller 所需的商業邏輯與介面實作。
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -141,10 +130,12 @@ builder.Services.AddScoped<IEventOccurrenceService, EventOccurrenceService>();
 builder.Services.AddScoped<IEventFacadeService, EventFacadeService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IAiHealthInsightService, AiHealthInsightService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.Configure<OpenAiOptions>(builder.Configuration.GetSection("OpenAI"));
 builder.Services.AddHttpClient<IAiIntegrationService, OpenAiIntegrationService>();
 builder.Services.AddScoped<IHealthDashboardService, HealthDashboardService>();
 builder.Services.AddHealthRecordsModule();
+builder.Services.AddSignalR();
 
 if (!builder.Environment.IsEnvironment("Testing") &&
     string.Equals(builder.Configuration["Jwt:SecretKey"], JwtPlaceholderSecret, StringComparison.Ordinal))
@@ -152,12 +143,11 @@ if (!builder.Environment.IsEnvironment("Testing") &&
     throw new InvalidOperationException("JWT SecretKey is still using the placeholder value. Configure a real secret before starting the API.");
 }
 
-// 設定身分驗證 (Authentication) 與 授權 (Authorization) 機制
-var jwtSettings = builder.Configuration.GetSection("Jwt");                 //從 appsettings.json 中取得 JWT 設定
+var jwtSettings = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSettings["SecretKey"]
-    ?? throw new InvalidOperationException("JWT SecretKey 未設定，請確認 Environment Variables 或 appsettings。");
+    ?? throw new InvalidOperationException("JWT SecretKey is not configured.");
 
-builder.Services.AddAuthentication(options =>                              //設定認證
+builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -166,22 +156,35 @@ builder.Services.AddAuthentication(options =>                              //設
 {
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = true,                         //這 token 是不是我認可的人發的
-        ValidateAudience = true,                       //這 token 是不是我認可的接收者
-        ValidateLifetime = true,                       //這 token 是否在有效期限內
-        ValidateIssuerSigningKey = true,                 //這 token 的簽名是否正確
-        ValidIssuer = jwtSettings["Issuer"],             //這 token 的發行者是誰
-        ValidAudience = jwtSettings["Audience"],         //這 token 的接收者是誰
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        NameClaimType = JwtRegisteredClaimNames.Sub,
+        RoleClaimType = ClaimTypes.Role
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrWhiteSpace(accessToken) && path.StartsWithSegments(NotificationHub.HubRoute))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
     };
 });
 
 var app = builder.Build();
 
-// [架構導覽] 階段五：HTTP 請求管線設定 (HTTP Request Pipeline)
-// 決定進入伺服器的 Request 將依序通過哪些中介軟體 (Middleware) 的過濾與處理。
-
-// 自動執行資料庫遷移 (取代 GitHub Action 中的 ef update)
 if (!app.Environment.IsEnvironment("Testing"))
 {
     using var scope = app.Services.CreateScope();
@@ -221,6 +224,7 @@ app.MapGet("/healthz", async (ApplicationDbContext dbContext) =>
 }).AllowAnonymous();
 
 app.MapControllers();
+app.MapHub<NotificationHub>(NotificationHub.HubRoute);
 
 app.Run();
 

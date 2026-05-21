@@ -16,15 +16,26 @@ namespace SeasonsCare.Api.Services
         private readonly IEventSeriesRepository _eventSeriesRepository;
         private readonly IEventOccurrenceRepository _eventOccurrenceRepository;
         private readonly ICareGroupRepository _careGroupRepository;
+        private readonly INotificationService _notificationService;
 
         public EventOccurrenceService(
             IEventSeriesRepository eventSeriesRepository,
             IEventOccurrenceRepository eventOccurrenceRepository,
             ICareGroupRepository careGroupRepository)
+            : this(eventSeriesRepository, eventOccurrenceRepository, careGroupRepository, NullNotificationService.Instance)
+        {
+        }
+
+        public EventOccurrenceService(
+            IEventSeriesRepository eventSeriesRepository,
+            IEventOccurrenceRepository eventOccurrenceRepository,
+            ICareGroupRepository careGroupRepository,
+            INotificationService notificationService)
         {
             _eventSeriesRepository = eventSeriesRepository;
             _eventOccurrenceRepository = eventOccurrenceRepository;
             _careGroupRepository = careGroupRepository;
+            _notificationService = notificationService;
         }
 
         public async Task<IReadOnlyList<EventOccurrenceResponse>> GetOccurrencesAsync(Guid currentUserId, Guid careGroupId, DateTime from, DateTime to)
@@ -64,14 +75,28 @@ namespace SeasonsCare.Api.Services
                 overrideStatus: EventOccurrenceStatus.Cancelled);
         }
 
-        public Task CompleteOccurrenceAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
+        public async Task CompleteOccurrenceAsync(Guid currentUserId, Guid careGroupId, Guid eventSeriesId, DateTime scheduledStartAt)
         {
-            return UpsertOccurrenceOverrideAsync(
+            var result = await UpsertOccurrenceOverrideAsync(
                 currentUserId,
                 careGroupId,
                 eventSeriesId,
                 scheduledStartAt,
                 overrideStatus: EventOccurrenceStatus.Completed);
+
+            if (result.Series.IsImportant &&
+                result.PreviousStatus != EventOccurrenceStatus.Completed &&
+                result.Occurrence.Status == EventOccurrenceStatus.Completed)
+            {
+                var effectiveStartAt = NormalizeTimestamp(result.Occurrence.OverrideStartAt ?? result.OccurrenceKeyStartAt);
+                var effectiveTitle = result.Occurrence.OverrideTitle ?? result.Series.Title;
+                await _notificationService.NotifyImportantTaskCompletedAsync(
+                    currentUserId,
+                    careGroupId,
+                    result.Series.Id,
+                    effectiveTitle,
+                    effectiveStartAt);
+            }
         }
 
         public async Task<EventOccurrenceResponse> UpdateOccurrenceAsync(Guid currentUserId, Guid careGroupId, UpdateEventOccurrenceRequest request)
@@ -114,7 +139,7 @@ namespace SeasonsCare.Api.Services
             await _eventOccurrenceRepository.SaveChangesAsync();
         }
 
-        private async Task<(EventSeries Series, EventOccurrence Occurrence, DateTime OccurrenceKeyStartAt)> UpsertOccurrenceOverrideAsync(
+        private async Task<UpsertOccurrenceResult> UpsertOccurrenceOverrideAsync(
             Guid currentUserId,
             Guid careGroupId,
             Guid eventSeriesId,
@@ -134,6 +159,7 @@ namespace SeasonsCare.Api.Services
             var occurrenceKeyStartAt = resolution.OccurrenceKeyStartAt;
             var existing = await _eventOccurrenceRepository.GetBySeriesIdAndOccurrenceKeyStartAtAsync(eventSeriesId, occurrenceKeyStartAt);
             var now = NormalizeTimestamp(TimeHelper.UtcNow);
+            var previousStatus = existing?.Status ?? EventOccurrenceStatus.Scheduled;
 
             if (overrideEndsAt.HasValue)
             {
@@ -182,7 +208,7 @@ namespace SeasonsCare.Api.Services
             }
             await _eventOccurrenceRepository.SaveChangesAsync();
 
-            return (series, existing, occurrenceKeyStartAt);
+            return new UpsertOccurrenceResult(series, existing, occurrenceKeyStartAt, previousStatus);
         }
 
         private async Task CheckMembershipAsync(Guid careGroupId, Guid userId)
@@ -627,5 +653,6 @@ namespace SeasonsCare.Api.Services
         }
 
         private sealed record ResolvedOccurrence(DateTime OccurrenceKeyStartAt, DateTime CurrentEffectiveStartAt);
+        private sealed record UpsertOccurrenceResult(EventSeries Series, EventOccurrence Occurrence, DateTime OccurrenceKeyStartAt, EventOccurrenceStatus PreviousStatus);
     }
 }

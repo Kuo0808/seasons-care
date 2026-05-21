@@ -507,6 +507,48 @@ public class ExpenseServiceTests
     }
 
     [Fact]
+    public async Task ConfirmSplitAsync_SendsNotificationAfterSplitExecution()
+    {
+        var careGroupId = Guid.NewGuid();
+        var payerId = Guid.NewGuid();
+        var memberA = Guid.NewGuid();
+        var memberB = Guid.NewGuid();
+        var notificationService = new FakeNotificationService();
+
+        var existing = new ExpenseRecord
+        {
+            Id = Guid.NewGuid(),
+            CareGroupId = careGroupId,
+            Title = "Dinner",
+            Amount = 999m,
+            SplitStatus = ExpenseSplitStatus.Pending,
+            CreatedBy = payerId.ToString(),
+            ExpenseDate = DateTime.UtcNow
+        };
+
+        var repository = new FakeExpenseRepository(existing);
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var userRepository = new FakeUserRepository();
+        var splitRepository = new FakeExpenseSplitRepository();
+        var service = new ExpenseService(repository, groupRepository, userRepository, splitRepository, notificationService);
+
+        var confirmResult = await service.ConfirmSplitAsync(payerId, careGroupId, new SplitConfirmRequest
+        {
+            SplitMode = "custom",
+            ExpenseIds = new List<Guid> { existing.Id },
+            TargetUserIds = new List<Guid> { payerId, memberA, memberB }
+        });
+
+        Assert.Single(notificationService.SplitNotifications);
+        var notification = notificationService.SplitNotifications[0];
+        Assert.Equal(payerId, notification.ActorUserId);
+        Assert.Equal(careGroupId, notification.CareGroupId);
+        Assert.Equal(confirmResult.SplitBatchId, notification.SplitBatchId);
+        Assert.Equal(1, notification.ExpenseCount);
+        Assert.Equal(999m, notification.TotalAmount);
+    }
+
+    [Fact]
     public async Task ConfirmSplitAsync_AbsorbsRoundingDiff_OnLastSplit()
     {
         var careGroupId = Guid.NewGuid();
@@ -1011,5 +1053,29 @@ public class ExpenseServiceTests
         public Task UpdateAsync(User user) => Task.CompletedTask;
 
         public Task SaveChangesAsync() => Task.CompletedTask;
+    }
+
+    private sealed class FakeNotificationService : INotificationService
+    {
+        public List<(Guid ActorUserId, Guid CareGroupId, Guid SplitBatchId, int ExpenseCount, decimal TotalAmount)> SplitNotifications { get; } = new();
+
+        public Task<PagedResponse<DTOs.Notifications.NotificationResponse>> GetNotificationsAsync(Guid currentUserId, Guid careGroupId, PaginationRequest pagination)
+            => Task.FromResult(new PagedResponse<DTOs.Notifications.NotificationResponse>());
+
+        public Task<DTOs.Notifications.UnreadNotificationCountResponse> GetUnreadCountAsync(Guid currentUserId, Guid careGroupId)
+            => Task.FromResult(new DTOs.Notifications.UnreadNotificationCountResponse());
+
+        public Task MarkAsReadAsync(Guid currentUserId, Guid careGroupId, Guid notificationId) => Task.CompletedTask;
+
+        public Task<int> MarkAllAsReadAsync(Guid currentUserId, Guid careGroupId) => Task.FromResult(0);
+
+        public Task NotifyImportantTaskCompletedAsync(Guid actorUserId, Guid careGroupId, Guid eventSeriesId, string title, DateTime scheduledStartAt)
+            => Task.CompletedTask;
+
+        public Task NotifyExpenseSplitExecutedAsync(Guid actorUserId, Guid careGroupId, Guid splitBatchId, int expenseCount, decimal totalAmount)
+        {
+            SplitNotifications.Add((actorUserId, careGroupId, splitBatchId, expenseCount, totalAmount));
+            return Task.CompletedTask;
+        }
     }
 }

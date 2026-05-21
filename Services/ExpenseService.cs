@@ -18,17 +18,29 @@ namespace SeasonsCare.Api.Services
         private readonly ICareGroupRepository _careGroupRepository;
         private readonly IUserRepository _userRepository;
         private readonly IExpenseSplitRepository _expenseSplitRepository;
+        private readonly INotificationService _notificationService;
 
         public ExpenseService(
             IExpenseRepository expenseRepository,
             ICareGroupRepository careGroupRepository,
             IUserRepository userRepository,
             IExpenseSplitRepository expenseSplitRepository)
+            : this(expenseRepository, careGroupRepository, userRepository, expenseSplitRepository, NullNotificationService.Instance)
+        {
+        }
+
+        public ExpenseService(
+            IExpenseRepository expenseRepository,
+            ICareGroupRepository careGroupRepository,
+            IUserRepository userRepository,
+            IExpenseSplitRepository expenseSplitRepository,
+            INotificationService notificationService)
         {
             _expenseRepository = expenseRepository;
             _careGroupRepository = careGroupRepository;
             _userRepository = userRepository;
             _expenseSplitRepository = expenseSplitRepository;
+            _notificationService = notificationService;
         }
 
         public async Task<PagedResponse<ExpenseResponse>> GetExpensesAsync(Guid currentUserId, Guid careGroupId, PaginationRequest pagination)
@@ -224,6 +236,12 @@ namespace SeasonsCare.Api.Services
 
             await _expenseRepository.SaveChangesAsync();
             await _expenseSplitRepository.SaveChangesAsync();
+            await _notificationService.NotifyExpenseSplitExecutedAsync(
+                currentUserId,
+                careGroupId,
+                batchId,
+                validExpenses.Count,
+                validExpenses.Sum(expense => expense.Amount));
 
             return new SplitConfirmResponse
             {

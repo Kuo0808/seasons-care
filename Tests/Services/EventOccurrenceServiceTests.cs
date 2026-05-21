@@ -111,6 +111,83 @@ public class EventOccurrenceServiceTests
     }
 
     [Fact]
+    public async Task CompleteOccurrenceAsync_SendsNotification_WhenImportantTaskCompletesFirstTime()
+    {
+        var careGroupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+        var notificationService = new FakeNotificationService();
+        var seriesRepository = new FakeEventSeriesRepository(
+            new EventSeries
+            {
+                Id = seriesId,
+                CareGroupId = careGroupId,
+                Title = "Medication Reminder",
+                StartsAt = new DateTime(2026, 4, 6, 15, 0, 0, DateTimeKind.Utc),
+                RepeatPattern = EventRepeatPattern.Daily,
+                RepeatInterval = 1,
+                EndType = EventSeriesEndType.Never,
+                Participants = new[] { userId.ToString() },
+                IsImportant = true,
+                CreatedBy = userId.ToString()
+            });
+        var occurrenceRepository = new FakeEventOccurrenceRepository();
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var service = new EventOccurrenceService(seriesRepository, occurrenceRepository, groupRepository, notificationService);
+        var targetOccurrence = new DateTime(2026, 4, 8, 15, 0, 0, DateTimeKind.Utc);
+
+        await service.CompleteOccurrenceAsync(userId, careGroupId, seriesId, targetOccurrence);
+
+        Assert.Single(notificationService.ImportantTaskNotifications);
+        var notification = notificationService.ImportantTaskNotifications[0];
+        Assert.Equal(userId, notification.ActorUserId);
+        Assert.Equal(careGroupId, notification.CareGroupId);
+        Assert.Equal(seriesId, notification.EventSeriesId);
+        Assert.Equal("Medication Reminder", notification.Title);
+        Assert.Equal(targetOccurrence, notification.ScheduledStartAt);
+    }
+
+    [Fact]
+    public async Task CompleteOccurrenceAsync_DoesNotSendDuplicateNotification_WhenAlreadyCompleted()
+    {
+        var careGroupId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var seriesId = Guid.NewGuid();
+        var targetOccurrence = new DateTime(2026, 4, 8, 15, 0, 0, DateTimeKind.Utc);
+        var notificationService = new FakeNotificationService();
+        var seriesRepository = new FakeEventSeriesRepository(
+            new EventSeries
+            {
+                Id = seriesId,
+                CareGroupId = careGroupId,
+                Title = "Medication Reminder",
+                StartsAt = new DateTime(2026, 4, 6, 15, 0, 0, DateTimeKind.Utc),
+                RepeatPattern = EventRepeatPattern.Daily,
+                RepeatInterval = 1,
+                EndType = EventSeriesEndType.Never,
+                Participants = new[] { userId.ToString() },
+                IsImportant = true,
+                CreatedBy = userId.ToString()
+            });
+        var occurrenceRepository = new FakeEventOccurrenceRepository();
+        occurrenceRepository.Items.Add(new EventOccurrence
+        {
+            EventSeriesId = seriesId,
+            CareGroupId = careGroupId,
+            OccurrenceKeyStartAt = targetOccurrence,
+            Status = EventOccurrenceStatus.Completed,
+            CreatedAt = targetOccurrence,
+            CreatedBy = userId.ToString()
+        });
+        var groupRepository = new FakeCareGroupRepository(isMember: true);
+        var service = new EventOccurrenceService(seriesRepository, occurrenceRepository, groupRepository, notificationService);
+
+        await service.CompleteOccurrenceAsync(userId, careGroupId, seriesId, targetOccurrence);
+
+        Assert.Empty(notificationService.ImportantTaskNotifications);
+    }
+
+    [Fact]
     public async Task UpdateOccurrenceAsync_CreatesOverride_AndMovesOccurrence()
     {
         var careGroupId = Guid.NewGuid();
@@ -447,5 +524,29 @@ public class EventOccurrenceServiceTests
         public Task<CareGroupMember?> GetMemberIncludingDeletedAsync(Guid careGroupId, Guid userId) => Task.FromResult<CareGroupMember?>(null);
         public Task<List<CareGroupMember>> GetActiveMembersWithUserAsync(Guid careGroupId) => Task.FromResult(new List<CareGroupMember>());
         public Task SaveChangesAsync() => Task.CompletedTask;
+    }
+
+    private sealed class FakeNotificationService : INotificationService
+    {
+        public List<(Guid ActorUserId, Guid CareGroupId, Guid EventSeriesId, string Title, DateTime ScheduledStartAt)> ImportantTaskNotifications { get; } = new();
+
+        public Task<DTOs.Common.PagedResponse<DTOs.Notifications.NotificationResponse>> GetNotificationsAsync(Guid currentUserId, Guid careGroupId, DTOs.Common.PaginationRequest pagination)
+            => Task.FromResult(new DTOs.Common.PagedResponse<DTOs.Notifications.NotificationResponse>());
+
+        public Task<DTOs.Notifications.UnreadNotificationCountResponse> GetUnreadCountAsync(Guid currentUserId, Guid careGroupId)
+            => Task.FromResult(new DTOs.Notifications.UnreadNotificationCountResponse());
+
+        public Task MarkAsReadAsync(Guid currentUserId, Guid careGroupId, Guid notificationId) => Task.CompletedTask;
+
+        public Task<int> MarkAllAsReadAsync(Guid currentUserId, Guid careGroupId) => Task.FromResult(0);
+
+        public Task NotifyImportantTaskCompletedAsync(Guid actorUserId, Guid careGroupId, Guid eventSeriesId, string title, DateTime scheduledStartAt)
+        {
+            ImportantTaskNotifications.Add((actorUserId, careGroupId, eventSeriesId, title, scheduledStartAt));
+            return Task.CompletedTask;
+        }
+
+        public Task NotifyExpenseSplitExecutedAsync(Guid actorUserId, Guid careGroupId, Guid splitBatchId, int expenseCount, decimal totalAmount)
+            => Task.CompletedTask;
     }
 }
